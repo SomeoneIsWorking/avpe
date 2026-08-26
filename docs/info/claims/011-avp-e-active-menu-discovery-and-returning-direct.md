@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: input,menu,keyboard,verification
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp#Apply, tools/run_control_test.py#probe_native_menu
 reconfirmed: 2026-08-27
-verified_at: 2026-08-27 02:53:26
+verified_at: 2026-08-27 02:55:15
 ---
 
 ## Claim
@@ -28,3 +28,7 @@ The active callback registry resolves zero or multiple menu owners in the verifi
 ## Re-confirmed 2026-08-27
 
 Reverified after extending NativeMenuInput with pointer actions: the surfaceless/null-muted pause probe changed focus from Resume 0x015DFB60 to Save 0x015E0640 through returning directional calls, then completed activation and virtual cancel with exact stack restoration and graceful shutdown.
+
+## Re-confirmed 2026-08-27
+
+Post-landing baseline for the already completed surfaceless/null-muted pause regression: returning directional calls changed focus from Resume 0x015DFB60 to Save 0x015E0640 after the NativeMenuInput pointer extension; activation and virtual cancel completed with exact stack restoration and the runner shut down gracefully.
