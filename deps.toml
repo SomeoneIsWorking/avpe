@@ -1,0 +1,10 @@
+# Dependency declarations — the source of truth for forked dependencies.
+# Changes live as COMMITS in the fork (never .patch files); this manifest pins
+# what this project consumes. `provision` clones/fetches exactly this rev.
+
+[pcsx2]
+url = "https://github.com/PCSX2/pcsx2"
+# rev filled in after first clone; our mod commits sit on top of this base.
+rev = "e1dd0a08599e86a9928a83b84923bce12a59aba7"
+purpose = "PS2 emulator whose JIT runs the game; we add the AVPE C++ shim in-tree"
+fork_url = ""  # set when the user's fork remote exists
