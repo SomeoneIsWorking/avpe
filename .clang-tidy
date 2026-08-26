@@ -1,0 +1,14 @@
+---
+Checks: >
+  -*,
+  clang-analyzer-core.*,
+  clang-analyzer-cplusplus.*,
+  bugprone-branch-clone,
+  bugprone-suspicious-semicolon,
+  bugprone-use-after-move,
+  bugprone-unused-return-value,
+  performance-*
+WarningsAsErrors: '*'
+HeaderFilterRegex: '(^|/)AVPE/'
+SystemHeaders: false
+...

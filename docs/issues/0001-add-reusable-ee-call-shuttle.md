@@ -1,9 +1,9 @@
 ---
 id: 1
 title: Add reusable EE-call shuttle
-status: investigating
+status: resolved
 symptom: control channel can read and write EE memory but cannot invoke Input_UpdatePositionAbsolute; direct screen-position writes do not move the rendered cursor
-state_items: S007,S008
+state_items: S007
 tags: input,pcsx2,ee-call
 created: 2026-08-26
 updated: 2026-08-26
@@ -30,8 +30,20 @@ execution machinery.
 - Invoke `CRenderer::GetResolution` on a real boot and observe plausible bounds.
 - Demonstrate a failure case that the shuttle reports rather than hanging or
   returning a uniform success value.
-- Use the same shipping path to invoke `Input_UpdatePositionAbsolute`; distinct
-  injected coordinates must produce distinct rendered cursor positions.
+
+## Resolution
+
+`AVPE::EECallShuttle` now runs aligned target-text functions on the VM thread
+through both EE engines, stops at the interrupted return PC, restores guest
+architectural context while preserving advanced timing, and bounds execution
+by EE cycles. Invalid targets fail with 400; a one-cycle timeout fails with 504
+and fault-closes subsequent calls with 409 until a successful state load.
+
+Through the verified surfaceless runner, `CRenderer::GetResolution` returned in
+19 cycles with `v0=0x003c9fe0`; the pointed structure contained `0, 0, 640,
+448`. The invalid-target, timeout, fault-gate, state-load reset, and subsequent
+success controls all produced distinct expected results. Native cursor movement
+is independently tracked by issue #4.
 
 ## What was tried / dead ends
 

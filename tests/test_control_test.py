@@ -1,0 +1,98 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from avpe.control_test import build_argv, build_environment, status_is_verified
+from avpe.launch import build_argv as build_product_argv
+from avpe.pcsx2_config import ensure_product_config, ensure_test_config
+
+
+class ControlTestPolicyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.nonce = "different-every-run"
+        self.status = {
+            "vm": "Running",
+            "serial": "SLUS-20147",
+            "nonce": self.nonce,
+            "host_mode": "control-test",
+            "surface": "surfaceless",
+            "audio": "null-muted",
+        }
+
+    def test_accepts_verified_runtime(self) -> None:
+        self.assertTrue(status_is_verified(self.status, self.nonce))
+
+    def test_rejects_native_surface(self) -> None:
+        self.status["surface"] = "wayland"
+        self.assertFalse(status_is_verified(self.status, self.nonce))
+
+    def test_rejects_real_audio_backend(self) -> None:
+        self.status["audio"] = "cubeb"
+        self.assertFalse(status_is_verified(self.status, self.nonce))
+
+    def test_rejects_another_process(self) -> None:
+        self.status["nonce"] = "some-other-process"
+        self.assertFalse(status_is_verified(self.status, self.nonce))
+
+    def test_launch_contract_has_no_desktop_access_or_product_mode(self) -> None:
+        argv = build_argv(
+            Path("/project/build/pcsx2-qt"),
+            Path("/project/test-profile"),
+            Path("/project/logs/emulog.txt"),
+            Path("/assets/game.chd"),
+        )
+        env = build_environment(
+            {"DISPLAY": ":0", "WAYLAND_DISPLAY": "wayland-0", "UNRELATED": "kept"},
+            31234,
+            self.nonce,
+        )
+
+        self.assertIn("-avpe-control-test", argv)
+        self.assertIn("-nogui", argv)
+        self.assertNotIn("-avpe-host", argv)
+        self.assertEqual(env["QT_QPA_PLATFORM"], "offscreen")
+        self.assertEqual(env["SDL_AUDIODRIVER"], "dummy")
+        self.assertNotIn("DISPLAY", env)
+        self.assertNotIn("WAYLAND_DISPLAY", env)
+        self.assertEqual(env["UNRELATED"], "kept")
+
+
+class ConfigurationIsolationTests(unittest.TestCase):
+    def test_existing_product_ini_is_byte_preserved(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            data_dir = Path(directory) / "product"
+            ini = data_dir / "PCSX2" / "inis" / "PCSX2.ini"
+            ini.parent.mkdir(parents=True)
+            original = b"; user comment\n[Unknown]\nRepeated = one\nRepeated = two\n"
+            ini.write_bytes(original)
+
+            ensure_product_config(data_dir)
+
+            self.assertEqual(ini.read_bytes(), original)
+
+    def test_test_profile_does_not_touch_product_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            product_dir = root / "product"
+            product_ini = product_dir / "PCSX2" / "inis" / "PCSX2.ini"
+            product_ini.parent.mkdir(parents=True)
+            product_ini.write_bytes(b"[User]\nChoice = preserved\n")
+            bios = root / "bios.bin"
+            bios.write_bytes(b"bios fixture")
+
+            ensure_test_config(root / "test", bios)
+
+            self.assertEqual(product_ini.read_bytes(), b"[User]\nChoice = preserved\n")
+
+
+class ProductLaunchPolicyTests(unittest.TestCase):
+    def test_product_uses_only_the_avpe_host_mode(self) -> None:
+        argv = build_product_argv("/assets/game.chd")
+
+        self.assertIn("-avpe-host", argv)
+        self.assertNotIn("-avpe-control-test", argv)
+        self.assertNotIn("-nogui", argv)
+
+
+if __name__ == "__main__":
+    unittest.main()

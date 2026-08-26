@@ -152,12 +152,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="avpe")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("doctor", help="preflight checks with actionable refusals")
-    p_launch = sub.add_parser("launch", help="boot the game via the built pcsx2-qt")
-    p_launch.add_argument("--headless", action="store_true",
-                          help="agent mode: -nogui, null audio, offscreen-capable "
-                               "(default is a normal windowed session)")
-    p_launch.add_argument("--seconds", type=float, default=None,
-                          help="timeboxed run: boot for N seconds, then terminate")
+    sub.add_parser("launch", help="boot the user-facing AVPE host")
 
     args = parser.parse_args(argv)
     if args.cmd in (None, "launch"):
@@ -169,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         if args.cmd is None:
             log("info", "cli", "no command given -> windowed launch")
-        return launch(not args.headless, chd, args.seconds)
+        return launch(chd)
     if args.cmd == "doctor":
         return doctor()
     parser.error(f"unknown command {args.cmd!r}")

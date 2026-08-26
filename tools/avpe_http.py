@@ -7,6 +7,7 @@ Subcommands:
   memwrite --addr 0x... --hex aabbcc
   statesave --path scratch/states/x.p2s
   stateload --path scratch/states/x.p2s
+  eecall --function 0x00137b30 [--a0 0x... --cycle-budget 3000000]
   waitpointer --addr 0x00367720 --timeout 120   (polls u32 until non-zero)
 
 Negative responses are loud: HTTP errors raise with status + body printed.
@@ -21,7 +22,8 @@ import time
 import urllib.error
 import urllib.request
 
-BASE = "http://127.0.0.1:28447"
+DEFAULT_PORT = 28447
+BASE = f"http://127.0.0.1:{DEFAULT_PORT}"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -63,7 +65,10 @@ BUTTONS = {  # PadDualshock2::Inputs bit space (bit index = enum order)
 
 
 def main() -> int:
+    global BASE
     ap = argparse.ArgumentParser()
+    ap.add_argument("--port", type=int, default=DEFAULT_PORT,
+                    help="loopback control port (default: 28447)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status")
     p = sub.add_parser("memread")
@@ -87,6 +92,11 @@ def main() -> int:
     p = sub.add_parser("press")
     p.add_argument("buttons", help="comma-separated names: " + ",".join(BUTTONS))
     p.add_argument("--ms", type=int, default=250)
+    p = sub.add_parser("eecall")
+    p.add_argument("--function", required=True)
+    for register in ("a0", "a1", "a2", "a3"):
+        p.add_argument(f"--{register}", type=lambda x: int(x, 0), default=0)
+    p.add_argument("--cycle-budget", type=int, default=3_000_000)
     p = sub.add_parser("watch")
     p.add_argument("--addrs", required=True,
                    help="comma list addr[:len[:fmt]] (fmt hex|u32|f32), e.g. "
@@ -103,6 +113,7 @@ def main() -> int:
     p.add_argument("--timeout", type=float, default=120.0)
 
     a = ap.parse_args()
+    BASE = f"http://127.0.0.1:{a.port}"
     if a.cmd == "status":
         print(json.dumps(req("GET", "/status")))
     elif a.cmd == "memread":
@@ -136,6 +147,16 @@ def main() -> int:
                 return 1
             mask |= BUTTONS[name]
         print(json.dumps(req("POST", "/input/press", {"mask": mask, "ms": a.ms})))
+    elif a.cmd == "eecall":
+        payload = {
+            "function": a.function,
+            "a0": a.a0,
+            "a1": a.a1,
+            "a2": a.a2,
+            "a3": a.a3,
+            "cycle_budget": a.cycle_budget,
+        }
+        print(json.dumps(req("POST", "/ee/call", payload)))
     elif a.cmd == "pthe":
         # Dump every singleton pointer; non-null = live manager. Feed two
         # dumps to diff to see what a button press brought to life.
