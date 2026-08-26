@@ -1,7 +1,8 @@
 # machine-local secrets & user-supplied copyrighted assets
 .env
 scratch/
-thirdparty/
+thirdparty/*
+!thirdparty/pcsx2
 
 # python
 __pycache__/

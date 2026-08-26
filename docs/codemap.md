@@ -17,10 +17,11 @@ in [`project-state.md`](project-state.md), and atomic work is in
 |---|---|---|---|---|
 | Launcher shim | Stable locked-environment entry | `run.sh` | `uv run --frozen avpe` | — |
 | CLI orchestration | User commands, environment discovery, preflight | `src/avpe/cli.py` | `main()` | — |
+| Dependency provisioning | PCSX2 gitlink inspection plus recursive submodule initialization; dependency provenance | `src/avpe/dependencies.py`, `.gitmodules`, `deps.toml` | `provision_submodules()` | — |
 | Product launch | AVPE host argv, product config, process lifetime | `src/avpe/launch.py` | `launch()` | — |
 | Native host shell | Sole visible top-level window, render-surface lifecycle, resize/fullscreen, focus, product shutdown | `thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.cpp/.h` | `-avpe-host`; `AVPE::HostWindow` | [presentation](host/presentation.md) |
 | Product input routing | Qt key-event translation, held-key consumption, and typed menu-action dispatch | `thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.cpp/.h` | `AVPE::HostInputRouter` | [input path](re/input-path.md) |
-| Presentation bridge | GS-to-host window acquisition now; future same-frame RmlUi composition and narrow display/settings control | current: `pcsx2-qt/QtHost.cpp` signal boundary; target: `pcsx2/AVPE/PresentationBridge.cpp/.h` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
+| Presentation bridge | GS-to-host window acquisition now; future same-frame RmlUi composition and narrow display/settings control | current: `thirdparty/pcsx2/pcsx2-qt/QtHost.cpp` signal boundary; target: a `PresentationBridge` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
 | Control-test runner | Silent surfaceless PCSX2 process, isolated profile, timebox, exact process-group cleanup | `tools/run_control_test.py` | `main()` | [control-test contract](re/headless.md) |
 | Project logging | Single Python log-level gate | `src/avpe/log.py` | `log()` | — |
 | Disc conversion | Strict MODE2/2352 to ISO9660 conversion | `tools/raw2352.py` | `main()` | — |
@@ -28,10 +29,10 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Control server | Loopback routes and VM/CPU-thread dispatch | `thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp/.h` | `AVPE::Start()` | [control-channel contract](re/control-channel.md) |
 | EE-call execution | Guest-call queue, context, return-PC stop, budget, and result handling | `thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp/.h` | `AVPE::EECallShuttle` | [input-path contract](re/input-path.md) |
 | Native input bridge | Normalized host-pointer intent, live game-pointer validation, selector policy, and game-native absolute movement | `thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp/.h` | `AVPE::NativeInput::MoveAbsolute()` | [input-path contract](re/input-path.md) |
-| Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeSaves.cpp/.h` | target: `AVPE::NativeSaves` | target: `docs/re/save-path.md` |
-| Native asset I/O | AVP:E file/sector mapping, validated disc-derived asset store, asynchronous host reads, cache, and optical-path bypass | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp/.h`; narrow hooks in the grounded CDVD/IOP boundary | target: `AVPE::NativeAssets` | target: `docs/re/disc-io.md` |
-| AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: `thirdparty/pcsx2/pcsx2/AVPE/HLE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: `docs/re/hle-bios.md` |
-| Native options UI | RmlUi lifecycle, options documents, and game-facing settings bindings | target: `thirdparty/pcsx2/pcsx2-qt/AVPE/UI/` | target: `AVPE::NativeSettingsUI` | target: `docs/ui/options.md` |
+| Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: a `NativeSaves` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | target: `AVPE::NativeSaves` | target: save-path RE contract |
+| Native asset I/O | AVP:E file/sector mapping, validated disc-derived asset store, asynchronous host reads, cache, and optical-path bypass | target: a `NativeAssets` peer module under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks in the grounded CDVD/IOP boundary | target: `AVPE::NativeAssets` | target: disc-I/O RE contract |
+| AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: a dedicated `HLE` submodule under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: HLE-BIOS RE contract |
+| Native options UI | RmlUi lifecycle, options documents, and game-facing settings bindings | target: a dedicated `UI` submodule under `thirdparty/pcsx2/pcsx2-qt/AVPE/` | target: `AVPE::NativeSettingsUI` | target: native-options UI contract |
 | Diagnostic pad injection | Bootstrap-only active-low DS2 injection | `thirdparty/pcsx2/pcsx2/SIO/Pad/PadDualshock2.cpp` | `GetButtons()` integration | [control-channel contract](re/control-channel.md) |
 | RE helpers | Ghidra extraction, caller discovery, singleton inventory | `tools/ghidra_scripts/`, `tools/pthe_syms.txt` | individual tools | [input-path contract](re/input-path.md) |
 | Evidence | Falsifiable claims and verification dependencies | `docs/info/claims/` | claim files | — |
@@ -42,6 +43,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 run.sh                         locked launcher shim
 src/avpe/                      host-side product orchestration
 ├── cli.py                     command and prerequisite owner
+├── dependencies.py            submodule inspection/provisioning owner
 ├── launch.py                  emulator process/config owner
 └── log.py                     Python logging owner
 tools/                         project automation and control clients
@@ -75,16 +77,19 @@ docs/issues/                   atomic work and investigation points
 - AVP:E asset resolution, native storage, async reads, and caching belong in
   the fork-local `NativeAssets` module. Grounded CDVD/IOP hooks call that owner;
   they do not absorb game-specific file tables or host I/O policy.
-- AVP:E-specific firmware behavior belongs under the fork-local `AVPE/HLE/`
+- AVP:E-specific firmware behavior belongs in a dedicated HLE submodule under
+  the fork-local `thirdparty/pcsx2/pcsx2/AVPE/`
   owner. Existing BIOS, EE kernel, and IOP integration points remain narrow
   hooks; they do not become a second copy of the game-specific service model.
 - The visible native window and its platform lifecycle belong in the fork's
-  `pcsx2-qt/AVPE/` host module. PCSX2's generic `MainWindow` remains hidden and
+  `thirdparty/pcsx2/pcsx2-qt/AVPE/` host module. PCSX2's generic `MainWindow` remains hidden and
   administrative; it does not own product presentation.
-- RmlUi documents and input routing belong under `pcsx2-qt/AVPE/UI/` while the
-  host remains in-process. Their interfaces must stay independent of
-  `MainWindow` so a future standalone `src/host/` executable can reuse them.
-- The fork-side presentation bridge belongs in `pcsx2/AVPE/` and exposes only
+- RmlUi documents and input routing belong in a dedicated UI submodule under
+  `thirdparty/pcsx2/pcsx2-qt/AVPE/` while the host remains in-process. Their
+  interfaces must stay independent of `MainWindow` so a future standalone host
+  executable can reuse them.
+- The fork-side presentation bridge belongs under
+  `thirdparty/pcsx2/pcsx2/AVPE/` and exposes only
   frame and settings operations needed by the host; graphics/display
   validation and application continue to call existing PCSX2 setting owners.
 - New HTTP framing/server capability belongs in Lucent; AVPE owns only routes
