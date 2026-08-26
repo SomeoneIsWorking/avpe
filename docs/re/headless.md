@@ -1,16 +1,34 @@
-# Headless run notes (pcsx2-qt, this project)
+# Surfaceless control-test contract
 
-Recipe: `./run.sh launch [--seconds N] [--windowed]` → see src/avpe/launch.py.
+Recipe: `uv run --frozen python tools/run_control_test.py --seconds N`.
+`run.sh` is exclusively the user-facing product launcher and is not a test
+interface.
 
-## What "headless" means here (verified 2026-08-26)
+## What failed
 
-- `-batch -nogui`: main window never shown; the GS surface lives inside it, so
-  nothing appears and nothing takes focus. Even HW (Vulkan) render stays invisible.
-- `[SPU2/Output] Backend = Null` → "Creating Null audio stream" in emulog; no
-  audio device touched.
-- Boot evidence to look for in scratch/logs/emulog.txt:
-  `(SYSTEM.CNF) Software version`, `FMV started/ended`,
-  `Add N seconds play time to SLUS-20147`, NTSC CRTC/vsync lines.
+`-batch -nogui` hides PCSX2's main UI but does **not** suppress its game render
+surface. The user observed that window, falsifying C003 and the previous version
+of this document. Null audio and a software renderer do not change display
+surface ownership.
+
+## Required test behavior
+
+- `tools/run_control_test.py` owns its process and never calls `run.sh`.
+- The recognized `-avpe-control-test` application mode is consumed before
+  render-window acquisition and forces PCSX2's actual
+  `WindowInfo::Type::Surfaceless` path. An old binary rejects the flag.
+- `QT_QPA_PLATFORM=offscreen` is set and `DISPLAY` / `WAYLAND_DISPLAY` are
+  removed, so the child cannot connect to the user's desktop.
+- The isolated test profile under `scratch/control-test/` selects null audio,
+  disables memory cards, and never mutates product settings.
+- Each run reserves an available loopback port and generates a nonce. Success
+  requires the child to echo that nonce plus its actual `control-test`,
+  `surfaceless`, and `null-muted` runtime state, target serial, and CRC.
+- Normal teardown uses `POST /shutdown` and the VM/UI lifecycle. PID-scoped
+  TERM/KILL is fallback cleanup only; signal-driven teardown is not accepted as
+  a successful test.
+- Boot evidence lives under `scratch/control-test/logs/` and must include real
+  SLUS-20147 activity plus a live control-channel status response.
 
 ## Gotchas that cost us time — do not re-derive
 
@@ -18,14 +36,18 @@ Recipe: `./run.sh launch [--seconds N] [--windowed]` → see src/avpe/launch.py.
    silently does nothing.
 2. PCSX2 flags are SINGLE-dash (`-help`, `-version`, `--version` is unknown →
    boots the GUI instead).
-3. A fresh datapath gets `UI/SetupWizardIncomplete=true` written by PCSX2 on
-   first default-config creation. In `-nogui` the setup wizard then runs as an
-   INVISIBLE modal and blocks startup forever (CPU Thread idle in event loop,
-   main thread in QDialog::exec). ensure_config forces it False.
+3. A fresh datapath needs both the current `UI/SettingsVersion` and
+   `UI/SetupWizardIncomplete=false`. Omitting the version enters the invisible
+   invalid-settings question; omitting the setup flag enters the invisible
+   setup wizard. `ensure_test_config` owns both in the isolated profile.
 4. Diagnostic trick: main-thread gdb bt of a stuck pcsx2-qt names the blocking
    dialog immediately (`QtHost.cpp:2514 -> RunSetupWizard -> QDialog::exec`).
-5. `Renderer = 11/13` does not change device init: Vulkan is still opened for
-   presentation (hidden). Audio-Null is what guarantees silence.
+5. Renderer selection is not a headless mechanism. Only the host's surfaceless
+   contract prevents native surface creation; Audio Null independently
+   guarantees silence.
+6. SIGTERM is not normal teardown. PCSX2 treats it as Ctrl+C, may enter generic
+   dialog-driven shutdown, and can abort under the offscreen plugin. Use the
+   control channel's VM shutdown route.
 
 ## Deterministic shim-test input
 

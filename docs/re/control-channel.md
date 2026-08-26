@@ -9,7 +9,7 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 
 | Route | Body/Query | Effect |
 |---|---|---|
-| GET `/status` | — | `{"vm","serial","crc"}` |
+| GET `/status` | — | VM identity plus `host_mode`, `surface`, `audio`, and per-run `nonce` |
 | GET `/mem/read` | `addr=0xHEX&len=HEX` (≤4096) | EE bytes as hex (vtlb_ramRead, PINE-style) |
 | GET `/mem/scan` | `start&end&hex=` (range ≤4MiB) | first 16 match addresses + hit count |
 | GET `/debug` | — | `{"transfers","lastfifo","inject"}` host-side truth |
@@ -17,9 +17,18 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | POST `/state/save` | `{"path":"/abs/x.p2s"}` | CPU-thread save + flush |
 | POST `/state/load` | `{"path":"/abs/x.p2s"}` | CPU-thread load |
 | POST `/input/press` | `{"mask":512,"ms":250}` | PadDualshock2::Inputs bits, auto-expire |
+| POST `/ee/call` | `{"function":"0x..","a0":"0x..",...,"cycle_budget":N}` | bounded VM-thread guest call through the AVPE EE-call shuttle |
+| POST `/shutdown` | `{}` | graceful VM shutdown for the isolated control-test owner |
 
-Client tool: `uv run python tools/avpe_http.py <status|memread|memwrite|statesave|stateload|waitpointer|press|watch> ...`
+Client tool: `uv run python tools/avpe_http.py <status|memread|memwrite|statesave|stateload|eecall|waitpointer|press|watch> ...`
 Numbers in /input/press are DECIMAL (or "0x" strings); memread addr/len are hex.
+
+Agent and maintainer runtime verification enters through
+`tools/run_control_test.py`, never `run.sh`. The runner allocates a loopback
+port and nonce, removes desktop display sockets from the child environment,
+uses an isolated settings profile, and accepts the process only when `/status`
+reports the actual `control-test` / `surfaceless` / `null-muted` runtime state.
+The nonce prevents a stale or unrelated process from satisfying the check.
 
 ## Verified live (SLUS-20147 boot, 2026-08-26)
 
@@ -27,6 +36,10 @@ Numbers in /input/press are DECIMAL (or "0x" strings); memread addr/len are hex.
 - `/mem/read` byte-exact vs ELF file contents @0x00100000 (addressing proven)
 - `/state/save` → scratch/states/title.p2s (4.9 MB); `/state/load` round-trips
 - `/mem/write` read-back identical
+- `/ee/call` invoked `CRenderer::GetResolution` at `0x00137b30`, returned
+  `v0=0x003c9fe0` after 19 cycles, and the pointed structure read
+  `0,0,640,448`; a one-cycle limit timed out and fail-closed later calls until
+  a successful state load reset the shuttle.
 
 ## Known state of the game-side RE targets
 

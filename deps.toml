@@ -4,11 +4,11 @@
 
 [pcsx2]
 url = "https://github.com/PCSX2/pcsx2"
-# rev filled in after first clone; our mod commits sit on top of this base.
-rev = "e1dd0a08599e86a9928a83b84923bce12a59aba7"
+upstream_rev = "e1dd0a08599e86a9928a83b84923bce12a59aba7"
+rev = "03cd7c15e4bc8988ca534f82a8756863b2c3f84d"
 purpose = "PS2 emulator whose JIT runs the game; we add the AVPE C++ shim in-tree"
-fork_url = ""  # set when the user's fork remote exists
-# fork branch: main @ 794cba0 (AVPE control channel; lucent submodule inside)
+fork_url = "https://github.com/SomeoneIsWorking/pcsx2"
+# fork branch: main; lucent remains a submodule inside the fork
 
 [lucent]
 url = "https://github.com/SomeoneIsWorking/lucent"
