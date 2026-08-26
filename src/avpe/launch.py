@@ -1,8 +1,8 @@
 """Launch the built PCSX2 with the AVPE private settings dir.
 
-Headless by default: -nogui -batch, QT_QPA_PLATFORM=offscreen, Null audio
-backend, Null GS renderer — touches neither your desktop focus nor any audio
-device. `--windowed` opts into a real interactive session instead.
+Windowed by default (the user's launcher). Agent/headless mode (--headless):
+-nogui -batch, Null audio backend — touches neither desktop focus nor any
+audio device.
 """
 
 import os

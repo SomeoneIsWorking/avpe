@@ -25,9 +25,13 @@ game's own pointer/input structures directly from native keyboard/mouse.
 - [x] Input architecture mapped to function-level (CPS2Input/GInputDevice/GfsPointer)
 - [x] Qt+deps self-build (scratch/deps) via upstream CI script
 - [x] PCSX2 baseline build at scratch/build/bin/pcsx2-qt
-- [x] HEADLESS BOOT VERIFIED: `./run.sh launch --seconds N` boots SLUS_20147
-      (FMVs play, NTSC vsync ticks, clean SIGTERM shutdown). Audio = Null stream,
-      all windows hidden under -nogui. Gotchas recorded in docs/re/headless.md
+- [x] HEADLESS BOOT VERIFIED: `./run.sh launch --headless --seconds N`
+- [x] CONTROL CHANNEL LIVE: fork @794cba0 + lucent @af80097 — see
+      docs/re/control-channel.md; client `tools/avpe_http.py` (claim C004)
+- [x] Title-screen savestate captured: scratch/states/title.p2s (via HTTP)
+- [ ] Menu navigation via CPS2Input button injection (offsets known)
+- [ ] EE-call shuttle (invoke GAvPPointer methods directly)
+- [ ] KB/M capture -> cursor drive in missions
 - [ ] Dynamic verify: selector mode, injected cursor movement
 
 ## Verification commands
