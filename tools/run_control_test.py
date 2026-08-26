@@ -134,6 +134,16 @@ def menu_action(
     return request_json(port, "POST", "/input/menu-action", {"action": action})
 
 
+def menu_state(port: int) -> tuple[int, dict[str, object] | None, str]:
+    status, body = request_bytes(port, "GET", "/input/menu")
+    detail = body.decode(errors="replace").strip()
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return status, None, detail
+    return status, parsed if isinstance(parsed, dict) else None, detail
+
+
 def stable_cursor_snapshot(
     port: int,
     expected_x: float,
@@ -334,20 +344,99 @@ def probe_native_mouse(port: int, deadline: float, statefile: Path) -> dict[str,
     return proof
 
 
-def probe_native_menu(port: int) -> dict[str, object]:
-    def snapshot(name: str) -> str:
-        status = 503
-        bmp = b""
-        for _ in range(20):
-            status, bmp = request_bytes(port, "GET", "/snap")
-            if status == 200:
-                break
-        if status != 200:
-            raise RuntimeError(f"menu snapshot {name} returned HTTP {status}")
-        (LOG_DIR.parent / name).write_bytes(bmp)
-        return hashlib.sha256(bmp).hexdigest()
+def menu_snapshot(port: int, name: str) -> str:
+    status = 503
+    bmp = b""
+    for _ in range(20):
+        status, bmp = request_bytes(port, "GET", "/snap")
+        if status == 200:
+            break
+        time.sleep(0.05)
+    if status != 200:
+        raise RuntimeError(f"menu snapshot {name} returned HTTP {status}")
+    (LOG_DIR.parent / name).write_bytes(bmp)
+    return hashlib.sha256(bmp).hexdigest()
 
-    before_snapshot = snapshot("menu-before.bmp")
+
+def run_deferred_menu_action(
+    port: int,
+    deadline: float,
+    action: str,
+) -> tuple[dict[str, object], dict[str, object]]:
+    status, response, detail = menu_action(port, action)
+    if status != 202 or response is None \
+            or response.get("deferred") is not True \
+            or int(response.get("deferred_call_id", 0)) <= 0:
+        raise RuntimeError(
+            f"native menu {action} was not queued through deferred execution: "
+            f"HTTP {status}: {detail}")
+    call_id = int(response["deferred_call_id"])
+
+    completion: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        deferred_status, deferred_body = request_bytes(port, "GET", "/ee/deferred")
+        if deferred_status != 200:
+            raise RuntimeError(f"deferred status returned HTTP {deferred_status}")
+        candidate = json.loads(deferred_body)
+        if not isinstance(candidate, dict) or int(candidate.get("id", 0)) != call_id:
+            raise RuntimeError(f"deferred status did not identify call {call_id}: {candidate}")
+        if candidate.get("state") in ("completed", "failed"):
+            completion = candidate
+            break
+        time.sleep(0.05)
+    if completion is None or completion.get("state") != "completed" \
+            or completion.get("succeeded") is not True \
+            or completion.get("stack_restored") is not True \
+            or completion.get("staging_address") == "0x00000000":
+        raise RuntimeError(
+            f"deferred menu {action} did not complete safely: {completion}")
+    return response, completion
+
+
+def activate_menu(
+    port: int,
+    deadline: float,
+    source_menu: str,
+    before_snapshot: str,
+    artifact_name: str,
+    require_destination: bool = True,
+    require_render_change: bool = True,
+) -> dict[str, object]:
+    activation, completion = run_deferred_menu_action(
+        port, deadline, "activate")
+
+    destination: dict[str, object] | None = None
+    if require_destination:
+        while time.monotonic() < deadline:
+            destination_status, candidate, _ = menu_state(port)
+            if destination_status == 200 and candidate is not None \
+                    and candidate.get("menu") != source_menu:
+                destination = candidate
+                break
+            time.sleep(0.05)
+    else:
+        _, destination, _ = menu_state(port)
+    if require_destination and destination is None:
+        raise RuntimeError(
+            f"menu activation completed but no distinct destination menu became active; "
+            f"source={source_menu}")
+    activated_snapshot = menu_snapshot(port, artifact_name)
+    if require_render_change and activated_snapshot == before_snapshot:
+        raise RuntimeError("native menu activation left the rendered state unchanged")
+
+    return {
+        "activation": activation,
+        "deferred_completion": completion,
+        "destination": destination,
+        "snapshots": {
+            "before_sha256": before_snapshot,
+            "activated_sha256": activated_snapshot,
+        },
+    }
+
+
+def probe_native_menu(port: int, deadline: float) -> dict[str, object]:
+    before_snapshot = menu_snapshot(port, "menu-before.bmp")
     down_results: list[dict[str, object]] = []
     initial_focus: str | None = None
     down_focus: str | None = None
@@ -370,23 +459,62 @@ def probe_native_menu(port: int) -> dict[str, object]:
             break
     if down_focus is None:
         raise RuntimeError(f"native menu down did not change game focus: {down_results}")
-    status, _, detail = menu_action(port, "activate")
-    if status != 400:
+    source_menu = str(down_results[-1].get("menu"))
+    activation_proof = activate_menu(
+        port, deadline, source_menu, before_snapshot, "menu-activated.bmp")
+    cancel, cancel_completion = run_deferred_menu_action(
+        port, deadline, "cancel")
+    canceled_menu = str(cancel.get("menu"))
+    cancel_destination: dict[str, object] | None = None
+    cancel_candidate: dict[str, object] | None = None
+    cancel_status = 0
+    cancel_detail = ""
+    while time.monotonic() < deadline:
+        cancel_status, candidate, cancel_detail = menu_state(port)
+        if candidate is not None:
+            cancel_candidate = candidate
+        if cancel_status == 409:
+            cancel_destination = {"menu_unavailable": True, "http_status": 409}
+            break
+        if cancel_status == 200 and candidate is not None \
+                and candidate.get("menu") != canceled_menu:
+            cancel_destination = candidate
+            break
+        time.sleep(0.05)
+    if cancel_destination is None:
         raise RuntimeError(
-            f"unsupported synchronous menu activate returned HTTP {status}, expected 400: {detail}")
-    down_snapshot = snapshot("menu-down.bmp")
+            f"native menu cancel left canceled menu {canceled_menu} active: "
+            f"cancel={cancel}, completion={cancel_completion}, "
+            f"last_status={cancel_status}, last_detail={cancel_detail}, "
+            f"last_menu={cancel_candidate}")
 
     proof = {
         "initial_focus": initial_focus,
         "down_focus": down_focus,
         "down_calls": down_results,
-        "unsupported_activate_status": 400,
-        "snapshots": {
-            "before_sha256": before_snapshot,
-            "down_sha256": down_snapshot,
-        },
+        **activation_proof,
+        "cancel": cancel,
+        "cancel_completion": cancel_completion,
+        "cancel_destination": cancel_destination,
     }
     (LOG_DIR.parent / "menu-proof.json").write_text(
+        json.dumps(proof, indent=2, sort_keys=True) + "\n")
+    return proof
+
+
+def probe_native_menu_activation(port: int, deadline: float) -> dict[str, object]:
+    before_snapshot = menu_snapshot(port, "menu-activation-before.bmp")
+    status, source, detail = menu_action(port, "down")
+    if status != 200 or source is None or source.get("menu") == "0x00000000" \
+            or int(source.get("callback_count", 0)) == 0:
+        raise RuntimeError(f"could not inspect source menu through native action: {detail}")
+    proof = {
+        "source": source,
+        **activate_menu(
+            port, deadline, str(source["menu"]), before_snapshot,
+            "menu-activation-after.bmp", require_render_change=False),
+    }
+    (LOG_DIR.parent / "menu-activation-proof.json").write_text(
         json.dumps(proof, indent=2, sort_keys=True) + "\n")
     return proof
 
@@ -406,7 +534,9 @@ def main() -> int:
     parser.add_argument("--probe-native-mouse", action="store_true",
                         help="prove native selection and command actions; requires --statefile")
     parser.add_argument("--probe-native-menu", action="store_true",
-                        help="prove native directional menu focus; requires a menu --statefile")
+                        help="prove native directional focus and activation; requires a menu --statefile")
+    parser.add_argument("--probe-native-menu-activate", action="store_true",
+                        help="prove activation on a single-item menu; requires --statefile")
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
     args = parser.parse_args()
@@ -417,8 +547,13 @@ def main() -> int:
         parser.error("--http-port must be between 0 and 65535")
     if args.statefile is not None and not args.statefile.is_file():
         parser.error(f"--statefile is not a file: {args.statefile}")
-    if (args.probe_native_pointer or args.probe_native_mouse or args.probe_native_menu) \
-            and args.statefile is None:
+    native_probe_requested = any((
+        args.probe_native_pointer,
+        args.probe_native_mouse,
+        args.probe_native_menu,
+        args.probe_native_menu_activate,
+    ))
+    if native_probe_requested and args.statefile is None:
         parser.error("native input probes require --statefile")
 
     if not PCSX2.is_file():
@@ -466,6 +601,7 @@ def main() -> int:
     pointer_proof: dict[str, object] | None = None
     mouse_proof: dict[str, object] | None = None
     menu_proof: dict[str, object] | None = None
+    menu_activation_proof: dict[str, object] | None = None
     probe_error: str | None = None
     graceful_shutdown = False
     try:
@@ -485,10 +621,15 @@ def main() -> int:
                         probe_error = str(error)
                 if args.probe_native_menu and probe_error is None:
                     try:
-                        menu_proof = probe_native_menu(port)
+                        menu_proof = probe_native_menu(port, deadline)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
-                if args.probe_native_pointer or args.probe_native_mouse or args.probe_native_menu:
+                if args.probe_native_menu_activate and probe_error is None:
+                    try:
+                        menu_activation_proof = probe_native_menu_activation(port, deadline)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if native_probe_requested:
                     break
             time.sleep(0.1)
         if proc.poll() is None and request_shutdown(port):
@@ -529,6 +670,17 @@ def main() -> int:
             print(f"FATAL native menu probe failed: {detail}; see {LOG_DIR}", file=sys.stderr)
             return 1
         print(f"control-test native-menu proof={json.dumps(menu_proof, sort_keys=True)}", flush=True)
+    if args.probe_native_menu_activate:
+        if menu_activation_proof is None:
+            detail = probe_error or "probe did not run"
+            print(
+                f"FATAL native menu activation probe failed: {detail}; see {LOG_DIR}",
+                file=sys.stderr)
+            return 1
+        print(
+            "control-test native-menu-activation proof="
+            f"{json.dumps(menu_activation_proof, sort_keys=True)}",
+            flush=True)
     return 0
 
 

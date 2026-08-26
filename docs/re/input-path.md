@@ -103,9 +103,18 @@ active menu owner; handle resolution uses `GObject::TheHandleArray` at
 Activate=4. The active focused-item handle is `menu+0x26c`. Returning
 directional calls are safe through the EE-call transaction and changed pause
 focus from Resume to Save. Activate is not safe through that boundary: on the
-Press START item it exceeded both 3M and 30M cycles because shell/menu ownership
-can be replaced before the synthetic call returns. Native activation must be
-queued onto AVP:E's ordinary input/update execution path.
+Press START item it exceeded both 3M and 30M cycles. `GPressStartMenu` routes
+the focused button through `ItemActivated` at `0x00209f30`, which calls
+`Load__5GMenu`; that path needs the EE/IOP/CDVD events deliberately suppressed
+by `ExecuteUntil`. Deferred calls instead exit the current EE block, run under
+the ordinary VM scheduler, and force the saved return PC through a completion
+hook that restores the interrupted architectural context and reserved stack.
+
+`GMenu::Cancel` is virtual at vtable offset `0xfc`; native cancel resolves the
+active menu's actual handler rather than assuming base `0x00124c20`. Pause Save
+activation and cancel changed ownership `0x012e85a0 -> 0x015afa70 ->
+0x012e85a0`. Press START activation changed ownership `0x01346590 ->
+0x0147d230`. All deferred calls attested exact nonzero stack restoration.
 
 ## Native bridge
 
@@ -117,6 +126,10 @@ queued onto AVP:E's ordinary input/update execution path.
   restores the interrupted EE/FPU/VU0 context and exact stack bytes, then lets
   the outer scheduler service deferred events. Recursively entering PCSX2's
   recompiler would overwrite its global dispatch jump buffer.
+- Non-returning menu transitions use the shuttle's deferred mode. It reserves a
+  guest o32 caller frame, clears the saved return-PC recompiler word, exits the
+  current EE block, and completes from the normal interpreter/recompiler
+  boundary after AVP:E returns. This keeps IOP, CDVD, timers, and VSync live.
 - `NativeInput::ApplyButtonEdge` owns typed primary/secondary press state,
   rejects duplicate or unmatched edges, and invokes the original handler for
   each edge. Savestate load resets the host-held edge state.
