@@ -75,6 +75,8 @@ Input_GPMove   001af140  cdata[fx,fy] -> camera Move; calls Input_GPPosition on 
 Input_GPRotate 001af240  Input_GPZoom 001af480: zoom = MiniMapMode(1) +
                          MoveCamPointerPos (minimap camera pointer pan), or Gyrate
 CommandMove    001b3a50  builds msg {id=0x60039,type=5} + vec -> squad dispatch
+Move           001b3c50  reads selection array through pointer+0x1b0, dispatches
+                         the move message to one unit or a synthesized squad
 MakeSquad      001b1f50  from ZArray<GMarkSelect> selection
 SendMessageToSquad 001b22a0
 GSelectMenuButton::HotKeyActivate 0027caa0 menu click path:
@@ -98,7 +100,18 @@ pan/zoom=minimap cam pointer, groups=MakeSquad/SendMessageToSquad.
   restores the interrupted EE/FPU/VU0 context and exact stack bytes, then lets
   the outer scheduler service deferred events. Recursively entering PCSX2's
   recompiler would overwrite its global dispatch jump buffer.
-- LMB down/up → PressMouse1/ReleaseMouse1; RMB up → ReleaseMouse2 (all with a1=nullptr)
+- `NativeInput::ApplyButtonEdge` owns typed primary/secondary press state,
+  rejects duplicate or unmatched edges, and invokes the original handler for
+  each edge. Savestate load resets the host-held edge state.
+- LMB down/up → PressMouse1/ReleaseMouse1; RMB down/up →
+  PressMouse2/ReleaseMouse2. The empty RMB-press function is still invoked so
+  host edge semantics match the game's registered input sequence.
+- The selection owner at `pointer+0x1b0` points to a
+  `ZArray<GMarkSelect*,32>` (`data` at `+0`, `count` at `+4`). Each selected
+  mark points to its selected game object at `mark+0xa8`.
+- `SendCommand__5GUnitFP8CMessagebb` records the accepted message ID at
+  `unit+0x460`. Right release produced `0x60039`, the exact move-message ID
+  built by `CommandMove`, before the scheduler consumed it.
 - Diagnostic comparison: raw writes of position fields demonstrate that the
   screen-position members are not the rendered world-position authority.
 
@@ -109,4 +122,7 @@ in [`../project-state.md`](../project-state.md). Subsystem evidence must include
 a real-boot shuttle call of `GetResolution`, a runtime read of the active
 selector mode, and frame A/B observations showing that distinct injected
 coordinates move the rendered cursor.
-S008 is now backed by C009 and the trusted two-arc detector I002.
+S008 is backed by C009 and the trusted two-arc detector I002. S009 is backed by
+C010 and I003: the primary pair changed selected object identity, the secondary
+pair recorded move message `0x60039` on that same object, invalid edge sequences
+were rejected, and the process shut down gracefully.

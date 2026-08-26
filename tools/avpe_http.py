@@ -9,6 +9,7 @@ Subcommands:
   stateload --path scratch/states/x.p2s
   eecall --function 0x00137b30 [--a0 0x... --cycle-budget 3000000]
   moveabsolute --x 0.2 --y 0.2
+  mousebutton primary|secondary press|release
   waitpointer --addr 0x00367720 --timeout 120   (polls u32 until non-zero)
 
 Negative responses are loud: HTTP errors raise with status + body printed.
@@ -101,6 +102,9 @@ def main() -> int:
     p = sub.add_parser("moveabsolute")
     p.add_argument("--x", type=float, required=True, help="normalized horizontal coordinate in 0..1")
     p.add_argument("--y", type=float, required=True, help="normalized vertical coordinate in 0..1")
+    p = sub.add_parser("mousebutton")
+    p.add_argument("button", choices=("primary", "secondary"))
+    p.add_argument("edge", choices=("press", "release"))
     p = sub.add_parser("watch")
     p.add_argument("--addrs", required=True,
                    help="comma list addr[:len[:fmt]] (fmt hex|u32|f32), e.g. "
@@ -163,6 +167,9 @@ def main() -> int:
         print(json.dumps(req("POST", "/ee/call", payload)))
     elif a.cmd == "moveabsolute":
         print(json.dumps(req("POST", "/input/move-absolute", {"x": a.x, "y": a.y})))
+    elif a.cmd == "mousebutton":
+        print(json.dumps(req(
+            "POST", "/input/mouse-button", {"button": a.button, "edge": a.edge})))
     elif a.cmd == "pthe":
         # Dump every singleton pointer; non-null = live manager. Feed two
         # dumps to diff to see what a button press brought to life.

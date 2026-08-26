@@ -1,7 +1,7 @@
 ---
 id: 5
 title: Prove native mouse selection and command actions
-status: investigating
+status: resolved
 symptom: absolute pointer movement is verified but host mouse buttons do not yet invoke selection or contextual commands
 state_items: S009,S010
 tags: input,mouse,selection,command
@@ -31,3 +31,6 @@ Diagnostic HTTP routes may carry proof traffic but must not own mouse policy.
 - Invalid pointer state and invalid edge sequences fail explicitly.
 - Repeated actions preserve the interrupted guest context and complete
   graceful surfaceless shutdown.
+
+### Resolution (2026-08-27)
+NativeInput now owns typed primary/secondary edge state and invokes AVP:E's original mouse handlers through the EE-call transaction. Primary release changed selected object identity; secondary release recorded move message 0x60039 on that same selected unit. Invalid edge/name/state-load-reset controls failed explicitly, and the combined surfaceless/null-muted run shut down gracefully.
