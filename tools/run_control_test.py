@@ -144,6 +144,16 @@ def menu_state(port: int) -> tuple[int, dict[str, object] | None, str]:
     return status, parsed if isinstance(parsed, dict) else None, detail
 
 
+def menu_pointer_state(port: int) -> tuple[int, dict[str, object] | None, str]:
+    status, body = request_bytes(port, "GET", "/input/menu-pointer")
+    detail = body.decode(errors="replace").strip()
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return status, None, detail
+    return status, parsed if isinstance(parsed, dict) else None, detail
+
+
 def stable_cursor_snapshot(
     port: int,
     expected_x: float,
@@ -358,20 +368,12 @@ def menu_snapshot(port: int, name: str) -> str:
     return hashlib.sha256(bmp).hexdigest()
 
 
-def run_deferred_menu_action(
+def await_deferred_call(
     port: int,
     deadline: float,
-    action: str,
-) -> tuple[dict[str, object], dict[str, object]]:
-    status, response, detail = menu_action(port, action)
-    if status != 202 or response is None \
-            or response.get("deferred") is not True \
-            or int(response.get("deferred_call_id", 0)) <= 0:
-        raise RuntimeError(
-            f"native menu {action} was not queued through deferred execution: "
-            f"HTTP {status}: {detail}")
-    call_id = int(response["deferred_call_id"])
-
+    call_id: int,
+    description: str,
+) -> dict[str, object]:
     completion: dict[str, object] | None = None
     while time.monotonic() < deadline:
         deferred_status, deferred_body = request_bytes(port, "GET", "/ee/deferred")
@@ -389,8 +391,155 @@ def run_deferred_menu_action(
             or completion.get("stack_restored") is not True \
             or completion.get("staging_address") == "0x00000000":
         raise RuntimeError(
-            f"deferred menu {action} did not complete safely: {completion}")
+            f"deferred {description} did not complete safely: {completion}")
+    return completion
+
+
+def run_deferred_menu_action(
+    port: int,
+    deadline: float,
+    action: str,
+) -> tuple[dict[str, object], dict[str, object]]:
+    status, response, detail = menu_action(port, action)
+    if status != 202 or response is None \
+            or response.get("deferred") is not True \
+            or int(response.get("deferred_call_id", 0)) <= 0:
+        raise RuntimeError(
+            f"native menu {action} was not queued through deferred execution: "
+            f"HTTP {status}: {detail}")
+    call_id = int(response["deferred_call_id"])
+    completion = await_deferred_call(port, deadline, call_id, f"menu {action}")
     return response, completion
+
+
+def move_menu_pointer(
+    port: int,
+    deadline: float,
+    normalized_x: float,
+    normalized_y: float,
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    status, response, detail = request_json(
+        port, "POST", "/input/menu-pointer-move",
+        {"x": normalized_x, "y": normalized_y})
+    if status != 202 or response is None \
+            or response.get("deferred") is not True \
+            or int(response.get("deferred_call_id", 0)) <= 0:
+        raise RuntimeError(
+            "native menu pointer move was not queued through deferred execution: "
+            f"HTTP {status}: {detail}")
+    if response.get("stack_restored") is not True \
+            or response.get("staging_address") == "0x00000000":
+        raise RuntimeError(
+            f"native menu pointer move did not restore guest staging: {response}")
+    for field, expected in (
+        ("screen_x", normalized_x * 639.0),
+        ("screen_y", normalized_y * 447.0),
+        ("observed_x", normalized_x * 639.0),
+        ("observed_y", normalized_y * 447.0),
+    ):
+        if abs(float(response.get(field, float("inf"))) - expected) > 0.05:
+            raise RuntimeError(
+                f"native menu pointer move returned unexpected {field}: {response}")
+
+    completion = await_deferred_call(
+        port, deadline, int(response["deferred_call_id"]), "menu pointer hover")
+    state_status, state, state_detail = menu_pointer_state(port)
+    if state_status != 200 or state is None:
+        raise RuntimeError(
+            f"native menu pointer state returned HTTP {state_status}: {state_detail}")
+    state_focus = state.get("before")
+    if response.get("pointer") != state.get("pointer") \
+            or not isinstance(state_focus, dict) \
+            or state_focus.get("focus_object") == "0x00000000":
+        raise RuntimeError(
+            f"native menu pointer hover did not focus an item: move={response}, state={state}")
+    return response, completion, state
+
+
+def probe_native_menu_pointer(port: int, deadline: float) -> dict[str, object]:
+    source_status, source_menu, source_detail = menu_state(port)
+    if source_status != 200 or source_menu is None:
+        raise RuntimeError(
+            f"native menu pointer source menu returned HTTP {source_status}: {source_detail}")
+
+    first_move, first_completion, first_state = move_menu_pointer(
+        port, deadline, 0.7, 0.3)
+    second_move, second_completion, second_state = move_menu_pointer(
+        port, deadline, 0.7, 0.4)
+    first_focus = first_state.get("before", {}).get("focus_object")
+    second_focus = second_state.get("before", {}).get("focus_object")
+    if first_focus == second_focus:
+        raise RuntimeError(
+            f"distinct menu pointer targets focused the same item: {first_state}, {second_state}")
+
+    deferred_status, deferred_before_body = request_bytes(port, "GET", "/ee/deferred")
+    if deferred_status != 200:
+        raise RuntimeError(
+            f"deferred status before rejected move returned HTTP {deferred_status}")
+    deferred_before = json.loads(deferred_before_body)
+    invalid_status, _, invalid_detail = request_json(
+        port, "POST", "/input/menu-pointer-move", {"x": 1.25, "y": 0.4})
+    if invalid_status != 400:
+        raise RuntimeError(
+            f"out-of-range menu pointer move returned HTTP {invalid_status}, expected 400: "
+            f"{invalid_detail}")
+    deferred_after_status, deferred_after_body = request_bytes(port, "GET", "/ee/deferred")
+    if deferred_after_status != 200:
+        raise RuntimeError(
+            f"deferred status after rejected move returned HTTP {deferred_after_status}")
+    deferred_after = json.loads(deferred_after_body)
+    if deferred_after != deferred_before:
+        raise RuntimeError(
+            "rejected menu pointer move changed deferred execution state: "
+            f"before={deferred_before}, after={deferred_after}")
+
+    activation_status, activation, activation_detail = request_json(
+        port, "POST", "/input/menu-pointer-activate", {})
+    if activation_status != 202 or activation is None \
+            or activation.get("deferred") is not True \
+            or int(activation.get("deferred_call_id", 0)) <= 0:
+        raise RuntimeError(
+            "native menu pointer activation was not queued through deferred execution: "
+            f"HTTP {activation_status}: {activation_detail}")
+    activation_completion = await_deferred_call(
+        port, deadline, int(activation["deferred_call_id"]), "menu pointer activation")
+
+    destination: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        destination_status, candidate, _ = menu_state(port)
+        if destination_status == 200 and candidate is not None \
+                and candidate.get("menu") != source_menu.get("menu"):
+            destination = candidate
+            break
+        time.sleep(0.05)
+    if destination is None:
+        raise RuntimeError(
+            "menu pointer activation completed but no distinct destination menu became active; "
+            f"source={source_menu}")
+
+    proof = {
+        "source_menu": source_menu,
+        "first": {
+            "move": first_move,
+            "completion": first_completion,
+            "state": first_state,
+        },
+        "second": {
+            "move": second_move,
+            "completion": second_completion,
+            "state": second_state,
+        },
+        "negative": {
+            "http_status": invalid_status,
+            "deferred_state": deferred_after,
+        },
+        "activation": activation,
+        "activation_completion": activation_completion,
+        "destination": destination,
+    }
+    (LOG_DIR.parent / "menu-pointer-proof.json").write_text(
+        json.dumps(proof, indent=2, sort_keys=True) + "\n")
+    return proof
 
 
 def activate_menu(
@@ -537,6 +686,8 @@ def main() -> int:
                         help="prove native directional focus and activation; requires a menu --statefile")
     parser.add_argument("--probe-native-menu-activate", action="store_true",
                         help="prove activation on a single-item menu; requires --statefile")
+    parser.add_argument("--probe-native-menu-pointer", action="store_true",
+                        help="prove native menu hover and pointer activation; requires --statefile")
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
     args = parser.parse_args()
@@ -552,6 +703,7 @@ def main() -> int:
         args.probe_native_mouse,
         args.probe_native_menu,
         args.probe_native_menu_activate,
+        args.probe_native_menu_pointer,
     ))
     if native_probe_requested and args.statefile is None:
         parser.error("native input probes require --statefile")
@@ -602,6 +754,7 @@ def main() -> int:
     mouse_proof: dict[str, object] | None = None
     menu_proof: dict[str, object] | None = None
     menu_activation_proof: dict[str, object] | None = None
+    menu_pointer_proof: dict[str, object] | None = None
     probe_error: str | None = None
     graceful_shutdown = False
     try:
@@ -627,6 +780,11 @@ def main() -> int:
                 if args.probe_native_menu_activate and probe_error is None:
                     try:
                         menu_activation_proof = probe_native_menu_activation(port, deadline)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_menu_pointer and probe_error is None:
+                    try:
+                        menu_pointer_proof = probe_native_menu_pointer(port, deadline)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if native_probe_requested:
@@ -680,6 +838,17 @@ def main() -> int:
         print(
             "control-test native-menu-activation proof="
             f"{json.dumps(menu_activation_proof, sort_keys=True)}",
+            flush=True)
+    if args.probe_native_menu_pointer:
+        if menu_pointer_proof is None:
+            detail = probe_error or "probe did not run"
+            print(
+                f"FATAL native menu pointer probe failed: {detail}; see {LOG_DIR}",
+                file=sys.stderr)
+            return 1
+        print(
+            "control-test native-menu-pointer proof="
+            f"{json.dumps(menu_pointer_proof, sort_keys=True)}",
             flush=True)
     return 0
 

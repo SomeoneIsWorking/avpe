@@ -12,9 +12,10 @@ means the capability is absent.
 
 ## Current focus
 
-**S010 — game-native menu input.** Directional navigation, activation, cancel,
-and the product keyboard mapping exist through typed game-native owners. The
-next grounded input step is menu mouse hit-testing and broader menu coverage.
+**S010 — game-native menu input.** Keyboard navigation and mouse hover/click
+now use typed game-native owners and AVP:E's own menu hit-testing. The next
+grounded step is deterministic title-menu coverage and user-observed product
+window event verification.
 Current focus is attention, not a separate state.
 
 ## Capability inventory
@@ -77,8 +78,8 @@ runtime, and EE-call shuttle with Clang against the project dependency prefix.
 The claim checker reports C001 as a coarse file-change advisory, not as
 evidence that the earlier baseline-build claim was falsified.
 
-Evidence: claims C001, C004, C007–C009; project commits `6a94e4f` and
-`577042c`; PCSX2 fork commit `6c39381`; successful `pcsx2-qt` Clang build.
+Evidence: claims C001, C004, C007–C009 and C014; project commit `3f32427`;
+PCSX2 fork commit `ae64681`; successful `pcsx2-qt` Clang build.
 
 ### S004 — isolated control-test launch: verified
 
@@ -163,19 +164,30 @@ through the game handle table. Returning directional calls changed pause-menu
 focus from Resume (`0x015DFB60`) to Save (`0x015E0640`). Activation and cancel
 now queue deferred guest calls through the ordinary VM scheduler and restore
 the interrupted EE/FPU/VU0 context plus exact reserved stack bytes at the
-return PC. Press START activation replaced menu `0x01346590` with
-`0x0147D230`; pause Save activation replaced `0x012E85A0` with `0x015AFA70`,
-and virtual cancel restored `0x012E85A0`. Both isolated runs were surfaceless,
-null-muted, and shut down gracefully. The product `HostInputRouter` maps
-arrows/WASD, Enter/Space, and Escape/Backspace to these typed actions without
-DualShock emulation.
+return PC. Pause Save activation replaced `0x012E85A0` with `0x015AFA70`, and
+virtual cancel restored `0x012E85A0`.
 
-Gap: the real windowed key-event path remains unobserved because agent tests
-must be windowless; menu mouse hover/hit-testing is absent; and title, mission,
-and in-game menu coverage remains incomplete.
+The active menu-capable `GAvPPointer` is discovered by its validated virtual
+capabilities rather than a concrete vtable address. Normalized pointer targets
+`(0.7,0.3)` and `(0.7,0.4)` drove AVP:E's deferred `MenuCheck` hit-test and
+focused Resume (`0x015DFB60`) and Save (`0x015E0640`) respectively. An invalid
+coordinate returned 400 without changing deferred state. Pointer activation
+then entered `0x015AFA70` through `GfsPointer::Input_Action`, with exact stack
+restore. The product router maps arrows/WASD, Enter/Space,
+Escape/Backspace, mouse motion, and primary/secondary edges to typed menu or
+gameplay owners without DualShock emulation. All cited passing runs were
+surfaceless, null-muted, and shut down gracefully.
 
-Evidence: claims C011–C012, instrument I004, issue #6, and
-`scratch/control-test/menu-proof.json` (ignored per-run artifact).
+Gap: real window key/mouse delivery remains unobserved because agent tests must
+be windowless. Title, mission, and in-game menu coverage remains incomplete.
+The prior Press START saved-state transition is no longer accepted as stable
+evidence: the same deferred call later completed with exact restoration but
+left menu `0x01346590` active through the 90-second deadline, falsifying C012's
+broader claim. Pause-menu activation/cancel remains independently reproduced.
+
+Evidence: claims C011 and C014, instruments I004–I005, issue #6,
+`scratch/control-test/menu-proof.json`, and
+`scratch/control-test/menu-pointer-proof.json` (ignored per-run artifacts).
 
 ### S011 — selector and camera integration: missing
 

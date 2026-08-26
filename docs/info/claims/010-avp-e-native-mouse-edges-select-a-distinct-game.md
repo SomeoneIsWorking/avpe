@@ -5,6 +5,8 @@ status: holds
 created: 2026-08-27
 tags: input,mouse,selection,command
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp#ApplyButtonEdge, tools/run_control_test.py#probe_native_mouse
+reconfirmed: 2026-08-27
+verified_at: 2026-08-27 02:53:26
 ---
 
 ## Claim
@@ -18,3 +20,7 @@ The isolated combined probe invoked handlers 0x001B52C0/0x001B52D0 and changed s
 ## What would falsify it
 
 A supported mission click fails to change selection through the original primary handlers; right release does not record move message 0x60039 on the selected object; invalid edge state is accepted; savestate load retains held state; or repeated calls corrupt guest execution or prevent graceful shutdown.
+
+## Re-confirmed 2026-08-27
+
+Reverified after extracting shared NativePointerMotion: the combined surfaceless/null-muted mission probe selected object 0x01975240 through original primary handlers, recorded move command 0x00060039 through original secondary handlers, passed every negative edge/pointer/state-reset case, and shut down gracefully.

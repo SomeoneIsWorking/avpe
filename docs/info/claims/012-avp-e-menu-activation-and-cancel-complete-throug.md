@@ -1,12 +1,13 @@
 ---
 id: C012
 kind: claim
-status: holds
+status: falsified
 created: 2026-08-27
 tags: input,menu,deferred
 depends: thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp#TryCompleteDeferredCall, thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp#Apply, tools/run_control_test.py#probe_native_menu
 reconfirmed: 2026-08-27
 verified_at: 2026-08-27 01:31:47
+falsified_on: 2026-08-27
 ---
 
 ## Claim
@@ -28,3 +29,9 @@ Reverified after final deferred/menu/router changes: pause navigation+activation
 ## Re-confirmed 2026-08-27
 
 2026-08-27 final surfaceless/null runs: pause-menu Activate completed deferred call 1 in 11,381,330 cycles and Cancel completed call 2 in 138,931 cycles with stack restoration; Press START Activate completed in 6,902,716 cycles and reached a distinct destination menu; both runs shut down cleanly.
+
+## FALSIFIED 2026-08-27
+
+The 2026-08-27 surfaceless press-start.p2s regression completed deferred call 1 safely in 6902716 cycles with exact stack restoration but did not change active menu 0x01346590 before the 90-second deadline; the saved-state transition is not deterministic enough to support the recorded universal claim.
+
+> Anything that cited this claim as proof must be re-checked. Grep the repo for it.

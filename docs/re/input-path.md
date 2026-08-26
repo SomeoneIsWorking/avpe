@@ -113,14 +113,46 @@ hook that restores the interrupted architectural context and reserved stack.
 `GMenu::Cancel` is virtual at vtable offset `0xfc`; native cancel resolves the
 active menu's actual handler rather than assuming base `0x00124c20`. Pause Save
 activation and cancel changed ownership `0x012e85a0 -> 0x015afa70 ->
-0x012e85a0`. Press START activation changed ownership `0x01346590 ->
-0x0147d230`. All deferred calls attested exact nonzero stack restoration.
+`0x012e85a0`. An earlier Press START activation changed ownership
+`0x01346590 -> 0x0147d230`, but an identical later saved-state run completed
+and restored the call while leaving the source menu active. That title-state
+transition is not deterministic evidence. All completed deferred calls
+attested exact nonzero stack restoration.
+
+## Menu pointer hit-testing and activation
+
+`GfsPointer::MenuCheck` at `0x0012e490` asks virtual `GetMenuItem` and changes
+focus through the returned item. `GfsPointer::GetMenuItem` at `0x0012e8c0`
+hit-tests the active `CRender::SelectedList` rectangles and resolves the
+matching `GMenuItem`. `GfsPointer::Input_Action` at `0x0012ebb0` activates the
+focused item stored at pointer offset `+0x1ac`; `Input_ActionUp` is
+`0x0012ec10`. `GMenuPointer` construction at `0x00206540` registers pointer
+position/action callbacks, but the live pause pointer is the derived
+`GAvPPointer` object at `0x015fe940`, not a concrete `GMenuPointer` instance.
+
+Discovery therefore validates behavior-bearing virtual slots rather than a
+single class vtable: GetMenuItem at `+0xd4` resolves to `0x0012e8c0`, absolute
+movement at `+0xdc` to `0x0012eab0`, and action at `+0xe0` to `0x0012ebb0`.
+This admits the derived gameplay pointer while rejecting unrelated callback
+owners. `NativePointerMotion` owns the coordinate, resolution, guest-staging,
+and absolute-movement mechanics shared by gameplay and menu semantics.
+
+Absolute position update returns safely through the synchronous EE-call
+transaction. `MenuCheck` is deferred because changing focus can enter game
+work that depends on the ordinary scheduler, just as activation does. The
+windowless pause probe focused Resume at normalized `(0.7,0.3)`, Save at
+`(0.7,0.4)`, rejected an out-of-range request without changing deferred state,
+and activated Save through the pointer's original action path. The resulting
+menu transition was `0x012e85a0 -> 0x015afa70`, with exact deferred stack
+restoration.
 
 ## Native bridge
 
-- `NativeInput::MoveAbsolute` accepts normalized coordinates, validates the
-  live pointer and resolution, reasserts absolute selector mode, and calls
-  `UpdatePositionAbsolute(pThe__11GAvPPointer deref, {x,y})`.
+- `NativePointerMotion::MoveAbsolute` accepts normalized coordinates, validates
+  the resolution and caller-supplied pointer, and calls
+  `UpdatePositionAbsolute(pointer, {x,y})`. `NativeInput` owns live gameplay
+  pointer lookup and absolute selector policy; `NativeMenuInput` owns
+  callback-capability discovery and the subsequent hit-test.
 - The EE-call shuttle stages the eight-byte `CInputData` in a bounded synthetic
   o32 stack frame, interprets the target call with a distinct jump context,
   restores the interrupted EE/FPU/VU0 context and exact stack bytes, then lets
@@ -156,3 +188,6 @@ S008 is backed by C009 and the trusted two-arc detector I002. S009 is backed by
 C010 and I003: the primary pair changed selected object identity, the secondary
 pair recorded move message `0x60039` on that same object, invalid edge sequences
 were rejected, and the process shut down gracefully.
+S010 mouse evidence is C014 and I005: two pointer coordinates focused distinct
+game-owned menu objects, rejected input queued no work, and the focused pointer
+action entered a distinct pause submenu with exact deferred restoration.
