@@ -12,6 +12,9 @@ Subcommands:
   mousebutton primary|secondary press|release
   menuaction up|down|left|right|activate|cancel
   menustate
+  menupointerstate
+  menupointermove --x 0.5 --y 0.5
+  menupointeractivate
   deferred
   waitpointer --addr 0x00367720 --timeout 120   (polls u32 until non-zero)
 
@@ -112,6 +115,11 @@ def main() -> int:
     p.add_argument(
         "action", choices=("up", "down", "left", "right", "activate", "cancel"))
     sub.add_parser("menustate")
+    sub.add_parser("menupointerstate")
+    p = sub.add_parser("menupointermove")
+    p.add_argument("--x", type=float, required=True, help="normalized horizontal coordinate in 0..1")
+    p.add_argument("--y", type=float, required=True, help="normalized vertical coordinate in 0..1")
+    sub.add_parser("menupointeractivate")
     sub.add_parser("deferred")
     p = sub.add_parser("watch")
     p.add_argument("--addrs", required=True,
@@ -182,6 +190,13 @@ def main() -> int:
         print(json.dumps(req("POST", "/input/menu-action", {"action": a.action})))
     elif a.cmd == "menustate":
         print(json.dumps(req("GET", "/input/menu")))
+    elif a.cmd == "menupointerstate":
+        print(json.dumps(req("GET", "/input/menu-pointer")))
+    elif a.cmd == "menupointermove":
+        print(json.dumps(req(
+            "POST", "/input/menu-pointer-move", {"x": a.x, "y": a.y})))
+    elif a.cmd == "menupointeractivate":
+        print(json.dumps(req("POST", "/input/menu-pointer-activate", {})))
     elif a.cmd == "deferred":
         print(json.dumps(req("GET", "/ee/deferred")))
     elif a.cmd == "pthe":

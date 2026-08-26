@@ -4,7 +4,9 @@ kind: claim
 status: holds
 created: 2026-08-26
 tags: input,pointer,verification
-depends: tools/run_control_test.py#probe_native_pointer
+depends: thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp#MoveAbsolute, thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.cpp#MoveAbsolute, tools/run_control_test.py#probe_native_pointer
+reconfirmed: 2026-08-27
+verified_at: 2026-08-27 02:53:26
 ---
 
 ## Claim
@@ -35,3 +37,7 @@ A supported mission position fails to follow a valid normalized target, a
 rejected request changes the cursor or guest stack, stack restoration differs
 by any byte, the bridge requires a virtual pad path, or repeated calls corrupt
 the interrupted EE scheduler/context or prevent graceful shutdown.
+
+## Re-confirmed 2026-08-27
+
+Reverified after extracting shared NativePointerMotion: the surfaceless/null-muted mission probe rendered distinct stable cursor targets near (128,96) and (512,96), attested exact nonzero staging restoration, rejected out-of-range motion with 400 without moving the cursor, and shut down gracefully.

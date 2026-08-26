@@ -21,11 +21,14 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | POST `/input/mouse-button` | `{"button":"primary","edge":"press"}` | typed edge through the corresponding original AVP:E mouse handler |
 | GET `/input/menu` | — | read-only active AVP:E menu owner, callback count, and focus |
 | POST `/input/menu-action` | `{"action":"down"}` | typed direction, activate, or cancel through the active AVP:E `GMenu` owner |
+| GET `/input/menu-pointer` | — | read-only active menu-capable pointer owner and focused item |
+| POST `/input/menu-pointer-move` | `{"x":0.7,"y":0.4}` | absolute motion followed by deferred AVP:E menu hit-testing |
+| POST `/input/menu-pointer-activate` | `{}` | deferred activation through the focused menu pointer item |
 | GET `/ee/deferred` | — | current deferred guest-call identity, completion, and restoration evidence |
 | POST `/ee/call` | `{"function":"0x..","a0":"0x..",...,"cycle_budget":N}` | bounded VM-thread guest call through the AVPE EE-call shuttle |
 | POST `/shutdown` | `{}` | graceful VM shutdown for the isolated control-test owner |
 
-Client tool: `uv run python tools/avpe_http.py <status|memread|memwrite|statesave|stateload|eecall|waitpointer|press|moveabsolute|mousebutton|menuaction|watch> ...`
+Client tool: `uv run python tools/avpe_http.py <status|memread|memwrite|statesave|stateload|eecall|waitpointer|press|moveabsolute|mousebutton|menuaction|menupointerstate|menupointermove|menupointeractivate|watch> ...`
 Numbers in /input/press are DECIMAL (or "0x" strings); memread addr/len are hex.
 
 Agent and maintainer runtime verification enters through
@@ -60,8 +63,15 @@ The nonce prevents a stale or unrelated process from satisfying the check.
   (`0x015E0640`), activated Save through deferred `GMenu::Input`, then invoked
   the destination menu's virtual cancel handler. Ownership changed
   `0x012E85A0 -> 0x015AFA70 -> 0x012E85A0`; both deferred calls restored their
-  exact guest stack frames. Press START activation independently changed
-  `0x01346590 -> 0x0147D230` without a synchronous timeout.
+  exact guest stack frames. An earlier Press START activation changed
+  `0x01346590 -> 0x0147D230`, but a later identical saved-state run completed
+  and restored the deferred guest call without changing the active menu; that
+  saved-state transition is therefore not deterministic evidence.
+- `/input/menu-pointer-move` used the active callback-owned pointer
+  `0x015FE940` and AVP:E's own hit-test to focus Resume (`0x015DFB60`) at
+  normalized `(0.7,0.3)` and Save (`0x015E0640`) at `(0.7,0.4)`. An invalid
+  coordinate returned 400 without queuing work. Pointer activation then
+  entered menu `0x015AFA70` through a deferred call with exact stack restore.
 
 ## Known state of the game-side RE targets
 

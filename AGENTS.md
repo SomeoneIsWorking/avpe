@@ -10,10 +10,14 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 
 - `thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.*` owns validated reads of AVP:E
   guest objects and handles.
+- `NativePointerMotion.*` owns shared normalized-coordinate validation,
+  resolution lookup, guest staging, and absolute pointer movement.
 - `NativeInput.*` owns gameplay pointer and button semantics.
-- `NativeMenuInput.*` owns discovery and invocation of AVP:E menu actions.
+- `NativeMenuInput.*` owns discovery and invocation of AVP:E keyboard and
+  pointer menu actions.
 - `thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.*` owns product key-to-action
-  policy; `HostWindow.*` owns only platform event capture and window lifecycle.
+  and mouse-to-action policy; `HostWindow.*` owns only platform event capture
+  and window lifecycle.
   Neither may emulate keyboard/mouse as a DualShock.
 - `AVPE.cpp` owns the diagnostic control transport only. Its routes may carry
   proof intent but do not define shipping input policy.

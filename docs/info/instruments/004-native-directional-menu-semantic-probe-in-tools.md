@@ -20,6 +20,8 @@ reported surfaceless/null-muted status and shut down gracefully.
 
 ## Known failure modes
 
-The probes certify directions plus activation/cancel in the saved pause and
-Press START states. They do not certify mouse hit-testing, every menu subtype,
-or delivery from a real product-window key event.
+The pause probe continues to certify directions plus activation/cancel. The
+Press START saved-state transition is not deterministic: a later run completed
+and exactly restored the deferred call but did not change the active menu by
+the 90-second deadline. The probes do not certify every menu subtype or
+delivery from a real product-window event.

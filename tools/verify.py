@@ -18,6 +18,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.cpp",
@@ -29,6 +30,7 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.h",
     ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.h",
     ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.h",
 )

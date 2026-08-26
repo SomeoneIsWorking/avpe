@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: input,menu,keyboard,verification
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp#Apply, tools/run_control_test.py#probe_native_menu
 reconfirmed: 2026-08-27
-verified_at: 2026-08-27 01:31:46
+verified_at: 2026-08-27 02:53:26
 ---
 
 ## Claim
@@ -24,3 +24,7 @@ The active callback registry resolves zero or multiple menu owners in the verifi
 ## Re-confirmed 2026-08-27
 
 2026-08-27 final surfaceless/null pause-menu run: native Down changed focus from Resume 0x015dfb60 to Save 0x015e0640; read-only menu-state snapshots observed the game-owned transition and the run shut down cleanly.
+
+## Re-confirmed 2026-08-27
+
+Reverified after extending NativeMenuInput with pointer actions: the surfaceless/null-muted pause probe changed focus from Resume 0x015DFB60 to Save 0x015E0640 through returning directional calls, then completed activation and virtual cancel with exact stack restoration and graceful shutdown.
