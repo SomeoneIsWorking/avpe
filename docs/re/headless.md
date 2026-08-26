@@ -27,7 +27,7 @@ Recipe: `./run.sh launch [--seconds N] [--windowed]` → see src/avpe/launch.py.
 5. `Renderer = 11/13` does not change device init: Vulkan is still opened for
    presentation (hidden). Audio-Null is what guarantees silence.
 
-## Next step for deterministic shim testing
+## Deterministic shim-test input
 
 Use `-statefile` to load a savestate taken just past FMVs so every shim test
 boots into the same gameplay moment.

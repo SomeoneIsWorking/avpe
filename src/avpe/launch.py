@@ -94,7 +94,7 @@ def build_argv(windowed: bool, chd: str, seconds: float | None) -> list[str]:
 
 def launch(windowed: bool, chd: str, seconds: float | None) -> int:
     if not PCSX2_BIN.exists():
-        log("error", "launch", f"{PCSX2_BIN} missing — build first (see docs/codemap.md)")
+        log("error", "launch", f"{PCSX2_BIN} missing — run ./run.sh doctor for the exact blocker")
         return 1
     if not Path(chd).exists():
         log("error", "launch", f"game CHD missing: {chd} — fix AVPE_CHD in .env")
