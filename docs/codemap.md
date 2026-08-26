@@ -28,6 +28,8 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | EE-call execution | Guest-call queue, context, return-PC stop, budget, and result handling | `thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp/.h` | `AVPE::EECallShuttle` | [input-path contract](re/input-path.md) |
 | Native input bridge | Keyboard/mouse translation into game-native functions | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp/.h` | target: narrow route/input API | [input-path contract](re/input-path.md) |
 | Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeSaves.cpp/.h` | target: `AVPE::NativeSaves` | target: `docs/re/save-path.md` |
+| Native asset I/O | AVP:E file/sector mapping, validated disc-derived asset store, asynchronous host reads, cache, and optical-path bypass | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp/.h`; narrow hooks in the grounded CDVD/IOP boundary | target: `AVPE::NativeAssets` | target: `docs/re/disc-io.md` |
+| AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: `thirdparty/pcsx2/pcsx2/AVPE/HLE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: `docs/re/hle-bios.md` |
 | Native options UI | RmlUi lifecycle, options documents, and game-facing settings bindings | target: `thirdparty/pcsx2/pcsx2-qt/AVPE/UI/` | target: `AVPE::NativeSettingsUI` | target: `docs/ui/options.md` |
 | Diagnostic pad injection | Bootstrap-only active-low DS2 injection | `thirdparty/pcsx2/pcsx2/SIO/Pad/PadDualshock2.cpp` | `GetButtons()` integration | [control-channel contract](re/control-channel.md) |
 | RE helpers | Ghidra extraction, caller discovery, singleton inventory | `tools/ghidra_scripts/`, `tools/pthe_syms.txt` | individual tools | [input-path contract](re/input-path.md) |
@@ -62,6 +64,12 @@ docs/issues/                   atomic work and investigation points
 - AVP:E save interception, schema translation, atomic files, and memory-card
   import belong in the dedicated fork-local `NativeSaves` module; generic PCSX2
   card emulation remains outside that owner.
+- AVP:E asset resolution, native storage, async reads, and caching belong in
+  the fork-local `NativeAssets` module. Grounded CDVD/IOP hooks call that owner;
+  they do not absorb game-specific file tables or host I/O policy.
+- AVP:E-specific firmware behavior belongs under the fork-local `AVPE/HLE/`
+  owner. Existing BIOS, EE kernel, and IOP integration points remain narrow
+  hooks; they do not become a second copy of the game-specific service model.
 - The visible native window and its platform lifecycle belong in the fork's
   `pcsx2-qt/AVPE/` host module. PCSX2's generic `MainWindow` remains hidden and
   administrative; it does not own product presentation.

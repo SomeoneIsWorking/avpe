@@ -7,8 +7,8 @@ and code ownership in [`codemap.md`](codemap.md).
 ## G001 — Desktop AVPE product
 
 **Outcome.** A user who supplies a legally obtained *Aliens Versus Predator:
-Extinction* disc image and PS2 BIOS can provision and launch the current PC
-product through `./run.sh` on a supported desktop system.
+Extinction* disc image can provision and launch the current PC product through
+`./run.sh` on a supported desktop system without supplying console firmware.
 
 **Why.** The project exists to make AVP:E directly usable as a maintained PC
 experience rather than a collection of reverse-engineering experiments.
@@ -19,10 +19,10 @@ windowed product in an AVPE-owned host shell. That shell owns the visible
 window, input focus, product menus, and presentation lifecycle; PCSX2's generic
 main window, render window, and emulator settings UI are not exposed in the
 normal product. The documented native dependencies, a compatible C++ compiler,
-`uv`, and the user-supplied game/BIOS assets are sufficient; Ghidra and other
+`uv`, and the user-supplied game assets are sufficient; Ghidra and other
 maintainer-only RE tools are not runtime or build prerequisites.
 
-**Related state items.** S001, S003–S006, S012–S013, S020.
+**Related state items.** S001, S003–S006, S012–S013, S020, S027.
 
 ## G002 — Native PC RTS control
 
@@ -81,6 +81,52 @@ diagnostic control client.
 
 **Related state items.** S018–S020.
 
+## G005 — PC-native asset I/O
+
+**Outcome.** Normal AVP:E asset loading reads directly from native PC storage
+instead of traversing the emulated PS2 optical-disc request, seek, and transfer
+stack.
+
+**Why.** Optical-drive latency and the many layers needed to reproduce it are
+console constraints, not desirable PC behavior. Collapsing that path into
+native file reads should make mission and transition loading substantially
+faster while keeping the game's asset semantics intact.
+
+**Success conditions.** The executable's disc/file access boundary and asset
+namespace are grounded; user-supplied disc content is provisioned into a
+validated native asset store; normal game asset requests resolve through a
+project-owned host I/O layer with bounded asynchronous reads and caching; byte
+content, ordering, short-read, missing-file, and failure behavior remain
+compatible with the game; and representative cold and warm loading sequences
+are measurably faster than the emulated-disc baseline. After bootstrap, the
+normal product path does not depend on emulated optical seeks or sector-timed
+transfers for supported game assets.
+
+**Related state items.** S021–S024.
+
+## G006 — AVP:E-specific HLE BIOS
+
+**Outcome.** AVPE boots and runs the supported game revision through a
+project-owned high-level implementation of the PS2 firmware and platform
+services it actually uses, without requiring a user-supplied retail BIOS.
+
+**Why.** A PC-native release should not depend on opaque copyrighted console
+firmware when the target's required service contract can be implemented and
+verified directly. Limiting the HLE surface to AVP:E keeps the work grounded
+and avoids pretending to provide a general PS2 BIOS replacement.
+
+**Success conditions.** Every BIOS syscall, kernel primitive, interrupt/timer
+behavior, executable-loader operation, and IOP/module service reached by the
+supported target is inventoried with positive and negative traces; a clean-room
+HLE implementation supplies those contracts deterministically; the game boots,
+loads missions, saves, and completes representative play sequences with no
+retail BIOS bytes present; unimplemented or divergent services fail by exact
+name; and the normal product cannot silently fall back to external firmware.
+Behavior is compared against the current BIOS-backed oracle until each required
+service is grounded.
+
+**Related state items.** S025–S028.
+
 ## Constraints and non-goals
 
 - The product is an AVPE-owned native host shell backed by a maintained PCSX2
@@ -95,6 +141,12 @@ diagnostic control client.
   and persistence subsystems remain authoritative for the settings themselves.
 - Native saves replace AVP:E's memory-card dependency only. A generic PS2
   memory-card manager or save backend for unrelated games is out of scope.
+- PC-native asset I/O replaces AVP:E's normal game-data reads only. Copyrighted
+  content remains derived from the user's own disc image and is never committed
+  or distributed by the project.
+- The HLE BIOS is a clean-room, AVP:E-specific platform-service implementation.
+  General PS2 software compatibility and redistribution of Sony firmware are
+  explicit non-goals.
 - Copyrighted game and BIOS assets remain user supplied and untracked.
 - The normal user launch is windowed through the AVPE shell. Surfaceless,
   timeboxed, and HTTP-controlled modes are developer/agent interfaces and are

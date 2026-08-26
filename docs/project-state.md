@@ -42,6 +42,14 @@ state.
 | S018 | RmlUi native options surface is integrated into the AVPE host shell | missing | S020 | G004 |
 | S019 | Graphics, display, and resolution settings enumerate, apply, and persist | blocked | S018 | G004 |
 | S020 | AVPE-owned host shell owns the visible window and presentation lifecycle | partial | S003, S004 | G001, G004 |
+| S021 | AVP:E disc/file access boundary and asset namespace are mapped | missing | S001 | G005 |
+| S022 | User disc content provisions into a validated native asset store | blocked | S021 | G001, G005 |
+| S023 | Supported game asset requests use native host storage instead of emulated optical I/O | blocked | S021, S022 | G001, G005 |
+| S024 | Native asset I/O preserves behavior and measurably reduces loading time | blocked | S023 | G005 |
+| S025 | AVP:E's required BIOS, kernel, and IOP service surface is inventoried | missing | S001, S004 | G006 |
+| S026 | Clean-room AVP:E-specific HLE implements the required platform services | blocked | S025 | G006 |
+| S027 | Supported target boots and runs without retail BIOS bytes | blocked | S026 | G001, G006 |
+| S028 | HLE behavior is differentially verified against the BIOS-backed oracle | blocked | S025, S026 | G006 |
 
 ## State details and evidence
 
@@ -206,3 +214,56 @@ window has not been launched in this session. Runtime verification still must
 exercise resize, fullscreen, focus, close, and failure reporting without any
 generic PCSX2 dialog escaping. Input routing and RmlUi same-frame composition
 are also missing. Atomic work: issue #3.
+
+### S021 — disc/file access boundary: missing
+
+Missing capability: identify the EE/IOP functions, file tables, archive
+formats, sector mappings, asynchronous completion rules, and error paths that
+connect AVP:E asset requests to the emulated optical drive.
+
+### S022 — native asset provisioning: blocked
+
+Blocker: S021. Verification requires deriving the supported asset set from a
+user-supplied disc image into a versioned, validated native store, refusing the
+wrong revision and corrupt or incomplete content by name, and never tracking
+copyrighted bytes.
+
+### S023 — native asset reads: blocked
+
+Blockers: S021 and S022. Verification requires representative game asset loads
+to complete through the project-owned host I/O path with emulated optical
+seeks and sector-timed transfers absent from the same trace. Byte content,
+ordering, short reads, and errors must still match the grounded game contract.
+
+### S024 — loading behavior and performance: blocked
+
+Blocker: S023. Verification requires repeatable cold-cache and warm-cache
+measurements across startup, mission load, and representative transitions,
+plus negative controls proving that missing or corrupt native assets fail
+loudly rather than silently falling back to a slower or semantically different
+disc path.
+
+### S025 — required firmware service inventory: missing
+
+Missing capability: trace and catalogue the exact BIOS syscalls, EE kernel
+services, interrupts, timers, executable-loader behavior, and IOP modules used
+by the supported target across boot, menus, missions, saves, and shutdown.
+
+### S026 — AVP:E-specific HLE implementation: blocked
+
+Blocker: S025. Verification requires project-owned clean-room implementations
+of the inventoried contracts, with deliberately exercised success, error,
+timing, and ordering behavior and loud refusal of unknown services.
+
+### S027 — BIOS-free product path: blocked
+
+Blocker: S026. Verification requires a clean product profile with no retail
+BIOS file present to boot the target and complete representative menu, mission,
+save/load, and shutdown sequences without a firmware fallback.
+
+### S028 — HLE differential fidelity: blocked
+
+Blockers: S025 and S026. Verification requires deterministic comparisons of
+service results, guest-visible state, interrupts, and timing against the
+current BIOS-backed oracle, including cases that must differ and explicit
+residuals for any accepted non-semantic timing variance.
