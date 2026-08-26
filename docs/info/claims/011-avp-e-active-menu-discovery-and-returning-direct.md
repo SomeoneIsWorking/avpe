@@ -5,6 +5,8 @@ status: holds
 created: 2026-08-27
 tags: input,menu,keyboard,verification
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp#Apply, tools/run_control_test.py#probe_native_menu
+reconfirmed: 2026-08-27
+verified_at: 2026-08-27 01:31:46
 ---
 
 ## Claim
@@ -18,3 +20,7 @@ The surfaceless/null-muted menu probe resolved unique active GMenu 0x012E85A0 fr
 ## What would falsify it
 
 The active callback registry resolves zero or multiple menu owners in the verified pause state; a returning directional action no longer changes game-owned focus; the bridge writes virtual-pad state; unsupported activation is accepted; or the probe cannot shut down gracefully.
+
+## Re-confirmed 2026-08-27
+
+2026-08-27 final surfaceless/null pause-menu run: native Down changed focus from Resume 0x015dfb60 to Save 0x015e0640; read-only menu-state snapshots observed the game-owned transition and the run shut down cleanly.

@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: input,menu,deferred
 depends: thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp#TryCompleteDeferredCall, thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp#Apply, tools/run_control_test.py#probe_native_menu
 reconfirmed: 2026-08-27
-verified_at: 2026-08-27 01:25:34
+verified_at: 2026-08-27 01:31:47
 ---
 
 ## Claim
@@ -24,3 +24,7 @@ either saved-state probe no longer completes, reports failed stack restoration, 
 ## Re-confirmed 2026-08-27
 
 Reverified after final deferred/menu/router changes: pause navigation+activation+virtual-cancel probe and Press START activation probe both passed surfaceless/null-muted with exact stack restoration and graceful shutdown; combined mission pointer+mouse regression also passed.
+
+## Re-confirmed 2026-08-27
+
+2026-08-27 final surfaceless/null runs: pause-menu Activate completed deferred call 1 in 11,381,330 cycles and Cancel completed call 2 in 138,931 cycles with stack restoration; Press START Activate completed in 6,902,716 cycles and reached a distinct destination menu; both runs shut down cleanly.
