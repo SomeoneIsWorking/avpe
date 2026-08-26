@@ -12,11 +12,10 @@ means the capability is absent.
 
 ## Current focus
 
-**S008 — native absolute pointer injection.** The reusable EE-call boundary is
-verified; the next ground-truth step is issue #4, which must invoke the game's
-absolute-pointer function with temporary guest input data and prove two
-distinct rendered cursor positions. Current focus is attention, not a separate
-state.
+**S009 — native mouse actions.** Absolute movement is verified. Issue #5 will
+ground-truth step is to route left press/release through selection and right
+release through `CommandMove`, then observe distinct in-game effects. Current
+focus is attention, not a separate state.
 
 ## Capability inventory
 
@@ -29,9 +28,9 @@ state.
 | S005 | Live control, memory, savestate, diagnostic input, and snapshot channel | verified | S004 | G001, G002 |
 | S006 | Reproducible mission state and identified live rendered cursor | verified | S005 | G001, G002 |
 | S007 | Reusable VM-thread EE-call shuttle | verified | S005, S006 | G002 |
-| S008 | Native absolute pointer injection moves the rendered cursor | missing | S007; issue #4 | G002 |
-| S009 | Native mouse selection and command clicks | blocked | S007, S008 | G002 |
-| S010 | Keyboard and mouse menu navigation through game-native paths | blocked | S007, S008 | G002 |
+| S008 | Native absolute pointer injection moves the rendered cursor | verified | S007 | G002 |
+| S009 | Native mouse selection and command clicks | missing | S007, S008; issue #5 | G002 |
+| S010 | Keyboard and mouse menu navigation through game-native paths | blocked | S009 | G002 |
 | S011 | Selector, camera, minimap, and pointer-mode integration | blocked | S008, S009 | G002 |
 | S012 | Fresh-clone provisioning through the zero-argument launcher | missing | S003, S004 | G001 |
 | S013 | End-to-end windowed product playable with native PC RTS controls | blocked | S009, S010, S011, S012, S020 | G001, G002 |
@@ -77,8 +76,8 @@ runtime, and EE-call shuttle with Clang against the project dependency prefix.
 The claim checker reports C001 as a coarse file-change advisory, not as
 evidence that the earlier baseline-build claim was falsified.
 
-Evidence: claims C001, C004, C007, and C008; project commits `6a94e4f` and
-`577042c`; PCSX2 fork commit `03cd7c1`; successful `pcsx2-qt` Clang build.
+Evidence: claims C001, C004, C007–C009; project commits `6a94e4f` and
+`577042c`; PCSX2 fork commit `6c39381`; successful `pcsx2-qt` Clang build.
 
 ### S004 — isolated control-test launch: verified
 
@@ -125,22 +124,29 @@ results.
 The same positive and negative controls were repeated through the verified
 surfaceless runner. Evidence: claim C008 and resolved issue #1.
 
-### S008 — absolute cursor movement: missing, current focus
+### S008 — absolute cursor movement: verified
 
-Missing capability: issue #4 must add the native input bridge's temporary guest
-argument storage, invoke `Input_UpdatePositionAbsolute` on the live pointer,
-and observe distinct rendered positions for distinct injected coordinates in
-frame snapshots.
+Observed capability: `NativeInput::MoveAbsolute` validates normalized intent,
+the current resolution and live game pointer, reasserts absolute input mode,
+stages the exact eight-byte `CInputData` argument in guest main RAM, invokes the
+game's function, and restores the interrupted stack bytes and architectural
+context. The verified surfaceless runner rendered stable cursor centers at
+`(128.48,95.06)` and `(512.35,94.71)`. Both calls attested exact staging
+restoration at the same nonzero staging address; an out-of-range request
+returned 400 and left the second rendered position unchanged.
 
-### S009 — mouse actions: blocked
+Evidence: claim C009, instrument I002, resolved issue #4, and
+`scratch/control-test/pointer-proof.json` (ignored per-run artifact).
 
-Blockers: S007 and S008. Verification requires left press/release to drive
+### S009 — mouse actions: missing
+
+Missing capability: verification requires left press/release to drive
 selection and right release to drive `CommandMove` through the game-native
 handlers, with observed in-game effects.
 
 ### S010 — menu navigation: blocked
 
-Blockers: S007 and S008. Verification requires keyboard and mouse to navigate
+Blocker: S009. Verification requires keyboard and mouse to navigate
 title, mission, pause, and in-game menus without using diagnostic pad injection
 as the shipping implementation.
 

@@ -11,7 +11,8 @@ depends: deps.toml
 
 The AVPE EE-call shuttle executes supported target functions on the VM thread,
 stops at the interrupted return PC under a cycle budget, restores architectural
-context, and fail-closes after a timeout until a known state is loaded.
+context, defers scheduler events to the interrupted outer execution, and
+fail-closes after a timeout until a known state is loaded.
 
 ## Evidence
 
@@ -20,6 +21,12 @@ Through the C007 runner, `CRenderer::GetResolution` at `0x00137b30` returned
 Function `0x4` returned HTTP 400, a one-cycle budget returned 504, the next call
 returned 409, loading `mission1.p2s` succeeded, and the same resolution call
 then succeeded again in 19 cycles.
+
+The longer native-input sequence exposed and falsified recursive use of the
+recompiler's single dispatch jump buffer. Synthetic calls now delegate to the
+interpreter's distinct `ExecuteUntil` jump context. The complete C009 pointer
+probe performed six successful guest calls, rejected a negative request, and
+then completed graceful VM shutdown without a surviving process.
 
 ## What would falsify it
 

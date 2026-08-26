@@ -28,7 +28,7 @@ GfsPointer (base) / GAvPPointer (game cursor, singleton pThe__11GAvPPointer @ 00
                                            unlink if outside CRenderer::GetResolution rect
   Input_Action/ActionUp         0012ebb0/0012ec10
   SetSelectorMethod             0012da50  0=relative, 1=absolute selector
-  GAvPPointer::SetInputType     001b18e0  type 1 => absolute + optional Center(); stores @+0x89
+  GAvPPointer::SetInputType     001b18e0  type 1 => absolute + optional Center(); stores @byte+0x224
   GAvPPointer::Center           001b1990  pos = resolution center
   Input_PressMouse1             001b52c0  SelectChanging(this,1,0)   [ignores CInputData*]
   Input_ReleaseMouse1           001b52d0
@@ -47,6 +47,11 @@ pThe__9CRenderer 00367078. CRenderer::GetResolution 00137b30 returns float[4]
 
 Pointer position fields: this+0x194/0x198 (ints idx 0x65/0x66, float semantics);
 +0x188/0x264 mirror copies written by SetInputType.
+
+`CInputData` prefix consumed by `Input_UpdatePositionAbsolute`: f32 `x` at
+`+0x00`, f32 `y` at `+0x04`; no instruction in that function reads beyond
+`+0x04`. The earlier decompiler index for the input-type field was
+`int[0x89]`, which is byte offset `this+0x224`, not byte offset `+0x89`.
 ```
 
 ## Key conclusions
@@ -83,11 +88,16 @@ SC-style control mapping now fully RE'd: move=absolute pointer inject,
 LMB=Mouse1 pair (SelectChanging), RMB release=ReleaseMouse2(CommandMove),
 pan/zoom=minimap cam pointer, groups=MakeSquad/SendMessageToSquad.
 
-## Injection mechanism
+## Native bridge
 
-- EE-call shuttle on VM thread between frames: save regs, set a0/a1 + pc=fnVA,
-  ra=sentinel, run until sentinel — reusable for ANY discovered fn.
-- Mouse move → `UpdatePositionAbsolute(pThe__11GAvPPointer deref, {x,y})`
+- `NativeInput::MoveAbsolute` accepts normalized coordinates, validates the
+  live pointer and resolution, reasserts absolute selector mode, and calls
+  `UpdatePositionAbsolute(pThe__11GAvPPointer deref, {x,y})`.
+- The EE-call shuttle stages the eight-byte `CInputData` in a bounded synthetic
+  o32 stack frame, interprets the target call with a distinct jump context,
+  restores the interrupted EE/FPU/VU0 context and exact stack bytes, then lets
+  the outer scheduler service deferred events. Recursively entering PCSX2's
+  recompiler would overwrite its global dispatch jump buffer.
 - LMB down/up → PressMouse1/ReleaseMouse1; RMB up → ReleaseMouse2 (all with a1=nullptr)
 - Diagnostic comparison: raw writes of position fields demonstrate that the
   screen-position members are not the rendered world-position authority.
@@ -99,3 +109,4 @@ in [`../project-state.md`](../project-state.md). Subsystem evidence must include
 a real-boot shuttle call of `GetResolution`, a runtime read of the active
 selector mode, and frame A/B observations showing that distinct injected
 coordinates move the rendered cursor.
+S008 is now backed by C009 and the trusted two-arc detector I002.

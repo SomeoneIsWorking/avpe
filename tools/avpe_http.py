@@ -8,6 +8,7 @@ Subcommands:
   statesave --path scratch/states/x.p2s
   stateload --path scratch/states/x.p2s
   eecall --function 0x00137b30 [--a0 0x... --cycle-budget 3000000]
+  moveabsolute --x 0.2 --y 0.2
   waitpointer --addr 0x00367720 --timeout 120   (polls u32 until non-zero)
 
 Negative responses are loud: HTTP errors raise with status + body printed.
@@ -97,6 +98,9 @@ def main() -> int:
     for register in ("a0", "a1", "a2", "a3"):
         p.add_argument(f"--{register}", type=lambda x: int(x, 0), default=0)
     p.add_argument("--cycle-budget", type=int, default=3_000_000)
+    p = sub.add_parser("moveabsolute")
+    p.add_argument("--x", type=float, required=True, help="normalized horizontal coordinate in 0..1")
+    p.add_argument("--y", type=float, required=True, help="normalized vertical coordinate in 0..1")
     p = sub.add_parser("watch")
     p.add_argument("--addrs", required=True,
                    help="comma list addr[:len[:fmt]] (fmt hex|u32|f32), e.g. "
@@ -157,6 +161,8 @@ def main() -> int:
             "cycle_budget": a.cycle_budget,
         }
         print(json.dumps(req("POST", "/ee/call", payload)))
+    elif a.cmd == "moveabsolute":
+        print(json.dumps(req("POST", "/input/move-absolute", {"x": a.x, "y": a.y})))
     elif a.cmd == "pthe":
         # Dump every singleton pointer; non-null = live manager. Feed two
         # dumps to diff to see what a button press brought to life.
