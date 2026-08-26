@@ -5,7 +5,7 @@
 [pcsx2]
 url = "https://github.com/PCSX2/pcsx2"
 upstream_rev = "e1dd0a08599e86a9928a83b84923bce12a59aba7"
-rev = "03cd7c15e4bc8988ca534f82a8756863b2c3f84d"
+rev = "6c393816a6156c05a0ac8e108c26ced49b737d04"
 purpose = "PS2 emulator whose JIT runs the game; we add the AVPE C++ shim in-tree"
 fork_url = "https://github.com/SomeoneIsWorking/pcsx2"
 # fork branch: main; lucent remains a submodule inside the fork

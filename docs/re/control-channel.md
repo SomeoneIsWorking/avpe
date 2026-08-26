@@ -17,10 +17,11 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | POST `/state/save` | `{"path":"/abs/x.p2s"}` | CPU-thread save + flush |
 | POST `/state/load` | `{"path":"/abs/x.p2s"}` | CPU-thread load |
 | POST `/input/press` | `{"mask":512,"ms":250}` | PadDualshock2::Inputs bits, auto-expire |
+| POST `/input/move-absolute` | `{"x":0.5,"y":0.5}` | normalized coordinates through the game-native absolute-pointer owner |
 | POST `/ee/call` | `{"function":"0x..","a0":"0x..",...,"cycle_budget":N}` | bounded VM-thread guest call through the AVPE EE-call shuttle |
 | POST `/shutdown` | `{}` | graceful VM shutdown for the isolated control-test owner |
 
-Client tool: `uv run python tools/avpe_http.py <status|memread|memwrite|statesave|stateload|eecall|waitpointer|press|watch> ...`
+Client tool: `uv run python tools/avpe_http.py <status|memread|memwrite|statesave|stateload|eecall|waitpointer|press|moveabsolute|watch> ...`
 Numbers in /input/press are DECIMAL (or "0x" strings); memread addr/len are hex.
 
 Agent and maintainer runtime verification enters through
@@ -40,6 +41,11 @@ The nonce prevents a stale or unrelated process from satisfying the check.
   `v0=0x003c9fe0` after 19 cycles, and the pointed structure read
   `0,0,640,448`; a one-cycle limit timed out and fail-closed later calls until
   a successful state load reset the shuttle.
+- `/input/move-absolute` moved the live rendered cursor from `(128.48,95.06)`
+  to `(512.35,94.71)` through `NativeInput`, with exact temporary-stack
+  restoration attested at the same nonzero address for both calls; an
+  out-of-range request returned 400 and the next coherent snapshot retained
+  the second position.
 
 ## Known state of the game-side RE targets
 

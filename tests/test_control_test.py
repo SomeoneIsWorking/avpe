@@ -1,8 +1,10 @@
 import tempfile
 import unittest
 from pathlib import Path
+from struct import pack
 
 from avpe.control_test import build_argv, build_environment, status_is_verified
+from avpe.cursor import detect_cursor
 from avpe.launch import build_argv as build_product_argv
 from avpe.pcsx2_config import ensure_product_config, ensure_test_config
 
@@ -92,6 +94,53 @@ class ProductLaunchPolicyTests(unittest.TestCase):
         self.assertIn("-avpe-host", argv)
         self.assertNotIn("-avpe-control-test", argv)
         self.assertNotIn("-nogui", argv)
+
+
+def make_bmp(width: int, height: int, gold_pixels: set[tuple[int, int]]) -> bytes:
+    row_stride = (width * 3 + 3) & ~3
+    pixels = bytearray(row_stride * height)
+    for x, y in gold_pixels:
+        stored_y = height - y - 1
+        offset = stored_y * row_stride + x * 3
+        pixels[offset:offset + 3] = bytes((60, 150, 210))
+    header = b"BM" + pack("<IHHI", 54 + len(pixels), 0, 0, 54)
+    dib = pack("<IiiHHIIiiII", 40, width, height, 1, 24, 0,
+               len(pixels), 0, 0, 0, 0)
+    return header + dib + pixels
+
+
+def rectangle_outline(left: int, top: int, width: int, height: int) -> set[tuple[int, int]]:
+    return {
+        (x, y)
+        for x in range(left, left + width)
+        for y in range(top, top + height)
+        if x in (left, left + width - 1) or y in (top, top + height - 1)
+    }
+
+
+class CursorDetectorTests(unittest.TestCase):
+    def test_finds_paired_gold_cursor_arcs_near_expected_position(self) -> None:
+        first = rectangle_outline(42, 30, 8, 12)
+        second = rectangle_outline(53, 36, 8, 12)
+        unrelated = rectangle_outline(110, 70, 8, 12)
+        observation = detect_cursor(
+            make_bmp(160, 100, first | second | unrelated), 51.0, 39.0
+        )
+
+        self.assertIsNotNone(observation)
+        assert observation is not None
+        self.assertAlmostEqual(observation.x, 51.0)
+        self.assertAlmostEqual(observation.y, 38.5)
+        self.assertEqual(observation.pixel_count, 72)
+
+    def test_rejects_a_single_arc(self) -> None:
+        bmp = make_bmp(80, 60, rectangle_outline(20, 20, 8, 12))
+
+        self.assertIsNone(detect_cursor(bmp, 24.0, 26.0))
+
+    def test_rejects_malformed_snapshot(self) -> None:
+        with self.assertRaisesRegex(ValueError, "not a BMP"):
+            detect_cursor(b"not an image", 0.0, 0.0)
 
 
 if __name__ == "__main__":
