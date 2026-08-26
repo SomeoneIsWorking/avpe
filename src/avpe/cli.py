@@ -162,10 +162,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="avpe")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("doctor", help="preflight checks with actionable refusals")
-    args = parser.parse_args(argv)
+    p_launch = sub.add_parser("launch", help="boot the game via the built pcsx2-qt")
+    p_launch.add_argument("--windowed", action="store_true",
+                          help="real interactive session (default: headless, no audio device)")
+    p_launch.add_argument("--seconds", type=float, default=None,
+                          help="timeboxed smoke run: boot for N seconds, then terminate")
 
+    args = parser.parse_args(argv)
     if args.cmd in ("doctor", None):
         return doctor()
+    if args.cmd == "launch":
+        from avpe.launch import launch
+        env = load_env()
+        chd = env.get("AVPE_CHD", "")
+        if not chd:
+            log("error", "cli", "AVPE_CHD not set in .env")
+            return 1
+        return launch(args.windowed, chd, args.seconds)
     parser.error(f"unknown command {args.cmd!r}")
     return 2
 
