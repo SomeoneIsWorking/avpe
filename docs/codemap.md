@@ -19,6 +19,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | CLI orchestration | User commands, environment discovery, preflight | `src/avpe/cli.py` | `main()` | — |
 | Product launch | AVPE host argv, product config, process lifetime | `src/avpe/launch.py` | `launch()` | — |
 | Native host shell | Sole visible top-level window, render-surface lifecycle, resize/fullscreen, focus, product shutdown | `thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.cpp/.h` | `-avpe-host`; `AVPE::HostWindow` | [presentation](host/presentation.md) |
+| Product input routing | Qt key-event translation, held-key consumption, and typed menu-action dispatch | `thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.cpp/.h` | `AVPE::HostInputRouter` | [input path](re/input-path.md) |
 | Presentation bridge | GS-to-host window acquisition now; future same-frame RmlUi composition and narrow display/settings control | current: `pcsx2-qt/QtHost.cpp` signal boundary; target: `pcsx2/AVPE/PresentationBridge.cpp/.h` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
 | Control-test runner | Silent surfaceless PCSX2 process, isolated profile, timebox, exact process-group cleanup | `tools/run_control_test.py` | `main()` | [control-test contract](re/headless.md) |
 | Project logging | Single Python log-level gate | `src/avpe/log.py` | `log()` | — |
@@ -52,7 +53,9 @@ thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── GuestObjects.*             validated AVP:E guest object/handle reads
 ├── NativeInput.*              gameplay pointer and button semantics
 └── NativeMenuInput.*          active-menu discovery and typed menu actions
-thirdparty/pcsx2/pcsx2-qt/AVPE current native host-window owner
+thirdparty/pcsx2/pcsx2-qt/AVPE native product platform/input owners
+├── HostInputRouter.*          key-to-typed-menu-action policy
+└── HostWindow.*               window and platform event capture
 docs/re/                       subsystem RE and operating contracts
 docs/info/claims/              evidence ledger
 docs/issues/                   atomic work and investigation points

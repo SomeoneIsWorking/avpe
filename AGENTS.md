@@ -12,8 +12,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   guest objects and handles.
 - `NativeInput.*` owns gameplay pointer and button semantics.
 - `NativeMenuInput.*` owns discovery and invocation of AVP:E menu actions.
-- `thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.*` translates product window events
-  into those typed owners; it must not emulate keyboard/mouse as a DualShock.
+- `thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.*` owns product key-to-action
+  policy; `HostWindow.*` owns only platform event capture and window lifecycle.
+  Neither may emulate keyboard/mouse as a DualShock.
 - `AVPE.cpp` owns the diagnostic control transport only. Its routes may carry
   proof intent but do not define shipping input policy.
 

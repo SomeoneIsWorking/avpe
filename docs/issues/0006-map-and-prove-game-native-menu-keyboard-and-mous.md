@@ -11,10 +11,10 @@ updated: 2026-08-27
 
 ## Root cause
 
-The product host has no typed menu-input owner. AVP:E registers active menu
-callbacks dynamically, so there is no stable global menu pointer to call, and
-focused-item activation can replace menu/shell ownership without returning to
-the synchronous EE-call boundary.
+AVP:E registers active menu callbacks dynamically, so there is no stable global
+menu pointer. More importantly, synchronous `ExecuteUntil` suppresses ordinary
+EE/IOP/timer events; focused activation can call `Load__5GMenu`, which needs
+those events and therefore cannot return through that diagnostic boundary.
 
 ## What was tried / dead ends
 
@@ -24,8 +24,11 @@ Direct synchronous GMenu::Input(action=Activate) is unsafe: on the Press START i
 ## Current findings
 
 Active GMenu discovery is grounded through GInputDevice's callback ZArray at
-+0x48: matching GMenu callback function pointers resolve a unique owner handle
-through TheHandleArray. On the pause menu, typed Down changed the game-owned
-focused item from `0x03400000` to `0x03410000` without virtual-pad writes.
-Directional input is the verified subset; activation, cancel, mouse
-hit-testing, broader menu coverage, and product host routing remain open.
++0x48. Directional navigation, deferred activation, and virtual cancel are
+verified on pause/Save menus; deferred activation is independently verified on
+Press START. `HostInputRouter` maps arrows/WASD, Enter/Space, and
+Escape/Backspace to these typed owners without virtual-pad writes.
+
+Remaining work: verify the real windowed key-event path in a user-visible run,
+map menu mouse hover/hit-testing and click activation, and cover title, mission,
+and in-game menu variants.

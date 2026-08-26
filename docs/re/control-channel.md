@@ -19,7 +19,9 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | POST `/input/press` | `{"mask":512,"ms":250}` | PadDualshock2::Inputs bits, auto-expire |
 | POST `/input/move-absolute` | `{"x":0.5,"y":0.5}` | normalized coordinates through the game-native absolute-pointer owner |
 | POST `/input/mouse-button` | `{"button":"primary","edge":"press"}` | typed edge through the corresponding original AVP:E mouse handler |
-| POST `/input/menu-action` | `{"action":"down"}` | returning directional action through the active AVP:E `GMenu` owner |
+| GET `/input/menu` | — | read-only active AVP:E menu owner, callback count, and focus |
+| POST `/input/menu-action` | `{"action":"down"}` | typed direction, activate, or cancel through the active AVP:E `GMenu` owner |
+| GET `/ee/deferred` | — | current deferred guest-call identity, completion, and restoration evidence |
 | POST `/ee/call` | `{"function":"0x..","a0":"0x..",...,"cycle_budget":N}` | bounded VM-thread guest call through the AVPE EE-call shuttle |
 | POST `/shutdown` | `{}` | graceful VM shutdown for the isolated control-test owner |
 
@@ -54,10 +56,12 @@ The nonce prevents a stale or unrelated process from satisfying the check.
   field. Duplicate and unmatched edges fail with 409, unknown button names fail
   with 400, an invalid live pointer fails with 409, and state load clears
   held-edge state.
-- `/input/menu-action` discovered the live pause-menu owner and changed focus
-  from Resume (`0x015DFB60`) to Save (`0x015E0640`) through `GMenu::Input`.
-  `activate` is deliberately refused: direct synthetic activation was proven
-  not to return when the focused item replaces shell/menu ownership.
+- `/input/menu-action` changed pause focus from Resume (`0x015DFB60`) to Save
+  (`0x015E0640`), activated Save through deferred `GMenu::Input`, then invoked
+  the destination menu's virtual cancel handler. Ownership changed
+  `0x012E85A0 -> 0x015AFA70 -> 0x012E85A0`; both deferred calls restored their
+  exact guest stack frames. Press START activation independently changed
+  `0x01346590 -> 0x0147D230` without a synchronous timeout.
 
 ## Known state of the game-side RE targets
 

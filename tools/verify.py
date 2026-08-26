@@ -20,6 +20,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.cpp",
 )
 CPP_HEADERS = (
@@ -28,11 +29,14 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.h",
+    ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.h",
     ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.h",
 )
 CORE_SCOPED_SOURCES = {
-    ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": ((22, 34), (563, 610), (686, 715)),
-    ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": ((47, 51), (398, 410), (779, 788)),
+    ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
+        (1, 10), (22, 35), (563, 620), (688, 720)),
+    ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": (
+        (1, 10), (47, 51), (398, 410), (779, 788), (2_205, 2_220)),
 }
 FULL_FORMAT_SOURCES = tuple(
     path for path in CPP_SOURCES if path not in CORE_SCOPED_SOURCES

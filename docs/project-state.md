@@ -12,9 +12,9 @@ means the capability is absent.
 
 ## Current focus
 
-**S010 — game-native menu input.** Mission pointer movement, selection, and
-contextual move commands are verified. The next grounded input step is mapping
-keyboard and mouse actions across title, mission, pause, and in-game menus.
+**S010 — game-native menu input.** Directional navigation, activation, cancel,
+and the product keyboard mapping exist through typed game-native owners. The
+next grounded input step is menu mouse hit-testing and broader menu coverage.
 Current focus is attention, not a separate state.
 
 ## Capability inventory
@@ -157,21 +157,23 @@ Evidence: claim C010, instrument I003, resolved issue #5, and
 ### S010 — menu navigation: partial
 
 Observed subset: `NativeMenuInput` discovers the unique active `GMenu` owner
-from AVP:E's live `GInputDevice` callback registry, resolves its focused item
-through the game handle table, and invokes returning directional actions. In a
-reproducible pause-menu state, typed Down changed the game-owned focused item
-from Resume (`0x015DFB60`, handle `0x03400000`) to Save (`0x015E0640`, handle
-`0x03410000`). The surfaceless/null-muted probe captured distinct frames and
-completed graceful shutdown with exit status zero. Unsupported synchronous
-Activate intent fails with 400 rather than risking guest corruption.
+from AVP:E's live `GInputDevice` callback registry and resolves focused items
+through the game handle table. Returning directional calls changed pause-menu
+focus from Resume (`0x015DFB60`) to Save (`0x015E0640`). Activation and cancel
+now queue deferred guest calls through the ordinary VM scheduler and restore
+the interrupted EE/FPU/VU0 context plus exact reserved stack bytes at the
+return PC. Press START activation replaced menu `0x01346590` with
+`0x0147D230`; pause Save activation replaced `0x012E85A0` with `0x015AFA70`,
+and virtual cancel restored `0x012E85A0`. Both isolated runs were surfaceless,
+null-muted, and shut down gracefully. The product `HostInputRouter` maps
+arrows/WASD, Enter/Space, and Escape/Backspace to these typed actions without
+DualShock emulation.
 
-Gap: keyboard and mouse events are not yet connected from the product host;
-mouse hover/hit-testing is absent; title, mission, and in-game menu coverage is
-incomplete; and focused-item activation/cancel must run on AVP:E's normal
-input/update path. Direct synthetic activation is unsafe because a menu action
-may replace shell/menu ownership without returning to the EE-call frame.
+Gap: the real windowed key-event path remains unobserved because agent tests
+must be windowless; menu mouse hover/hit-testing is absent; and title, mission,
+and in-game menu coverage remains incomplete.
 
-Evidence: claim C011, instrument I004, issue #6, and
+Evidence: claims C011–C012, instrument I004, issue #6, and
 `scratch/control-test/menu-proof.json` (ignored per-run artifact).
 
 ### S011 — selector and camera integration: missing
