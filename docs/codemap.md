@@ -49,6 +49,9 @@ tools/                         project automation and control clients
 ├── raw2352.py                 disc-sector conversion
 └── ghidra_scripts/            maintainer-only RE extraction
 thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
+├── GuestObjects.*             validated AVP:E guest object/handle reads
+├── NativeInput.*              gameplay pointer and button semantics
+└── NativeMenuInput.*          active-menu discovery and typed menu actions
 thirdparty/pcsx2/pcsx2-qt/AVPE current native host-window owner
 docs/re/                       subsystem RE and operating contracts
 docs/info/claims/              evidence ledger
@@ -59,8 +62,10 @@ docs/issues/                   atomic work and investigation points
 
 - Guest function invocation and EE register/PC lifetime belong in the dedicated
   fork-local `EECallShuttle` module, not the HTTP route implementation.
-- Product keyboard/mouse semantics belong in the dedicated fork-local
-  `NativeInput` module; host clients only send normalized intent.
+- Gameplay keyboard/mouse semantics belong in fork-local `NativeInput`; menu
+  discovery and actions belong in peer `NativeMenuInput`. Both share validated
+  object and handle reads through `GuestObjects`. Host clients only translate
+  platform events into typed intent.
 - AVP:E save interception, schema translation, atomic files, and memory-card
   import belong in the dedicated fork-local `NativeSaves` module; generic PCSX2
   card emulation remains outside that owner.

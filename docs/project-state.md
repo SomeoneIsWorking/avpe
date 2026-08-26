@@ -30,7 +30,7 @@ Current focus is attention, not a separate state.
 | S007 | Reusable VM-thread EE-call shuttle | verified | S005, S006 | G002 |
 | S008 | Native absolute pointer injection moves the rendered cursor | verified | S007 | G002 |
 | S009 | Native mouse selection and command clicks | verified | S007, S008 | G002 |
-| S010 | Keyboard and mouse menu navigation through game-native paths | missing | S009 | G002 |
+| S010 | Keyboard and mouse menu navigation through game-native paths | partial | S009; issue #6 | G002 |
 | S011 | Selector, camera, minimap, and pointer-mode integration | missing | S008, S009 | G002 |
 | S012 | Fresh-clone provisioning through the zero-argument launcher | missing | S003, S004 | G001 |
 | S013 | End-to-end windowed product playable with native PC RTS controls | blocked | S009, S010, S011, S012, S020 | G001, G002 |
@@ -154,11 +154,25 @@ null-muted shutdown with exit status zero.
 Evidence: claim C010, instrument I003, resolved issue #5, and
 `scratch/control-test/mouse-proof.json` (ignored per-run artifact).
 
-### S010 — menu navigation: missing
+### S010 — menu navigation: partial
 
-Missing capability: keyboard and mouse must navigate
-title, mission, pause, and in-game menus without using diagnostic pad injection
-as the shipping implementation.
+Observed subset: `NativeMenuInput` discovers the unique active `GMenu` owner
+from AVP:E's live `GInputDevice` callback registry, resolves its focused item
+through the game handle table, and invokes returning directional actions. In a
+reproducible pause-menu state, typed Down changed the game-owned focused item
+from Resume (`0x015DFB60`, handle `0x03400000`) to Save (`0x015E0640`, handle
+`0x03410000`). The surfaceless/null-muted probe captured distinct frames and
+completed graceful shutdown with exit status zero. Unsupported synchronous
+Activate intent fails with 400 rather than risking guest corruption.
+
+Gap: keyboard and mouse events are not yet connected from the product host;
+mouse hover/hit-testing is absent; title, mission, and in-game menu coverage is
+incomplete; and focused-item activation/cancel must run on AVP:E's normal
+input/update path. Direct synthetic activation is unsafe because a menu action
+may replace shell/menu ownership without returning to the EE-call frame.
+
+Evidence: claim C011, instrument I004, issue #6, and
+`scratch/control-test/menu-proof.json` (ignored per-run artifact).
 
 ### S011 — selector and camera integration: missing
 

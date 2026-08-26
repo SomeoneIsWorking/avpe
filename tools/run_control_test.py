@@ -127,6 +127,13 @@ def mouse_button(
         port, "POST", "/input/mouse-button", {"button": button, "edge": edge})
 
 
+def menu_action(
+    port: int,
+    action: str,
+) -> tuple[int, dict[str, object] | None, str]:
+    return request_json(port, "POST", "/input/menu-action", {"action": action})
+
+
 def stable_cursor_snapshot(
     port: int,
     expected_x: float,
@@ -327,6 +334,63 @@ def probe_native_mouse(port: int, deadline: float, statefile: Path) -> dict[str,
     return proof
 
 
+def probe_native_menu(port: int) -> dict[str, object]:
+    def snapshot(name: str) -> str:
+        status = 503
+        bmp = b""
+        for _ in range(20):
+            status, bmp = request_bytes(port, "GET", "/snap")
+            if status == 200:
+                break
+        if status != 200:
+            raise RuntimeError(f"menu snapshot {name} returned HTTP {status}")
+        (LOG_DIR.parent / name).write_bytes(bmp)
+        return hashlib.sha256(bmp).hexdigest()
+
+    before_snapshot = snapshot("menu-before.bmp")
+    down_results: list[dict[str, object]] = []
+    initial_focus: str | None = None
+    down_focus: str | None = None
+    for _ in range(3):
+        status, response, detail = menu_action(port, "down")
+        if status != 200 or response is None:
+            raise RuntimeError(f"native menu down returned HTTP {status}: {detail}")
+        before = response.get("before")
+        after = response.get("after")
+        if not isinstance(before, dict) or not isinstance(after, dict) \
+                or response.get("menu") == "0x00000000" \
+                or int(response.get("callback_count", 0)) == 0:
+            raise RuntimeError(f"native menu down returned invalid ownership state: {response}")
+        if initial_focus is None:
+            initial_focus = str(before.get("focus_object"))
+        down_results.append(response)
+        candidate = str(after.get("focus_object"))
+        if candidate != initial_focus and candidate != "0x00000000":
+            down_focus = candidate
+            break
+    if down_focus is None:
+        raise RuntimeError(f"native menu down did not change game focus: {down_results}")
+    status, _, detail = menu_action(port, "activate")
+    if status != 400:
+        raise RuntimeError(
+            f"unsupported synchronous menu activate returned HTTP {status}, expected 400: {detail}")
+    down_snapshot = snapshot("menu-down.bmp")
+
+    proof = {
+        "initial_focus": initial_focus,
+        "down_focus": down_focus,
+        "down_calls": down_results,
+        "unsupported_activate_status": 400,
+        "snapshots": {
+            "before_sha256": before_snapshot,
+            "down_sha256": down_snapshot,
+        },
+    }
+    (LOG_DIR.parent / "menu-proof.json").write_text(
+        json.dumps(proof, indent=2, sort_keys=True) + "\n")
+    return proof
+
+
 def reserve_port(requested: int) -> tuple[int, socket.socket]:
     reservation = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     reservation.bind(("127.0.0.1", requested))
@@ -341,6 +405,8 @@ def main() -> int:
                         help="prove two native cursor positions; requires --statefile")
     parser.add_argument("--probe-native-mouse", action="store_true",
                         help="prove native selection and command actions; requires --statefile")
+    parser.add_argument("--probe-native-menu", action="store_true",
+                        help="prove native directional menu focus; requires a menu --statefile")
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
     args = parser.parse_args()
@@ -351,7 +417,8 @@ def main() -> int:
         parser.error("--http-port must be between 0 and 65535")
     if args.statefile is not None and not args.statefile.is_file():
         parser.error(f"--statefile is not a file: {args.statefile}")
-    if (args.probe_native_pointer or args.probe_native_mouse) and args.statefile is None:
+    if (args.probe_native_pointer or args.probe_native_mouse or args.probe_native_menu) \
+            and args.statefile is None:
         parser.error("native input probes require --statefile")
 
     if not PCSX2.is_file():
@@ -398,6 +465,7 @@ def main() -> int:
     boot_status: dict[str, str] | None = None
     pointer_proof: dict[str, object] | None = None
     mouse_proof: dict[str, object] | None = None
+    menu_proof: dict[str, object] | None = None
     probe_error: str | None = None
     graceful_shutdown = False
     try:
@@ -415,6 +483,12 @@ def main() -> int:
                         mouse_proof = probe_native_mouse(port, deadline, args.statefile)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
+                if args.probe_native_menu and probe_error is None:
+                    try:
+                        menu_proof = probe_native_menu(port)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_pointer or args.probe_native_mouse or args.probe_native_menu:
                     break
             time.sleep(0.1)
         if proc.poll() is None and request_shutdown(port):
@@ -449,6 +523,12 @@ def main() -> int:
             print(f"FATAL native mouse probe failed: {detail}; see {LOG_DIR}", file=sys.stderr)
             return 1
         print(f"control-test native-mouse proof={json.dumps(mouse_proof, sort_keys=True)}", flush=True)
+    if args.probe_native_menu:
+        if menu_proof is None:
+            detail = probe_error or "probe did not run"
+            print(f"FATAL native menu probe failed: {detail}; see {LOG_DIR}", file=sys.stderr)
+            return 1
+        print(f"control-test native-menu proof={json.dumps(menu_proof, sort_keys=True)}", flush=True)
     return 0
 
 

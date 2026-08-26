@@ -90,6 +90,23 @@ SC-style control mapping now fully RE'd: move=absolute pointer inject,
 LMB=Mouse1 pair (SelectChanging), RMB release=ReleaseMouse2(CommandMove),
 pan/zoom=minimap cam pointer, groups=MakeSquad/SendMessageToSquad.
 
+## Native menu actions
+
+`GInputDevice` stores its live `ZArray<CCallbackTrigger,32>` at `this+0x48`
+(`data` at `+0`, count at `+4`; entries are `0x18` bytes). A callback entry
+stores its owner handle at `+0x08` and direct ptmf function at `+0x14`.
+Callbacks for `GMenu::InputUp/Down/Left/Right/InputAnalog` identify the unique
+active menu owner; handle resolution uses `GObject::TheHandleArray` at
+`0x00371020`.
+
+`GMenu::Input` is `0x00125330`; actions are Up=0, Down=1, Left=2, Right=3,
+Activate=4. The active focused-item handle is `menu+0x26c`. Returning
+directional calls are safe through the EE-call transaction and changed pause
+focus from Resume to Save. Activate is not safe through that boundary: on the
+Press START item it exceeded both 3M and 30M cycles because shell/menu ownership
+can be replaced before the synthetic call returns. Native activation must be
+queued onto AVP:E's ordinary input/update execution path.
+
 ## Native bridge
 
 - `NativeInput::MoveAbsolute` accepts normalized coordinates, validates the
