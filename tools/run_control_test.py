@@ -87,7 +87,7 @@ def request_bytes(
     port: int,
     method: str,
     path: str,
-    payload: dict[str, float] | None = None,
+    payload: dict[str, object] | None = None,
     timeout: float = 2.0,
 ) -> tuple[int, bytes]:
     body = None if payload is None else json.dumps(payload).encode()
@@ -101,6 +101,30 @@ def request_bytes(
         return error.code, error.read()
     except (OSError, http.client.HTTPException, urllib.error.URLError) as error:
         raise RuntimeError(f"{method} {path} failed: {error}") from error
+
+
+def request_json(
+    port: int,
+    method: str,
+    path: str,
+    payload: dict[str, object],
+) -> tuple[int, dict[str, object] | None, str]:
+    status, body = request_bytes(port, method, path, payload)
+    detail = body.decode(errors="replace").strip()
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return status, None, detail
+    return status, parsed if isinstance(parsed, dict) else None, detail
+
+
+def mouse_button(
+    port: int,
+    button: str,
+    edge: str,
+) -> tuple[int, dict[str, object] | None, str]:
+    return request_json(
+        port, "POST", "/input/mouse-button", {"button": button, "edge": edge})
 
 
 def stable_cursor_snapshot(
@@ -185,6 +209,124 @@ def probe_native_pointer(port: int, deadline: float) -> dict[str, object]:
     return results
 
 
+def probe_native_mouse(port: int, deadline: float, statefile: Path) -> dict[str, object]:
+    def reload_state() -> dict[str, object]:
+        reload_status, loaded_state, reload_detail = request_json(
+            port, "POST", "/state/load", {"path": str(statefile)})
+        if reload_status != 200 or loaded_state is None \
+                or loaded_state.get("loaded") is not True:
+            raise RuntimeError(
+                f"state reload returned HTTP {reload_status}: {reload_detail}")
+        return loaded_state
+
+    selection_x, selection_y = 240.0, 340.0
+    status, move, detail = request_json(
+        port, "POST", "/input/move-absolute",
+        {"x": selection_x / 639.0, "y": selection_y / 447.0})
+    if status != 200 or move is None:
+        raise RuntimeError(f"selection move returned HTTP {status}: {detail}")
+
+    status, primary_press, detail = mouse_button(port, "primary", "press")
+    if status != 200 or primary_press is None:
+        raise RuntimeError(f"primary press returned HTTP {status}: {detail}")
+    if primary_press.get("handler") != "0x001B52C0":
+        raise RuntimeError(f"primary press used the wrong game handler: {primary_press}")
+    stable_cursor_snapshot(
+        port, selection_x, selection_y, deadline, "mouse-primary-held.bmp")
+
+    status, primary_release, detail = mouse_button(port, "primary", "release")
+    if status != 200 or primary_release is None:
+        raise RuntimeError(f"primary release returned HTTP {status}: {detail}")
+    after_selection = primary_release.get("after")
+    before_selection = primary_press.get("before")
+    if primary_release.get("handler") != "0x001B52D0" \
+            or not isinstance(after_selection, dict) \
+            or int(after_selection.get("count", 0)) != 1 \
+            or after_selection.get("selected_object") == "0x00000000":
+        raise RuntimeError(f"primary release did not select one game object: {primary_release}")
+    if isinstance(before_selection, dict) \
+            and before_selection.get("selected_object") == after_selection.get("selected_object"):
+        raise RuntimeError(f"primary click retained the previous selected object: {primary_release}")
+    selected_object = after_selection["selected_object"]
+
+    status, _, detail = mouse_button(port, "primary", "release")
+    if status != 409:
+        raise RuntimeError(
+            f"duplicate primary release returned HTTP {status}, expected 409: {detail}")
+
+    status, command_move, detail = request_json(
+        port, "POST", "/input/move-absolute", {"x": 100.0 / 639.0, "y": 100.0 / 447.0})
+    if status != 200 or command_move is None:
+        raise RuntimeError(f"command move returned HTTP {status}: {detail}")
+
+    status, secondary_press, detail = mouse_button(port, "secondary", "press")
+    if status != 200 or secondary_press is None \
+            or secondary_press.get("handler") != "0x001B5300":
+        raise RuntimeError(f"secondary press failed or used the wrong game handler: {detail}")
+    status, _, detail = mouse_button(port, "secondary", "press")
+    if status != 409:
+        raise RuntimeError(
+            f"duplicate secondary press returned HTTP {status}, expected 409: {detail}")
+
+    status, secondary_release, detail = mouse_button(port, "secondary", "release")
+    if status != 200 or secondary_release is None:
+        raise RuntimeError(f"secondary release returned HTTP {status}: {detail}")
+    command_after = secondary_release.get("after")
+    if secondary_release.get("handler") != "0x001B5310" \
+            or not isinstance(command_after, dict) \
+            or command_after.get("selected_object") != selected_object \
+            or command_after.get("command_id") != "0x00060039":
+        raise RuntimeError(
+            f"secondary release did not record AVP:E move command 0x60039: {secondary_release}")
+
+    status, _, detail = mouse_button(port, "wheel", "press")
+    if status != 400:
+        raise RuntimeError(f"unknown mouse button returned HTTP {status}, expected 400: {detail}")
+
+    status, pointer_invalidation, detail = request_json(
+        port, "POST", "/mem/write", {"addr": "0x00367720", "hex": "00000000"})
+    if status != 200 or pointer_invalidation is None \
+            or pointer_invalidation.get("written") != 4:
+        raise RuntimeError(f"pointer invalidation returned HTTP {status}: {detail}")
+    status, _, detail = mouse_button(port, "primary", "press")
+    if status != 409:
+        raise RuntimeError(
+            f"invalid game pointer returned HTTP {status}, expected 409: {detail}")
+    pointer_restore = reload_state()
+
+    status, reset_press, detail = mouse_button(port, "primary", "press")
+    if status != 200 or reset_press is None:
+        raise RuntimeError(f"pre-state-load primary press returned HTTP {status}: {detail}")
+    loaded = reload_state()
+    status, _, detail = mouse_button(port, "primary", "release")
+    if status != 409:
+        raise RuntimeError(
+            f"state load did not reset held button state; release returned HTTP {status}: {detail}")
+
+    proof = {
+        "selection_move": move,
+        "primary_press": primary_press,
+        "primary_release": primary_release,
+        "command_move": command_move,
+        "secondary_press": secondary_press,
+        "secondary_release": secondary_release,
+        "pointer_invalidation": pointer_invalidation,
+        "pointer_restore": pointer_restore,
+        "state_reset_press": reset_press,
+        "state_reload": loaded,
+        "negative_statuses": {
+            "duplicate_primary_release": 409,
+            "duplicate_secondary_press": 409,
+            "unknown_button": 400,
+            "invalid_pointer": 409,
+            "release_after_state_load": 409,
+        },
+    }
+    proof_path = LOG_DIR.parent / "mouse-proof.json"
+    proof_path.write_text(json.dumps(proof, indent=2, sort_keys=True) + "\n")
+    return proof
+
+
 def reserve_port(requested: int) -> tuple[int, socket.socket]:
     reservation = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     reservation.bind(("127.0.0.1", requested))
@@ -197,6 +339,8 @@ def main() -> int:
     parser.add_argument("--statefile", type=Path)
     parser.add_argument("--probe-native-pointer", action="store_true",
                         help="prove two native cursor positions; requires --statefile")
+    parser.add_argument("--probe-native-mouse", action="store_true",
+                        help="prove native selection and command actions; requires --statefile")
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
     args = parser.parse_args()
@@ -207,8 +351,8 @@ def main() -> int:
         parser.error("--http-port must be between 0 and 65535")
     if args.statefile is not None and not args.statefile.is_file():
         parser.error(f"--statefile is not a file: {args.statefile}")
-    if args.probe_native_pointer and args.statefile is None:
-        parser.error("--probe-native-pointer requires --statefile")
+    if (args.probe_native_pointer or args.probe_native_mouse) and args.statefile is None:
+        parser.error("native input probes require --statefile")
 
     if not PCSX2.is_file():
         print(f"FATAL built PCSX2 missing: {PCSX2}", file=sys.stderr)
@@ -253,6 +397,7 @@ def main() -> int:
     deadline = time.monotonic() + args.seconds
     boot_status: dict[str, str] | None = None
     pointer_proof: dict[str, object] | None = None
+    mouse_proof: dict[str, object] | None = None
     probe_error: str | None = None
     graceful_shutdown = False
     try:
@@ -263,6 +408,11 @@ def main() -> int:
                 if args.probe_native_pointer:
                     try:
                         pointer_proof = probe_native_pointer(port, deadline)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_mouse and probe_error is None:
+                    try:
+                        mouse_proof = probe_native_mouse(port, deadline, args.statefile)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                     break
@@ -293,6 +443,12 @@ def main() -> int:
             print(f"FATAL native pointer probe failed: {detail}; see {LOG_DIR}", file=sys.stderr)
             return 1
         print(f"control-test native-pointer proof={json.dumps(pointer_proof, sort_keys=True)}", flush=True)
+    if args.probe_native_mouse:
+        if mouse_proof is None:
+            detail = probe_error or "probe did not run"
+            print(f"FATAL native mouse probe failed: {detail}; see {LOG_DIR}", file=sys.stderr)
+            return 1
+        print(f"control-test native-mouse proof={json.dumps(mouse_proof, sort_keys=True)}", flush=True)
     return 0
 
 

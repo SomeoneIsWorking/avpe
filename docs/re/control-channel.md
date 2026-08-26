@@ -18,10 +18,11 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | POST `/state/load` | `{"path":"/abs/x.p2s"}` | CPU-thread load |
 | POST `/input/press` | `{"mask":512,"ms":250}` | PadDualshock2::Inputs bits, auto-expire |
 | POST `/input/move-absolute` | `{"x":0.5,"y":0.5}` | normalized coordinates through the game-native absolute-pointer owner |
+| POST `/input/mouse-button` | `{"button":"primary","edge":"press"}` | typed edge through the corresponding original AVP:E mouse handler |
 | POST `/ee/call` | `{"function":"0x..","a0":"0x..",...,"cycle_budget":N}` | bounded VM-thread guest call through the AVPE EE-call shuttle |
 | POST `/shutdown` | `{}` | graceful VM shutdown for the isolated control-test owner |
 
-Client tool: `uv run python tools/avpe_http.py <status|memread|memwrite|statesave|stateload|eecall|waitpointer|press|moveabsolute|watch> ...`
+Client tool: `uv run python tools/avpe_http.py <status|memread|memwrite|statesave|stateload|eecall|waitpointer|press|moveabsolute|mousebutton|watch> ...`
 Numbers in /input/press are DECIMAL (or "0x" strings); memread addr/len are hex.
 
 Agent and maintainer runtime verification enters through
@@ -46,6 +47,12 @@ The nonce prevents a stale or unrelated process from satisfying the check.
   restoration attested at the same nonzero address for both calls; an
   out-of-range request returned 400 and the next coherent snapshot retained
   the second position.
+- `/input/mouse-button` primary press/release changed selected object identity
+  from `0x01993540` to `0x01975240`; secondary release retained the selected
+  object and recorded AVP:E's move-message ID `0x60039` in its current-command
+  field. Duplicate and unmatched edges fail with 409, unknown button names fail
+  with 400, an invalid live pointer fails with 409, and state load clears
+  held-edge state.
 
 ## Known state of the game-side RE targets
 

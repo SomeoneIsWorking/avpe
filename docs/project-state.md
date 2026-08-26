@@ -12,10 +12,10 @@ means the capability is absent.
 
 ## Current focus
 
-**S009 — native mouse actions.** Absolute movement is verified. Issue #5 will
-ground-truth step is to route left press/release through selection and right
-release through `CommandMove`, then observe distinct in-game effects. Current
-focus is attention, not a separate state.
+**S010 — game-native menu input.** Mission pointer movement, selection, and
+contextual move commands are verified. The next grounded input step is mapping
+keyboard and mouse actions across title, mission, pause, and in-game menus.
+Current focus is attention, not a separate state.
 
 ## Capability inventory
 
@@ -29,9 +29,9 @@ focus is attention, not a separate state.
 | S006 | Reproducible mission state and identified live rendered cursor | verified | S005 | G001, G002 |
 | S007 | Reusable VM-thread EE-call shuttle | verified | S005, S006 | G002 |
 | S008 | Native absolute pointer injection moves the rendered cursor | verified | S007 | G002 |
-| S009 | Native mouse selection and command clicks | missing | S007, S008; issue #5 | G002 |
-| S010 | Keyboard and mouse menu navigation through game-native paths | blocked | S009 | G002 |
-| S011 | Selector, camera, minimap, and pointer-mode integration | blocked | S008, S009 | G002 |
+| S009 | Native mouse selection and command clicks | verified | S007, S008 | G002 |
+| S010 | Keyboard and mouse menu navigation through game-native paths | missing | S009 | G002 |
+| S011 | Selector, camera, minimap, and pointer-mode integration | missing | S008, S009 | G002 |
 | S012 | Fresh-clone provisioning through the zero-argument launcher | missing | S003, S004 | G001 |
 | S013 | End-to-end windowed product playable with native PC RTS controls | blocked | S009, S010, S011, S012, S020 | G001, G002 |
 | S014 | AVP:E save/load boundary and on-card data schema | missing | S001 | G003 |
@@ -138,21 +138,31 @@ returned 400 and left the second rendered position unchanged.
 Evidence: claim C009, instrument I002, resolved issue #4, and
 `scratch/control-test/pointer-proof.json` (ignored per-run artifact).
 
-### S009 — mouse actions: missing
+### S009 — mouse actions: verified
 
-Missing capability: verification requires left press/release to drive
-selection and right release to drive `CommandMove` through the game-native
-handlers, with observed in-game effects.
+Observed capability: typed primary and secondary button edges invoke AVP:E's
+original four mouse handlers through the EE-call transaction owner. A primary
+press/release at `(240,340)` changed the selected object from `0x01993540` to
+`0x01975240`. A secondary release at `(100,100)` kept that object selected and
+changed its game-owned current-command field from zero to move-message ID
+`0x00060039`. Duplicate releases, duplicate presses, an unknown button, an
+invalid live pointer, and a release after savestate-reset all failed with the
+expected 400/409 responses.
+The combined pointer/action probe then completed graceful surfaceless,
+null-muted shutdown with exit status zero.
 
-### S010 — menu navigation: blocked
+Evidence: claim C010, instrument I003, resolved issue #5, and
+`scratch/control-test/mouse-proof.json` (ignored per-run artifact).
 
-Blocker: S009. Verification requires keyboard and mouse to navigate
+### S010 — menu navigation: missing
+
+Missing capability: keyboard and mouse must navigate
 title, mission, pause, and in-game menus without using diagnostic pad injection
 as the shipping implementation.
 
-### S011 — selector and camera integration: blocked
+### S011 — selector and camera integration: missing
 
-Blockers: S008 and S009. Verification requires runtime evidence across selector
+Missing capability: runtime evidence is required across selector
 method changes, camera motion, minimap behavior, and pointer-mode transitions.
 
 ### S012 — fresh-clone launcher: missing
