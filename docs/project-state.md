@@ -32,7 +32,7 @@ Current focus is attention, not a separate state.
 | S009 | Native mouse selection and command clicks | verified | S007, S008 | G002 |
 | S010 | Keyboard and mouse menu navigation through game-native paths | partial | S009; issue #6 | G002 |
 | S011 | Selector, camera, minimap, and pointer-mode integration | missing | S008, S009 | G002 |
-| S012 | Fresh-clone provisioning through the zero-argument launcher | missing | S003, S004 | G001 |
+| S012 | Fresh-clone provisioning through the zero-argument launcher | partial | S003, S004 | G001 |
 | S013 | End-to-end windowed product playable with native PC RTS controls | blocked | S009, S010, S011, S012, S020 | G001, G002 |
 | S014 | AVP:E save/load boundary and on-card data schema | missing | S001 | G003 |
 | S015 | Atomic versioned PC-native save backend for AVP:E profiles and slots | blocked | S014 | G003 |
@@ -70,8 +70,9 @@ Evidence: claim C002 and [`re/input-path.md`](re/input-path.md).
 
 ### S003 — current PCSX2 build: verified
 
-Observed capability: `deps.toml` names the upstream base, maintained fork URL,
-and exact fork revision. That revision builds the AVPE host, isolated control
+Observed capability: `.gitmodules` names the maintained fork and the tracked
+gitlink pins its exact revision; `deps.toml` records upstream provenance without
+duplicating the pin. That revision builds the AVPE host, isolated control
 runtime, and EE-call shuttle with Clang against the project dependency prefix.
 The claim checker reports C001 as a coarse file-change advisory, not as
 evidence that the earlier baseline-build claim was falsified.
@@ -181,11 +182,20 @@ Evidence: claims C011–C012, instrument I004, issue #6, and
 Missing capability: runtime evidence is required across selector
 method changes, camera motion, minimap behavior, and pointer-mode transitions.
 
-### S012 — fresh-clone launcher: missing
+### S012 — fresh-clone launcher: partial
 
-Missing capability: from a cold checkout with documented native dependencies,
-`uv`, and user assets, `./run.sh` must provision portable dependencies/build
-outputs and launch the windowed product without Ghidra or undocumented steps.
+Observed subset: `./run.sh provision` synchronizes and recursively initializes
+the tracked PCSX2 fork and its nested dependencies, and `doctor` verifies the
+checkout against the superproject gitlink. The project accepts GCC, Clang, or
+AppleClang rather than encoding the agent's Clang verification policy.
+
+Evidence: claim C013 and the provisioning tests in
+`tests/test_dependencies.py`.
+
+Gap: the zero-argument path does not yet provision the portable dependency
+prefix or configure/build a missing product binary. A cold checkout therefore
+still cannot reach the windowed product from documented native dependencies,
+`uv`, and user assets without manual build steps.
 
 ### S013 — playable native-input product: blocked
 

@@ -1,0 +1,3 @@
+[submodule "thirdparty/pcsx2"]
+	path = thirdparty/pcsx2
+	url = https://github.com/SomeoneIsWorking/pcsx2.git

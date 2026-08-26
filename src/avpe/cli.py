@@ -9,9 +9,9 @@ import os
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
+from avpe.dependencies import inspect_submodule, provision_submodules
 from avpe.log import log
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -95,22 +95,26 @@ def doctor() -> int:
             names = ", ".join(p.name for p in sorted(bins))
             print(f"pass  BIOS dir {bios_dir}: {len(bins)} usable ROMs: {names}")
 
-    # 3. Dependency manifest + clone state
-    deps_path = ROOT / "deps.toml"
-    deps = tomllib.loads(deps_path.read_text()) if deps_path.exists() else {}
-    pcx = deps.get("pcsx2", {})
-    clone = ROOT / "thirdparty" / "pcsx2"
-    if not clone.is_dir():
-        print(f"FAIL  PCSX2 clone missing at thirdparty/pcsx2 — run: ./run.sh provision")
+    # 3. Tracked PCSX2 submodule state
+    submodule = inspect_submodule(ROOT)
+    if submodule.expected_revision is None:
+        print("FAIL  PCSX2 is not registered as the thirdparty/pcsx2 submodule")
+        failures += 1
+    elif submodule.checkout_revision is None:
+        print("FAIL  PCSX2 submodule is not initialized — run: ./run.sh provision")
+        failures += 1
+    elif not submodule.is_ready:
+        print(
+            "FAIL  pcsx2 submodule HEAD "
+            f"{submodule.checkout_revision[:12]} != tracked gitlink "
+            f"{submodule.expected_revision[:12]} — run: ./run.sh provision"
+        )
         failures += 1
     else:
-        head = subprocess.run(["git", "-C", str(clone), "rev-parse", "HEAD"],
-                              capture_output=True, text=True).stdout.strip()
-        rev = pcx.get("rev", "")
-        if rev and head != rev:
-            print(f"WARN  pcsx2 HEAD {head[:12]} != pinned rev {rev[:12]} — fork commits expected on top")
-        else:
-            print(f"pass  pcsx2 clone HEAD {head[:12]} matches pin")
+        print(
+            "pass  pcsx2 submodule HEAD "
+            f"{submodule.checkout_revision[:12]} matches tracked gitlink"
+        )
 
     # 4. Built binary
     binary = ROOT / "scratch" / "build" / "bin" / "pcsx2-qt"
@@ -124,9 +128,18 @@ def doctor() -> int:
         failures += 1
 
     # 5. Toolchain
-    for tool in ("cmake", "clang++", "ninja", "ccache", "chdman", "git"):
+    for tool in ("cmake", "ninja", "ccache", "chdman", "git"):
         if not check_tool(tool):
             failures += 1
+
+    configured_cxx = os.environ.get("CXX")
+    cxx_candidates = (configured_cxx,) if configured_cxx else ("c++", "g++", "clang++")
+    cxx = next((candidate for candidate in cxx_candidates if candidate and shutil.which(candidate)), None)
+    if cxx is None:
+        print("FAIL  no C++ compiler found (supported: GCC, Clang, or AppleClang)")
+        failures += 1
+    elif not check_tool(cxx):
+        failures += 1
 
     # 6. SDL3 (PCSX2 input/audio layer)
     sdl3 = subprocess.run(["pkg-config", "--modversion", "sdl3"], capture_output=True, text=True)
@@ -152,6 +165,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="avpe")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("doctor", help="preflight checks with actionable refusals")
+    sub.add_parser("provision", help="initialize the tracked dependency submodules")
     sub.add_parser("launch", help="boot the user-facing AVPE host")
 
     args = parser.parse_args(argv)
@@ -167,6 +181,16 @@ def main(argv: list[str] | None = None) -> int:
         return launch(chd)
     if args.cmd == "doctor":
         return doctor()
+    if args.cmd == "provision":
+        if not provision_submodules(ROOT):
+            log("error", "provision", "submodule initialization failed")
+            return 1
+        submodule = inspect_submodule(ROOT)
+        if not submodule.is_ready:
+            log("error", "provision", "PCSX2 checkout does not match the tracked gitlink")
+            return 1
+        log("info", "provision", f"PCSX2 ready at {submodule.checkout_revision[:12]}")
+        return 0
     parser.error(f"unknown command {args.cmd!r}")
     return 2
 
