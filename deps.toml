@@ -8,3 +8,10 @@ url = "https://github.com/PCSX2/pcsx2"
 rev = "e1dd0a08599e86a9928a83b84923bce12a59aba7"
 purpose = "PS2 emulator whose JIT runs the game; we add the AVPE C++ shim in-tree"
 fork_url = ""  # set when the user's fork remote exists
+# fork branch: main @ 794cba0 (AVPE control channel; lucent submodule inside)
+
+[lucent]
+url = "https://github.com/SomeoneIsWorking/lucent"
+rev = "af80097e454e1d280f95a4c2132cc27dea1c9998"
+purpose = "logging + loopback HTTP control channel used by pcsx2/AVPE (submodule of the pcsx2 fork)"
+fork_url = "https://github.com/SomeoneIsWorking/lucent"
