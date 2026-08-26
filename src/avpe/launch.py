@@ -72,7 +72,10 @@ def ensure_config(windowed: bool) -> None:
     else:
         spu2["Backend"] = "Null"
         spu2["OutputMuted"] = "True"
-        gs["Renderer"] = "11"  # GSRendererType::Null — no host surface at all
+        # 13 = Software: presents via CPU blit, no Vulkan/GL surface needed
+        # (Null renderer still triggers a hardware device probe which deadlocks
+        # under the offscreen platform).
+        gs["Renderer"] = "13"
     _save_ini(sections)
 
 
@@ -100,6 +103,12 @@ def launch(windowed: bool, chd: str, seconds: float | None) -> int:
     ensure_config(windowed)
     argv = build_argv(windowed, chd, seconds)
     env = os.environ.copy()
+    if not windowed:
+        # -nogui keeps every surface inside the hidden main window; nothing maps.
+        # (QPA offscreen deadlocks VM init; Xvfb+xcb exits instantly — both
+        # documented in docs/re/headless.md. Wayland+nogui is the working recipe.)
+        # lucent logs to stdout; force line buffering so log files stay live
+        argv = ["stdbuf", "-oL", "-eL"] + argv
 
     log("info", "launch", "exec: " + " ".join(argv))
     out_path = ROOT / "scratch" / "logs" / "pcsx2-stdout.log"
