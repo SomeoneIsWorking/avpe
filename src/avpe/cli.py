@@ -45,6 +45,19 @@ def check_tool(name: str, version_arg: str = "--version") -> bool:
     return True
 
 
+def check_qt_prefix(deps_dir: Path) -> bool:
+    """Verify the project-owned Qt build inputs from one authoritative prefix."""
+    header = deps_dir / "include" / "QtCore" / "qglobal.h"
+    config = deps_dir / "lib" / "cmake" / "Qt6" / "Qt6Config.cmake"
+    if header.is_file() and config.is_file():
+        print(f"pass  self-built Qt/deps prefix: {deps_dir} (headers + CMake config)")
+        return True
+    print(f"FAIL  self-built Qt prefix incomplete: header={header.is_file()} "
+          f"cmake_config={config.is_file()} — run the pcsx2 "
+          ".github/workflows/scripts/linux/build-dependencies-qt.sh script")
+    return False
+
+
 def doctor() -> int:
     failures = 0
     env = load_env()
@@ -107,11 +120,7 @@ def doctor() -> int:
     else:
         print(f"FAIL  no built PCSX2 at {binary} — configure+build required before launch")
         failures += 1
-    if (deps_dir / "lib" / "cmake" / "Qt6").is_dir():
-        print(f"pass  self-built Qt/deps prefix: {deps_dir}")
-    else:
-        print(f"FAIL  deps prefix {deps_dir} missing Qt6 — run the pcsx2 "
-              ".github/workflows/scripts/linux/build-dependencies-qt.sh script")
+    if not check_qt_prefix(deps_dir):
         failures += 1
 
     # 5. Toolchain
@@ -119,26 +128,7 @@ def doctor() -> int:
         if not check_tool(tool):
             failures += 1
 
-    # 6. Qt6 dev libs (runtime alone is NOT enough to build PCSX2)
-    qt_headers_ok = False
-    qt_cmake_ok = False
-    try:
-        hdrs = subprocess.run(["qtpaths6", "--query", "QT_INSTALL_HEADERS"],
-                              capture_output=True, text=True).stdout.strip()
-        cfgdir = subprocess.run(["qtpaths6", "--query", "QT_HOST_LIBCMAKE_DIR"],
-                                capture_output=True, text=True).stdout.strip()
-        qt_headers_ok = bool(hdrs) and (Path(hdrs) / "QtCore" / "qglobal.h").exists()
-        qt_cmake_ok = bool(cfgdir) and (Path(cfgdir) / "Qt6" / "Qt6Config.cmake").exists()
-    except FileNotFoundError:
-        print("FAIL  qtpaths6 not found — Qt6 runtime packages appear absent")
-    if qt_headers_ok and qt_cmake_ok:
-        print("pass  Qt6 devel present (headers + CMake configs)")
-    else:
-        print(f"FAIL  Qt6 devel incomplete: headers={qt_headers_ok} cmake_configs={qt_cmake_ok} — "
-              "Fedora: sudo dnf install qt6-qtbase-devel qt6-qtsvg-devel")
-        failures += 1
-
-    # 7. SDL3 (PCSX2 input/audio layer)
+    # 6. SDL3 (PCSX2 input/audio layer)
     sdl3 = subprocess.run(["pkg-config", "--modversion", "sdl3"], capture_output=True, text=True)
     if sdl3.returncode == 0:
         print(f"pass  SDL3: {sdl3.stdout.strip()}")
@@ -146,7 +136,7 @@ def doctor() -> int:
         print("FAIL  SDL3 development files not found via pkg-config — Fedora: sudo dnf install SDL3-devel")
         failures += 1
 
-    # 8. Ghidra (RE phase)
+    # 7. Ghidra (RE phase)
     ghidra = shutil.which("analyzeHeadless") or next(
         (p for p in sorted(Path.home().glob("dev/ghidra_*/support/analyzeHeadless"))), None)
     if ghidra:

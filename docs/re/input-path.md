@@ -83,16 +83,19 @@ SC-style control mapping now fully RE'd: move=absolute pointer inject,
 LMB=Mouse1 pair (SelectChanging), RMB release=ReleaseMouse2(CommandMove),
 pan/zoom=minimap cam pointer, groups=MakeSquad/SendMessageToSquad.
 
-## Injection plan (shim v1)
+## Injection mechanism
 
 - EE-call shuttle on VM thread between frames: save regs, set a0/a1 + pc=fnVA,
   ra=sentinel, run until sentinel — reusable for ANY discovered fn.
 - Mouse move → `UpdatePositionAbsolute(pThe__11GAvPPointer deref, {x,y})`
 - LMB down/up → PressMouse1/ReleaseMouse1; RMB up → ReleaseMouse2 (all with a1=nullptr)
-- Fallback/comparison path: raw writes of pos fields + forced selector method.
+- Diagnostic comparison: raw writes of position fields demonstrate that the
+  screen-position members are not the rendered world-position authority.
 
-## Verification gates
+## State evidence protocol
 
-- [ ] Dynamic: confirm active selector mode during gameplay (read ptr+0x344? [+0x89*4])
-- [ ] Shuttle call of GetResolution returns plausible values on real boot
-- [ ] Injected delta moves cursor on screen (screenshot A/B)
+The authoritative capability state and verification conditions are S007–S011
+in [`../project-state.md`](../project-state.md). Subsystem evidence must include
+a real-boot shuttle call of `GetResolution`, a runtime read of the active
+selector mode, and frame A/B observations showing that distinct injected
+coordinates move the rendered cursor.
