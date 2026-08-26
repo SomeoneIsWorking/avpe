@@ -14,6 +14,7 @@ Negative responses are loud: HTTP errors raise with status + body printed.
 
 import argparse
 import json
+import os
 import struct
 import sys
 import time
@@ -21,6 +22,7 @@ import urllib.error
 import urllib.request
 
 BASE = "http://127.0.0.1:28447"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def req(method: str, path: str, body: dict | None = None) -> dict | bytes:
@@ -91,6 +93,11 @@ def main() -> int:
                         "0x49717e:2,0x3687fc:4:u32")
     p.add_argument("--hz", type=float, default=5.0)
     p.add_argument("--secs", type=float, default=10.0)
+    p = sub.add_parser("pthe")
+    p.add_argument("--syms", default="tools/pthe_syms.txt",
+                   help="file of 'addr name' lines (pThe singletons)")
+    p = sub.add_parser("snap")
+    p.add_argument("--out", required=True, help="write BMP here")
     p = sub.add_parser("waitpointer")
     p.add_argument("--addr", required=True)
     p.add_argument("--timeout", type=float, default=120.0)
@@ -129,6 +136,34 @@ def main() -> int:
                 return 1
             mask |= BUTTONS[name]
         print(json.dumps(req("POST", "/input/press", {"mask": mask, "ms": a.ms})))
+    elif a.cmd == "pthe":
+        # Dump every singleton pointer; non-null = live manager. Feed two
+        # dumps to diff to see what a button press brought to life.
+        syms = []
+        path = a.syms if os.path.isabs(a.syms) else os.path.join(ROOT, a.syms)
+        for line in open(path):
+            parts = line.split()
+            if len(parts) == 2:
+                syms.append((parts[0], parts[1]))
+        out = {}
+        for addr, name in syms:
+            r = req("GET", f"/mem/read?addr=0x{addr}&len=4")
+            raw = bytes.fromhex(r["hex"])
+            val = struct.unpack("<I", raw)[0]
+            if val:
+                out[name] = f"0x{val:08X}"
+        print(json.dumps(out, indent=None))
+    elif a.cmd == "snap":
+        r = urllib.request.Request(BASE + "/snap")
+        try:
+            with urllib.request.urlopen(r, timeout=30) as resp:
+                data = resp.read()
+        except urllib.error.HTTPError as e:
+            print(f"FATAL http {e.code}: {e.read().decode(errors='replace')}", file=sys.stderr)
+            return 1
+        with open(a.out, "wb") as f:
+            f.write(data)
+        print(f"{a.out}: {len(data)} bytes")
     elif a.cmd == "watch":
         targets = []
         for spec in a.addrs.split(","):
