@@ -15,7 +15,9 @@ COMPILE_COMMANDS = BUILD_DIR / "compile_commands.json"
 CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.cpp",
@@ -23,7 +25,9 @@ CPP_SOURCES = (
 CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.h",
 )
 CORE_SCOPED_SOURCES = {

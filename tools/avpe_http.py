@@ -10,6 +10,7 @@ Subcommands:
   eecall --function 0x00137b30 [--a0 0x... --cycle-budget 3000000]
   moveabsolute --x 0.2 --y 0.2
   mousebutton primary|secondary press|release
+  menuaction up|down|left|right
   waitpointer --addr 0x00367720 --timeout 120   (polls u32 until non-zero)
 
 Negative responses are loud: HTTP errors raise with status + body printed.
@@ -105,6 +106,8 @@ def main() -> int:
     p = sub.add_parser("mousebutton")
     p.add_argument("button", choices=("primary", "secondary"))
     p.add_argument("edge", choices=("press", "release"))
+    p = sub.add_parser("menuaction")
+    p.add_argument("action", choices=("up", "down", "left", "right"))
     p = sub.add_parser("watch")
     p.add_argument("--addrs", required=True,
                    help="comma list addr[:len[:fmt]] (fmt hex|u32|f32), e.g. "
@@ -170,6 +173,8 @@ def main() -> int:
     elif a.cmd == "mousebutton":
         print(json.dumps(req(
             "POST", "/input/mouse-button", {"button": a.button, "edge": a.edge})))
+    elif a.cmd == "menuaction":
+        print(json.dumps(req("POST", "/input/menu-action", {"action": a.action})))
     elif a.cmd == "pthe":
         # Dump every singleton pointer; non-null = live manager. Feed two
         # dumps to diff to see what a button press brought to life.
