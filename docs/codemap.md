@@ -23,9 +23,11 @@ game's own pointer/input structures directly from native keyboard/mouse.
 - [x] CHD extracted & verified; ELF has full symtab (~15k symbols, NOT stripped)
 - [x] Ghidra: r5900 import (emotionengine-reloaded ext) — see docs/re/input-path.md
 - [x] Input architecture mapped to function-level (CPS2Input/GInputDevice/GfsPointer)
-- [ ] Qt+deps self-build (scratch/deps) — running in background
-- [ ] PCSX2 baseline build against scratch/deps
-- [ ] C++ shim in fork: EE-call shuttle + KB/M capture + control channel
+- [x] Qt+deps self-build (scratch/deps) via upstream CI script
+- [x] PCSX2 baseline build at scratch/build/bin/pcsx2-qt
+- [x] HEADLESS BOOT VERIFIED: `./run.sh launch --seconds N` boots SLUS_20147
+      (FMVs play, NTSC vsync ticks, clean SIGTERM shutdown). Audio = Null stream,
+      all windows hidden under -nogui. Gotchas recorded in docs/re/headless.md
 - [ ] Dynamic verify: selector mode, injected cursor movement
 
 ## Verification commands
