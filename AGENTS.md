@@ -23,6 +23,10 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeAssetByteTrace.*` owns bounded canonical-chunk assembly and ISO-oracle
   byte evidence. `AVPE.cpp` only exposes its diagnostic snapshot/capture routes;
   byte tracing is never used for timing evidence.
+- `NativeLoadTiming.*` owns the grounded TBF-open through post-MENU01-search
+  seek boundary, actual-backend identity, and guest/host timing capture.
+  `AVPE.cpp` only exposes its snapshot route; timing runs keep byte tracing
+  disabled.
 - `src/avpe/native_assets.py`, `iso9660.py`, and `raw_sector.py` own native
   asset-store provisioning. Derived game bytes stay under ignored `scratch/`;
   only the schema, identity anchors, validation logic, and tests are tracked.

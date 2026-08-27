@@ -3,7 +3,6 @@
 
 import argparse
 import hashlib
-import http.client
 import json
 import os
 import secrets
@@ -12,25 +11,26 @@ import socket
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 
 from avpe.cli import load_env
 from avpe.asset_byte_compare import asset_byte_trace_is_ready
+from avpe.load_timing import load_timing_sample_is_ready
 from avpe.control_test import (
     ABSENT_NATIVE_ASSET_SENTINEL,
     EXPECTED_SERIAL,
     asset_trace_is_verified,
     build_argv,
     build_environment,
+    find_bios,
     native_asset_reads_are_verified,
     native_movie_reads_are_verified,
     native_stream_reads_are_verified,
     oracle_asset_fallback_is_verified,
     status_is_verified,
 )
+from avpe.control_http import read_status, request_bytes, request_json, request_shutdown
 from avpe.cursor import CursorObservation, detect_cursor
 from avpe.memory_card_probe import prepare_memory_card_probe
 from avpe.native_assets import NativeAssetError, provision_native_assets
@@ -41,19 +41,6 @@ PCSX2 = ROOT / "scratch" / "build" / "bin" / "pcsx2-qt"
 DATA_DIR = ROOT / "scratch" / "control-test" / "pcsx2-home"
 LOG_DIR = ROOT / "scratch" / "control-test" / "logs"
 NATIVE_ASSET_DIR = ROOT / "scratch" / "native-assets"
-
-
-def find_bios(directory: str) -> Path | None:
-    if not directory:
-        return None
-    root = Path(directory)
-    if not root.is_dir():
-        return None
-    preferred = root / "scph39001.bin"
-    if preferred.is_file():
-        return preferred
-    candidates = sorted(root.glob("*.bin")) + sorted(root.glob("*.BIN"))
-    return next((path for path in candidates if path.stat().st_size >= 2_000_000), None)
 
 
 def stop_process_group(proc: subprocess.Popen[bytes]) -> None:
@@ -71,62 +58,6 @@ def stop_process_group(proc: subprocess.Popen[bytes]) -> None:
         except ProcessLookupError:
             pass
         proc.wait()
-
-
-def read_status(port: int) -> dict[str, str] | None:
-    try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/status", timeout=0.5) as response:
-            body = json.loads(response.read())
-    except (OSError, UnicodeError, ValueError, http.client.HTTPException,
-            urllib.error.URLError, json.JSONDecodeError):
-        return None
-    return body if isinstance(body, dict) else None
-
-
-def request_shutdown(port: int) -> bool:
-    request = urllib.request.Request(
-        f"http://127.0.0.1:{port}/shutdown", data=b"{}", method="POST",
-        headers={"Content-Type": "application/json", "Connection": "close"})
-    try:
-        with urllib.request.urlopen(request, timeout=2) as response:
-            return response.status == 202
-    except (OSError, http.client.HTTPException, urllib.error.URLError):
-        return False
-
-
-def request_bytes(
-    port: int,
-    method: str,
-    path: str,
-    payload: dict[str, object] | None = None,
-    timeout: float = 2.0,
-) -> tuple[int, bytes]:
-    body = None if payload is None else json.dumps(payload).encode()
-    request = urllib.request.Request(
-        f"http://127.0.0.1:{port}{path}", data=body, method=method,
-        headers={"Content-Type": "application/json", "Connection": "close"})
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.status, response.read()
-    except urllib.error.HTTPError as error:
-        return error.code, error.read()
-    except (OSError, http.client.HTTPException, urllib.error.URLError) as error:
-        raise RuntimeError(f"{method} {path} failed: {error}") from error
-
-
-def request_json(
-    port: int,
-    method: str,
-    path: str,
-    payload: dict[str, object],
-) -> tuple[int, dict[str, object] | None, str]:
-    status, body = request_bytes(port, method, path, payload)
-    detail = body.decode(errors="replace").strip()
-    try:
-        parsed = json.loads(body)
-    except json.JSONDecodeError:
-        return status, None, detail
-    return status, parsed if isinstance(parsed, dict) else None, detail
 
 
 def mouse_button(
@@ -198,6 +129,21 @@ def await_asset_byte_trace(port: int, deadline: float, mode: str) -> dict[str, o
                 return trace
         time.sleep(0.05)
     raise RuntimeError(f"complete {mode} asset byte trace was not observed: {trace}")
+
+
+def await_load_timing(port: int, deadline: float, mode: str) -> dict[str, object]:
+    timing: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, body = request_bytes(port, "GET", "/assets/load-timing")
+        if status != 200:
+            raise RuntimeError(f"asset load timing returned HTTP {status}")
+        candidate = json.loads(body)
+        if isinstance(candidate, dict):
+            timing = candidate
+            if load_timing_sample_is_ready(timing, mode):
+                return timing
+        time.sleep(0.05)
+    raise RuntimeError(f"complete {mode} asset load timing was not observed: {timing}")
 
 
 def capture_iso_oracle(port: int) -> None:
@@ -846,6 +792,10 @@ def main() -> int:
                         help="capture bounded optical or native SHA-256 chunks from a clean boot")
     parser.add_argument("--asset-byte-trace-output", type=Path,
                         help="write --probe-asset-byte-trace JSON to this scratch path")
+    parser.add_argument("--probe-load-timing", choices=("oracle", "native"),
+                        help="capture the grounded startup load interval from a clean boot")
+    parser.add_argument("--load-timing-output", type=Path,
+                        help="write --probe-load-timing JSON to this scratch path")
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
     args = parser.parse_args()
@@ -889,6 +839,14 @@ def main() -> int:
         parser.error("--probe-asset-byte-trace requires --memory-card-source until native saves replace the card path")
     if args.asset_byte_trace_output is not None and not args.probe_asset_byte_trace:
         parser.error("--asset-byte-trace-output requires --probe-asset-byte-trace")
+    if args.probe_load_timing and args.statefile is not None:
+        parser.error("--probe-load-timing requires a clean boot without --statefile")
+    if args.probe_load_timing and args.memory_card_source is None:
+        parser.error("--probe-load-timing requires --memory-card-source until native saves replace the card path")
+    if args.load_timing_output is not None and not args.probe_load_timing:
+        parser.error("--load-timing-output requires --probe-load-timing")
+    if args.probe_load_timing and (native_asset_probe_count or args.probe_asset_byte_trace):
+        parser.error("--probe-load-timing must run without other asset probes or byte tracing")
     probe_requested = (
         native_input_probe_requested
         or args.probe_native_assets
@@ -896,6 +854,7 @@ def main() -> int:
         or args.probe_native_movie_reads
         or args.probe_native_stream_reads
         or args.probe_asset_byte_trace
+        or args.probe_load_timing
     )
 
     if not PCSX2.is_file():
@@ -914,7 +873,8 @@ def main() -> int:
 
     native_asset_root: Path | None = None
     if (args.probe_native_asset_reads or args.probe_native_movie_reads
-            or args.probe_native_stream_reads or args.probe_asset_byte_trace):
+            or args.probe_native_stream_reads or args.probe_asset_byte_trace
+            or args.probe_load_timing == "native"):
         try:
             native_asset_root = provision_native_assets(chd, NATIVE_ASSET_DIR)
         except (NativeAssetError, OSError) as error:
@@ -944,7 +904,8 @@ def main() -> int:
     nonce = secrets.token_hex(16)
     argv = build_argv(PCSX2, DATA_DIR, LOG_DIR / "emulog.txt", chd, args.statefile)
     env = build_environment(
-        os.environ, port, nonce, native_asset_root, args.probe_asset_byte_trace)
+        os.environ, port, nonce, native_asset_root, args.probe_asset_byte_trace,
+        args.probe_load_timing)
     stdout = (LOG_DIR / "stdout.log").open("wb")
     try:
         port_reservation.close()
@@ -972,6 +933,7 @@ def main() -> int:
     native_movie_reads_proof: dict[str, object] | None = None
     native_stream_reads_proof: dict[str, object] | None = None
     asset_byte_trace: dict[str, object] | None = None
+    load_timing: dict[str, object] | None = None
     probe_error: str | None = None
     graceful_shutdown = False
     try:
@@ -1007,6 +969,11 @@ def main() -> int:
                             capture_iso_oracle(port)
                         asset_byte_trace = await_asset_byte_trace(
                             port, deadline, args.probe_asset_byte_trace)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_load_timing and probe_error is None:
+                    try:
+                        load_timing = await_load_timing(port, deadline, args.probe_load_timing)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_pointer and probe_error is None:
@@ -1047,6 +1014,7 @@ def main() -> int:
         stop_process_group(proc)
         stdout.close()
 
+    card_proof: dict[str, object] | None = None
     if card_probe is not None:
         try:
             card_proof = card_probe.observe()
@@ -1120,6 +1088,19 @@ def main() -> int:
             f"control-test asset-byte-trace mode={args.probe_asset_byte_trace} "
             f"output={output}",
             flush=True)
+    if args.probe_load_timing:
+        if load_timing is None:
+            detail = probe_error or "probe did not run"
+            print(f"FATAL {args.probe_load_timing} load timing failed: {detail}; see {LOG_DIR}",
+                  file=sys.stderr)
+            return 1
+        load_timing["control_status"] = boot_status
+        load_timing["memory_card_proof"] = card_proof
+        output = args.load_timing_output or (
+            LOG_DIR.parent / f"load-timing-{args.probe_load_timing}.json")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(load_timing, indent=2, sort_keys=True) + "\n")
+        print(f"control-test load-timing mode={args.probe_load_timing} output={output}", flush=True)
     if args.probe_native_pointer:
         if pointer_proof is None:
             detail = probe_error or "probe did not run"
