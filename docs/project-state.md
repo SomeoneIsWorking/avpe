@@ -417,6 +417,12 @@ generation change. A surfaceless/null-muted clean boot observed four fills,
 handle, and zero live handles after 53 native TBF reads; bootstrap remained
 optical and native fallthrough stayed zero.
 
+Fresh post-landing captures on project `89cc05a` and fork `c0c6611` then
+repeated the native/ISO differential through the shared cache: all 96 canonical
+chunks across TBF, four startup movies, and MENU01 matched, the copied-digest
+control was rejected at TBF offset zero, and both isolated card copies remained
+byte-identical.
+
 Guest reset clears synthetic mappings after descriptors close while retaining
 the admitted store; shutdown and real disc-epoch changes close native
 descriptors before unbinding the cache/store. Save-state version 1 serializes
