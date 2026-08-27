@@ -52,7 +52,8 @@ CPP_HEADERS = (
 )
 CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp": (
-        (1, 12), (264, 311), (414, 437), (603, 706), (841, 910)),
+        (1, 12), (264, 311), (414, 437), (603, 706), (841, 927),
+        (983, 1047), (1466, 1481)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (563, 620), (688, 720)),
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": (

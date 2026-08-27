@@ -16,8 +16,10 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeMenuInput.*` owns discovery and invocation of AVP:E keyboard and
   pointer menu actions.
 - `NativeAssets.*` owns title gating, the AVP:E disc namespace, native-store
-  policy, and host-file replacement. `IopBios.cpp` provides only the grounded
-  `ioman` hook; it must not absorb game paths, manifests, or cache policy.
+  policy, ioman host-file replacement, and FSSOUND's direct cdvdman sector
+  mapping. `IopBios.cpp` provides only grounded narrow hooks; it must not
+  absorb game paths, manifests, or cache policy, and ordinary disc traffic
+  remains on the emulator oracle.
 - `src/avpe/native_assets.py`, `iso9660.py`, and `raw_sector.py` own native
   asset-store provisioning. Derived game bytes stay under ignored `scratch/`;
   only the schema, identity anchors, validation logic, and tests are tracked.
