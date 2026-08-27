@@ -21,8 +21,15 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp",
-    ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.cpp",
-    ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/EmulationThread.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/HostWindow.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/Main.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/NativeWindow.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/RenderSurface.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/Runtime.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/Settings.cpp",
 )
 CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.h",
@@ -31,8 +38,14 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.h",
-    ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.h",
-    ROOT / "thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.h",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/EmulationThread.h",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/HostBackend.h",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.h",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/HostWindow.h",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/NativeWindow.h",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/RenderSurface.h",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/Runtime.h",
+    ROOT / "thirdparty/pcsx2/pcsx2-avpe/Settings.h",
 )
 CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (

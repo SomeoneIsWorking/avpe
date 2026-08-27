@@ -88,10 +88,12 @@ class ConfigurationIsolationTests(unittest.TestCase):
 
 
 class ProductLaunchPolicyTests(unittest.TestCase):
-    def test_product_uses_only_the_avpe_host_mode(self) -> None:
+    def test_product_uses_the_standalone_avpe_frontend(self) -> None:
         argv = build_product_argv("/assets/game.chd")
 
-        self.assertIn("-avpe-host", argv)
+        self.assertEqual(Path(argv[0]).name, "avpe")
+        self.assertNotIn("pcsx2-qt", argv[0])
+        self.assertNotIn("-avpe-host", argv)
         self.assertNotIn("-avpe-control-test", argv)
         self.assertNotIn("-nogui", argv)
 

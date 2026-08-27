@@ -15,10 +15,13 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeInput.*` owns gameplay pointer and button semantics.
 - `NativeMenuInput.*` owns discovery and invocation of AVP:E keyboard and
   pointer menu actions.
-- `thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.*` owns product key-to-action
+- `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*` owns product key-to-action
   and mouse-to-action policy; `HostWindow.*` owns only platform event capture
   and window lifecycle.
   Neither may emulate keyboard/mouse as a DualShock.
+- `thirdparty/pcsx2/pcsx2-avpe/` is the standalone product frontend. It links
+  the `PCSX2` emulation-core library but never the `pcsx2-qt` application or
+  its `MainWindow`, game list, debugger, dialogs, or settings UI.
 - `AVPE.cpp` owns the diagnostic control transport only. Its routes may carry
   proof intent but do not define shipping input policy.
 
