@@ -20,6 +20,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStateSnapshot.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStore.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeCdvdCompletion.cpp",
@@ -52,6 +53,7 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStateSnapshot.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStore.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeCdvdCompletion.h",
@@ -70,7 +72,7 @@ CPP_HEADERS = (
 )
 CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp": (
-        (1, 35), (265, 312), (415, 580), (604, 708), (843, 936),
+        (1, 35), (265, 312), (415, 708), (843, 936),
         (992, 1120), (1510, 1565), (1600, 1819)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (563, 620), (688, 720)),
@@ -83,7 +85,7 @@ CORE_SCOPED_SOURCES = {
         (1, 10), (47, 51), (398, 410), (779, 788), (2_205, 2_220)),
 }
 CORE_SCOPED_HEADERS = {
-    ROOT / "thirdparty/pcsx2/pcsx2/IopBios.h": ((69, 77),),
+    ROOT / "thirdparty/pcsx2/pcsx2/IopBios.h": ((64, 90),),
     ROOT / "thirdparty/pcsx2/pcsx2/SaveState.h": (
         (20, 32), (70, 100), (345, 358)),
     ROOT / "thirdparty/pcsx2/pcsx2/VMManager.h": ((210, 220),),

@@ -26,6 +26,11 @@ surface ownership.
   verifies the source hash is unchanged, and records byte-level changes in
   `scratch/control-test/memory-card-proof.json`. Memory cards remain disabled
   when the option is absent.
+- Native I/O recovery runs select exactly one of
+  `--probe-native-ioman-state-recovery` or
+  `--probe-native-cdvd-state-recovery`. They use clean boot, a copied card,
+  shipping `/state/save` and `/state/load`, and ignored state/proof artifacts
+  under `scratch/control-test/`; they never reuse `--statefile` input.
 - Each run reserves an available loopback port and generates a nonce. Success
   requires the child to echo that nonce plus its actual `control-test`,
   `surfaceless`, and `null-muted` runtime state, target serial, and CRC.

@@ -25,7 +25,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   `NativeCdvdCompletion.*` owns bounded one-shot pairing between a claimed
   FSSOUND sector read and the matching caller's immediate `sceCdGetError`.
   Native descriptors and synthetic CDVD mappings are frozen by PCSX2's HLE
-  handle save-state owner rather than by any diagnostic route.
+  handle save-state owner. `NativeAssetStateSnapshot.*` only exposes an atomic
+  CPU-thread description of that production state for save/load diagnostics;
+  it does not own serialization.
   `IopBios.cpp` provides only grounded narrow hooks; it must not absorb game
   paths, manifests, or cache policy, and ordinary disc traffic remains on the
   emulator oracle.
@@ -41,6 +43,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   only the schema, identity anchors, validation logic, and tests are tracked.
 - `src/avpe/native_asset_cache_probe.py` owns the bounded-cache evidence
   policy; `tools/run_control_test.py` only orchestrates its surfaceless probe.
+- `src/avpe/native_asset_probe.py` owns native asset lifecycle, byte/timing
+  polling, and live save/load recovery proof policy; the runner only selects
+  and reports those surfaceless probes.
 - `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*` owns product key-to-action
   and mouse-to-action policy; `HostWindow.*` owns only platform event capture
   and window lifecycle.

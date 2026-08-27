@@ -14,8 +14,8 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | GET `/mem/scan` | `start&end&hex=` (range ≤4MiB) | first 16 match addresses + hit count |
 | GET `/debug` | — | `{"transfers","lastfifo","inject"}` host-side truth |
 | POST `/mem/write` | `{"addr":"0x..","hex":"aabb.."}` | raw writes (vtlb_ramWrite) |
-| POST `/state/save` | `{"path":"/abs/x.p2s"}` | CPU-thread save + flush |
-| POST `/state/load` | `{"path":"/abs/x.p2s"}` | CPU-thread load |
+| POST `/state/save` | `{"path":"/abs/x.p2s"}` | CPU-thread save + flush; success includes the native asset state captured immediately before serialization |
+| POST `/state/load` | `{"path":"/abs/x.p2s"}` | CPU-thread load; success includes the native asset state captured immediately after restoration |
 | POST `/input/press` | `{"mask":512,"ms":250}` | PadDualshock2::Inputs bits, auto-expire |
 | POST `/input/move-absolute` | `{"x":0.5,"y":0.5}` | normalized coordinates through the game-native absolute-pointer owner |
 | POST `/input/mouse-button` | `{"button":"primary","edge":"press"}` | typed edge through the corresponding original AVP:E mouse handler |
@@ -43,6 +43,9 @@ The nonce prevents a stale or unrelated process from satisfying the check.
 - `/status` → Running / SLUS-20147 / 64DA78A3
 - `/mem/read` byte-exact vs ELF file contents @0x00100000 (addressing proven)
 - `/state/save` → scratch/states/title.p2s (4.9 MB); `/state/load` round-trips
+- Live native recovery runs use the same routes and require exact atomic
+  `native_asset_state` equality across save/load: descriptor fd/path/cursor,
+  CDVD path/base-LSN/size/SHA-256, next-LSN, and zero active completion tokens.
 - `/mem/write` read-back identical
 - `/ee/call` invoked `CRenderer::GetResolution` at `0x00137b30`, returned
   `v0=0x003c9fe0` after 19 cycles, and the pointed structure read

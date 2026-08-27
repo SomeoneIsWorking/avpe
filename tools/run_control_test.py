@@ -11,29 +11,31 @@ import socket
 import subprocess
 import sys
 import time
-from collections.abc import Callable
 from pathlib import Path
 
 from avpe.cli import load_env
-from avpe.asset_byte_compare import asset_byte_trace_is_ready
-from avpe.load_timing import load_timing_sample_is_ready
 from avpe.control_test import (
-    ABSENT_NATIVE_ASSET_SENTINEL,
     EXPECTED_SERIAL,
-    asset_trace_is_verified,
     build_argv,
     build_environment,
     find_bios,
-    native_asset_reads_are_verified,
-    native_movie_reads_are_verified,
-    native_stream_reads_are_verified,
-    oracle_asset_fallback_is_verified,
     status_is_verified,
 )
 from avpe.control_http import read_status, request_bytes, request_json, request_shutdown
 from avpe.cursor import CursorObservation, detect_cursor
 from avpe.memory_card_probe import prepare_memory_card_probe
-from avpe.native_asset_cache_probe import await_asset_cache, build_cache_proof
+from avpe.native_asset_probe import (
+    await_asset_byte_trace,
+    await_load_timing,
+    await_native_stream_reads,
+    capture_iso_oracle,
+    probe_native_asset_cache,
+    probe_native_assets,
+    probe_native_cdvd_state_recovery,
+    probe_native_ioman_state_recovery,
+    probe_native_movie_reads,
+    probe_native_stream_reads,
+)
 from avpe.native_assets import (
     NativeAssetError,
     manifest_sha256,
@@ -99,124 +101,6 @@ def menu_pointer_state(port: int) -> tuple[int, dict[str, object] | None, str]:
     except json.JSONDecodeError:
         return status, None, detail
     return status, parsed if isinstance(parsed, dict) else None, detail
-
-
-def await_asset_trace(
-    port: int,
-    deadline: float,
-    verifier: Callable[[dict[str, object] | None], bool],
-    description: str,
-) -> dict[str, object]:
-    trace: dict[str, object] | None = None
-    while time.monotonic() < deadline:
-        status, body = request_bytes(port, "GET", "/assets/opens")
-        if status != 200:
-            raise RuntimeError(f"{description} returned HTTP {status}")
-        candidate = json.loads(body)
-        if isinstance(candidate, dict):
-            trace = candidate
-            if verifier(trace):
-                return trace
-        time.sleep(0.05)
-    raise RuntimeError(f"{description} was not observed: {trace}")
-
-
-def await_asset_byte_trace(port: int, deadline: float, mode: str) -> dict[str, object]:
-    trace: dict[str, object] | None = None
-    while time.monotonic() < deadline:
-        status, body = request_bytes(port, "GET", "/assets/byte-trace")
-        if status != 200:
-            raise RuntimeError(f"asset byte trace returned HTTP {status}")
-        candidate = json.loads(body)
-        if isinstance(candidate, dict):
-            trace = candidate
-            if asset_byte_trace_is_ready(trace, mode):
-                return trace
-        time.sleep(0.05)
-    raise RuntimeError(f"complete {mode} asset byte trace was not observed: {trace}")
-
-
-def await_load_timing(port: int, deadline: float, mode: str) -> dict[str, object]:
-    timing: dict[str, object] | None = None
-    while time.monotonic() < deadline:
-        status, body = request_bytes(port, "GET", "/assets/load-timing")
-        if status != 200:
-            raise RuntimeError(f"asset load timing returned HTTP {status}")
-        candidate = json.loads(body)
-        if isinstance(candidate, dict):
-            timing = candidate
-            if load_timing_sample_is_ready(timing, mode):
-                return timing
-        time.sleep(0.05)
-    raise RuntimeError(f"complete {mode} asset load timing was not observed: {timing}")
-
-
-def capture_iso_oracle(port: int) -> None:
-    status, body = request_bytes(port, "POST", "/assets/capture-iso-oracle", {})
-    if status != 200:
-        raise RuntimeError(
-            f"ISO oracle capture returned HTTP {status}: "
-            f"{body.decode(errors='replace').strip()}"
-        )
-
-
-def probe_native_assets(
-    port: int,
-    deadline: float,
-    require_native_reads: bool,
-) -> dict[str, object]:
-    verifier = (
-        native_asset_reads_are_verified
-        if require_native_reads
-        else oracle_asset_fallback_is_verified
-    )
-    expected = "native TBF reads" if require_native_reads else "the TBF archive"
-    trace = await_asset_trace(port, deadline, verifier, expected)
-    policy: dict[str, str] | None = None
-    if require_native_reads:
-        cases = {
-            "native": ("cdrom0:/TBD/TBF.TBF;1", "read", "native-file"),
-            "write": ("cdrom0:/TBD/TBF.TBF;1", "write", "refused-access"),
-            "traversal": ("cdrom0:/TBD/../SLUS_201.47;1", "read", "refused-access"),
-            "missing": ("cdrom0:/TBD/__AVPE_MISSING__.TBD;1", "read", "refused-missing"),
-            "bootstrap": ("cdrom0:/SLUS_201.47;1", "read", "unhandled"),
-        }
-        policy = {}
-        for name, (path, access, expected) in cases.items():
-            status, result, detail = request_json(
-                port, "POST", "/assets/resolve", {"path": path, "access": access})
-            if status != 200 or result is None or result.get("disposition") != expected:
-                raise RuntimeError(
-                    f"native asset policy {name} expected {expected}, "
-                    f"got HTTP {status}: {detail}")
-            policy[name] = expected
-    proof = {
-        "trace": trace,
-        "positive": (
-            "TBD/TBF.TBF opened and read through native host storage"
-            if require_native_reads
-            else "TBD/TBF.TBF returned to the original IOP implementation"
-        ),
-        "oracle_bootstrap": "SLUS_201.47 returned to the original IOP implementation",
-        "policy": policy,
-        "negative": {
-            "sentinel": ABSENT_NATIVE_ASSET_SENTINEL,
-            "observed_count": 0,
-        },
-    }
-    (LOG_DIR.parent / "native-assets-proof.json").write_text(
-        json.dumps(proof, indent=2, sort_keys=True) + "\n")
-    return proof
-
-
-def probe_native_asset_cache(port: int, deadline: float) -> dict[str, object]:
-    asset_proof = probe_native_assets(port, deadline, True)
-    snapshot = await_asset_cache(port, deadline)
-    proof = build_cache_proof(asset_proof, snapshot)
-    (LOG_DIR.parent / "native-asset-cache-proof.json").write_text(
-        json.dumps(proof, indent=2, sort_keys=True) + "\n"
-    )
-    return proof
 
 
 def stable_cursor_snapshot(
@@ -733,43 +617,6 @@ def probe_native_menu_activation(port: int, deadline: float) -> dict[str, object
     return proof
 
 
-def probe_native_movie_reads(port: int, deadline: float) -> dict[str, object]:
-    asset_proof = probe_native_assets(port, deadline, True)
-    trace = await_asset_trace(
-        port,
-        deadline,
-        native_movie_reads_are_verified,
-        "complete native EALOGO.PSS lifecycle",
-    )
-    proof = {
-        "boot_asset_boundary": asset_proof,
-        "movie": "MOVIES/EALOGO.PSS",
-        "expected_bytes": 1_687_556,
-        "trace": trace,
-    }
-    (LOG_DIR.parent / "native-movie-reads-proof.json").write_text(
-        json.dumps(proof, indent=2, sort_keys=True) + "\n")
-    return proof
-
-
-def probe_native_stream_reads(port: int, deadline: float) -> dict[str, object]:
-    asset_proof = probe_native_assets(port, deadline, True)
-    trace = await_asset_trace(
-        port,
-        deadline,
-        native_stream_reads_are_verified,
-        "native STREAMS VAG/ZIV sector reads",
-    )
-    proof = {
-        "boot_asset_boundary": asset_proof,
-        "sector_size": 2048,
-        "trace": trace,
-    }
-    (LOG_DIR.parent / "native-stream-reads-proof.json").write_text(
-        json.dumps(proof, indent=2, sort_keys=True) + "\n")
-    return proof
-
-
 def reserve_port(requested: int) -> tuple[int, socket.socket]:
     reservation = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     reservation.bind(("127.0.0.1", requested))
@@ -805,6 +652,10 @@ def main() -> int:
                         help="prove a complete native EALOGO.PSS lifecycle; requires a clean boot and --memory-card-source")
     parser.add_argument("--probe-native-stream-reads", action="store_true",
                         help="prove native STREAMS sector reads; requires a clean boot and --memory-card-source")
+    parser.add_argument("--probe-native-ioman-state-recovery", action="store_true",
+                        help="prove a live native descriptor survives save/load; requires a clean boot and --memory-card-source")
+    parser.add_argument("--probe-native-cdvd-state-recovery", action="store_true",
+                        help="prove a native CDVD mapping survives save/load; requires a clean boot and --memory-card-source")
     parser.add_argument("--probe-asset-byte-trace", choices=("oracle", "native"),
                         help="capture bounded optical or native SHA-256 chunks from a clean boot")
     parser.add_argument("--asset-byte-trace-output", type=Path,
@@ -840,6 +691,8 @@ def main() -> int:
         args.probe_native_asset_cache,
         args.probe_native_movie_reads,
         args.probe_native_stream_reads,
+        args.probe_native_ioman_state_recovery,
+        args.probe_native_cdvd_state_recovery,
     ))
     if native_asset_probe_count > 1:
         parser.error("choose only one native asset probe")
@@ -851,6 +704,14 @@ def main() -> int:
         parser.error("--probe-native-stream-reads requires a clean boot without --statefile")
     if args.probe_native_stream_reads and args.memory_card_source is None:
         parser.error("--probe-native-stream-reads requires --memory-card-source until native saves replace the card path")
+    native_recovery_requested = (
+        args.probe_native_ioman_state_recovery
+        or args.probe_native_cdvd_state_recovery
+    )
+    if native_recovery_requested and args.statefile is not None:
+        parser.error("native asset recovery probes require a clean boot without --statefile")
+    if native_recovery_requested and args.memory_card_source is None:
+        parser.error("native asset recovery probes require --memory-card-source until native saves replace the card path")
     if args.probe_asset_byte_trace and args.statefile is not None:
         parser.error("--probe-asset-byte-trace requires a clean boot without --statefile")
     if args.probe_asset_byte_trace and args.memory_card_source is None:
@@ -872,6 +733,7 @@ def main() -> int:
         or args.probe_native_asset_cache
         or args.probe_native_movie_reads
         or args.probe_native_stream_reads
+        or native_recovery_requested
         or args.probe_asset_byte_trace
         or args.probe_load_timing
     )
@@ -894,7 +756,8 @@ def main() -> int:
     native_asset_manifest_sha256: str | None = None
     if (args.probe_native_asset_reads or args.probe_native_asset_cache
             or args.probe_native_movie_reads
-            or args.probe_native_stream_reads or args.probe_asset_byte_trace
+            or args.probe_native_stream_reads or native_recovery_requested
+            or args.probe_asset_byte_trace
             or args.probe_load_timing == "native"):
         try:
             native_asset_root = provision_native_assets(chd, NATIVE_ASSET_DIR)
@@ -961,6 +824,7 @@ def main() -> int:
     native_asset_cache_proof: dict[str, object] | None = None
     native_movie_reads_proof: dict[str, object] | None = None
     native_stream_reads_proof: dict[str, object] | None = None
+    native_asset_recovery_proof: dict[str, object] | None = None
     asset_byte_trace: dict[str, object] | None = None
     load_timing: dict[str, object] | None = None
     probe_error: str | None = None
@@ -973,30 +837,57 @@ def main() -> int:
                 if args.probe_native_assets or args.probe_native_asset_reads:
                     try:
                         native_assets_proof = probe_native_assets(
-                            port, deadline, args.probe_native_asset_reads)
+                            port,
+                            deadline,
+                            args.probe_native_asset_reads,
+                            LOG_DIR.parent,
+                        )
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_asset_cache:
                     try:
-                        native_asset_cache_proof = probe_native_asset_cache(port, deadline)
+                        native_asset_cache_proof = probe_native_asset_cache(
+                            port, deadline, LOG_DIR.parent
+                        )
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_movie_reads:
                     try:
-                        native_movie_reads_proof = probe_native_movie_reads(port, deadline)
+                        native_movie_reads_proof = probe_native_movie_reads(
+                            port, deadline, LOG_DIR.parent
+                        )
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_stream_reads:
                     try:
-                        native_stream_reads_proof = probe_native_stream_reads(port, deadline)
+                        native_stream_reads_proof = probe_native_stream_reads(
+                            port, deadline, LOG_DIR.parent
+                        )
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_ioman_state_recovery:
+                    try:
+                        native_asset_recovery_proof = (
+                            probe_native_ioman_state_recovery(
+                                port, deadline, LOG_DIR.parent
+                            )
+                        )
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_cdvd_state_recovery:
+                    try:
+                        native_asset_recovery_proof = (
+                            probe_native_cdvd_state_recovery(
+                                port, deadline, LOG_DIR.parent
+                            )
+                        )
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_asset_byte_trace and probe_error is None:
                     try:
-                        await_asset_trace(
+                        await_native_stream_reads(
                             port,
                             deadline,
-                            native_stream_reads_are_verified,
                             "native MENU01 stream reads before byte capture",
                         )
                         if args.probe_asset_byte_trace == "oracle":
@@ -1119,6 +1010,19 @@ def main() -> int:
             "control-test native-stream-reads proof="
             f"{json.dumps(native_stream_reads_proof, sort_keys=True)}",
             flush=True)
+    if native_recovery_requested:
+        if native_asset_recovery_proof is None:
+            detail = probe_error or "probe did not run"
+            print(
+                f"FATAL native asset state recovery probe failed: {detail}; see {LOG_DIR}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            "control-test native-asset-state-recovery proof="
+            f"{json.dumps(native_asset_recovery_proof, sort_keys=True)}",
+            flush=True,
+        )
     if args.probe_asset_byte_trace:
         if asset_byte_trace is None:
             detail = probe_error or "probe did not run"

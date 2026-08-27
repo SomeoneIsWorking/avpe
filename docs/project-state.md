@@ -440,18 +440,32 @@ exact native descriptor slots and identities plus synthetic LSN mappings and
 fails closed if the admitted store cannot restore them. The combined Clang
 build and lint pass; a pre-change v0 pause-menu state loaded successfully, and
 a new v1 clean-boot state saved, reloaded, and returned to the same running
-surfaceless/null-muted target. A live save/load with an active native descriptor
-or mapping is still required before calling native-I/O recovery verified.
+surfaceless/null-muted target.
+
+Two separate clean runtime falsifiers now cover the live state. The ioman run
+saved `INTRO.PSS` at guest fd 257 and cursor 131,072, restored the identical
+descriptor set, then advanced from 147,456 to 393,216 observed bytes without a
+reopen or optical fallback. The CDVD run restored `MENU01.ZIV` at synthetic LSN
+3,758,096,384 with exact size 7,602,176, SHA-256, and next-LSN 3,758,100,096;
+post-load reads advanced from 65,536 to 131,072 observed bytes while matching
+completion consumption advanced from three to four. Both save/load snapshots
+had zero active completion tokens, both processes reported surfaceless and
+null-muted Running state, and both isolated source/working card hashes remained
+byte-identical. Snapshot-drift, reopen, and active-token OTHER-answer controls
+are rejected by the proof policy. Strengthened reruns also required explicit
+post-load Running/surfaceless/null-muted status and valid bounded-cache
+snapshots with zero transient host handles; the CDVD leg exercised the exact
+512-page/32 MiB resident bound and eviction path.
 
 Gap: prove native and oracle missing, short-read, and injected-error results and
-buffer effects; exercise explicit cold/warm cache protocols and live reset/
-save-state recovery; and ground a representative mission transition. Failures
-must never silently fall back. Evidence: claims C024 and C025, instruments I014
+buffer effects; exercise explicit cold/warm cache protocols and live guest
+reset; and ground a representative mission transition. Failures must never
+silently fall back. Evidence: claims C024 and C025, instruments I014
 and I015, [`re/disc-io.md`](re/disc-io.md), ignored timing artifact
 `scratch/control-test/load-timing/asset-load-timing-comparison.json`, and ignored
 cache artifact `scratch/control-test/native-asset-cache-proof.json`, claims C026
-and C027, and instruments I016 and I017. Atomic work: issue #12; resolved issue
-#13 records the native CDVD completion seam.
+through C028, and instruments I016 through I018. Atomic work: issue #12; resolved issues
+#13 and #14 record the native CDVD completion and live state-recovery seams.
 
 ### S025 — required firmware service inventory: missing
 
