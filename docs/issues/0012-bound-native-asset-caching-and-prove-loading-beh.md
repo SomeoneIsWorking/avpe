@@ -60,8 +60,29 @@ ignored evidence is
 ## Remaining
 
 - Bound cache memory and host-file lifetime and prove reset behavior.
-- Prove native/oracle missing, corrupt, short-read, and error equivalence with
-  no silent fallback.
+- Prove native/oracle missing, short-read, and injected-error return/buffer
+  equivalence with no silent fallback.
 - Define and exercise explicit cold and warm cache-state protocols.
 - Ground and measure a representative mission/level transition; the proven
   startup interval does not stand in for that transition.
+
+## Store-admission invariant
+
+Fork `fd1978a` replaces the previous “sibling manifest exists” check with a
+dedicated `NativeAssetStore` index. The launcher passes the SHA-256 of the exact
+manifest it fully validated; the core rehashes that manifest, admits only its
+strict safe member records, and checks the requested file's exact size and
+SHA-256 before returning a native asset. Size or modification-time changes
+force content revalidation, manifest bytes are rehashed on every resolution,
+and unbind changes the asset generation.
+
+Seven production-implementation C++ tests demonstrate the positive member and
+reject an unlisted member, wrong token, unsafe/duplicate records, wrong-size
+content, same-size corruption, post-validation mutation, same-size manifest
+mutation with restored timestamp, and generation change after unbind. The final
+surfaceless/null-muted runtime proof retained the expected native TBF lifecycle
+with zero fallthrough and an optical bootstrap.
+
+This fixes corrupt-store admission; it does not prove the oracle's guest return
+values or buffer effects. Those require a separate post-return IOP trace and
+remain in this issue.

@@ -3,6 +3,8 @@
 from collections.abc import Mapping
 from pathlib import Path
 
+from avpe.native_assets import MANIFEST_SHA256_ENVIRONMENT
+
 EXPECTED_SERIAL = "SLUS-20147"
 EXPECTED_NATIVE_ASSET = "tbd/tbf.tbf"
 EXPECTED_NATIVE_MOVIE = "movies/ealogo.pss"
@@ -55,6 +57,7 @@ def build_environment(
     port: int,
     nonce: str,
     native_asset_root: Path | None = None,
+    native_asset_manifest_sha256: str | None = None,
     asset_byte_trace_mode: str | None = None,
     asset_load_timing_mode: str | None = None,
 ) -> dict[str, str]:
@@ -69,8 +72,12 @@ def build_environment(
     env.pop("WAYLAND_DISPLAY", None)
     if native_asset_root is None:
         env.pop("AVPE_NATIVE_ASSET_ROOT", None)
+        env.pop(MANIFEST_SHA256_ENVIRONMENT, None)
     else:
+        if native_asset_manifest_sha256 is None:
+            raise ValueError("native asset root requires a manifest admission token")
         env["AVPE_NATIVE_ASSET_ROOT"] = str(native_asset_root.resolve())
+        env[MANIFEST_SHA256_ENVIRONMENT] = native_asset_manifest_sha256
     if asset_byte_trace_mode is None:
         env.pop("AVPE_ASSET_BYTE_TRACE", None)
     else:

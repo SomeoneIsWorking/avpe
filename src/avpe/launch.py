@@ -8,7 +8,12 @@ import sys
 from pathlib import Path
 
 from avpe.log import log
-from avpe.native_assets import NativeAssetError, provision_native_assets
+from avpe.native_assets import (
+    MANIFEST_SHA256_ENVIRONMENT,
+    NativeAssetError,
+    manifest_sha256,
+    provision_native_assets,
+)
 from avpe.pcsx2_config import ensure_product_config
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -28,10 +33,15 @@ def build_argv(chd: str) -> list[str]:
     return argv
 
 
-def build_environment(base: Mapping[str, str], native_asset_root: Path) -> dict[str, str]:
+def build_environment(
+    base: Mapping[str, str],
+    native_asset_root: Path,
+    native_asset_manifest_sha256: str,
+) -> dict[str, str]:
     env = dict(base)
     env.pop("AVPE_CONTROL_NONCE", None)
     env["AVPE_NATIVE_ASSET_ROOT"] = str(native_asset_root.resolve())
+    env[MANIFEST_SHA256_ENVIRONMENT] = native_asset_manifest_sha256
     return env
 
 
@@ -45,13 +55,16 @@ def launch(chd: str) -> int:
 
     try:
         native_asset_root = provision_native_assets(Path(chd), NATIVE_ASSET_DIR)
+        native_asset_manifest_sha256 = manifest_sha256(native_asset_root)
     except (NativeAssetError, OSError) as error:
         log("error", "launch", f"native asset provisioning failed: {error}")
         return 1
 
     ensure_product_config(DATA_DIR)
     argv = build_argv(chd)
-    env = build_environment(os.environ, native_asset_root)
+    env = build_environment(
+        os.environ, native_asset_root, native_asset_manifest_sha256
+    )
 
     log("info", "launch", "exec: " + " ".join(argv))
     out_path = ROOT / "scratch" / "logs" / "avpe-stdout.log"

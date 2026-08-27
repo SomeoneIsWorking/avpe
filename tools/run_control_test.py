@@ -33,7 +33,11 @@ from avpe.control_test import (
 from avpe.control_http import read_status, request_bytes, request_json, request_shutdown
 from avpe.cursor import CursorObservation, detect_cursor
 from avpe.memory_card_probe import prepare_memory_card_probe
-from avpe.native_assets import NativeAssetError, provision_native_assets
+from avpe.native_assets import (
+    NativeAssetError,
+    manifest_sha256,
+    provision_native_assets,
+)
 from avpe.pcsx2_config import ensure_test_config
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -872,11 +876,13 @@ def main() -> int:
         return 2
 
     native_asset_root: Path | None = None
+    native_asset_manifest_sha256: str | None = None
     if (args.probe_native_asset_reads or args.probe_native_movie_reads
             or args.probe_native_stream_reads or args.probe_asset_byte_trace
             or args.probe_load_timing == "native"):
         try:
             native_asset_root = provision_native_assets(chd, NATIVE_ASSET_DIR)
+            native_asset_manifest_sha256 = manifest_sha256(native_asset_root)
         except (NativeAssetError, OSError) as error:
             print(f"FATAL native asset store: {error}", file=sys.stderr)
             return 2
@@ -904,8 +910,14 @@ def main() -> int:
     nonce = secrets.token_hex(16)
     argv = build_argv(PCSX2, DATA_DIR, LOG_DIR / "emulog.txt", chd, args.statefile)
     env = build_environment(
-        os.environ, port, nonce, native_asset_root, args.probe_asset_byte_trace,
-        args.probe_load_timing)
+        os.environ,
+        port,
+        nonce,
+        native_asset_root=native_asset_root,
+        native_asset_manifest_sha256=native_asset_manifest_sha256,
+        asset_byte_trace_mode=args.probe_asset_byte_trace,
+        asset_load_timing_mode=args.probe_load_timing,
+    )
     stdout = (LOG_DIR / "stdout.log").open("wb")
     try:
         port_reservation.close()

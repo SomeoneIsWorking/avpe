@@ -1,3 +1,4 @@
+import hashlib
 import json
 import struct
 import tempfile
@@ -9,6 +10,7 @@ from avpe.native_assets import (
     STORE_SCHEMA,
     SUPPORTED_ANCHORS,
     NativeAssetError,
+    manifest_sha256,
     validate_native_store,
     validate_supported_image,
 )
@@ -150,6 +152,26 @@ class RawSectorTests(unittest.TestCase):
 
 
 class NativeStoreValidationTests(unittest.TestCase):
+    def test_manifest_digest_is_bound_to_the_store_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = Path(directory)
+            files = store / "files"
+            files.mkdir()
+            manifest = b'{"schema":"fixture"}\n'
+            (store / "manifest.json").write_bytes(manifest)
+
+            self.assertEqual(
+                manifest_sha256(files), hashlib.sha256(manifest).hexdigest()
+            )
+
+    def test_manifest_digest_rejects_missing_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            files = Path(directory) / "files"
+            files.mkdir()
+
+            with self.assertRaisesRegex(NativeAssetError, "manifest is missing"):
+                manifest_sha256(files)
+
     def test_rejects_wrong_revision_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             store = Path(directory)
