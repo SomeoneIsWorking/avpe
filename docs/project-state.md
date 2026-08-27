@@ -12,11 +12,10 @@ means the capability is absent.
 
 ## Current focus
 
-**S014 — native-save boundary.** Work is grounding AVP:E's profile, game-save,
-file, and memory-card call graph plus its persistent schema before a host save
-backend is designed. The reported profile-creation failure is evidence at this
-boundary, not a reason to prioritize preservation of the emulated-card path.
-Current focus is attention, not a separate state.
+**S021 — native asset-I/O boundary.** The game archive path and the live
+EE-to-IOP open seam are grounded. Work is now extending that proof across
+read/seek/close, movies, and streamed audio before a validated native store is
+allowed to claim requests. Current focus is attention, not a separate state.
 
 ## Capability inventory
 
@@ -42,7 +41,7 @@ Current focus is attention, not a separate state.
 | S018 | Desktop options are integrated into AVP:E's own menu system | missing | S010, S020 | G004 |
 | S019 | Graphics, display, and resolution settings enumerate, apply, and persist | blocked | S018 | G004 |
 | S020 | AVPE-owned host shell owns the visible window and presentation lifecycle | partial | S003, S004 | G001, G004 |
-| S021 | AVP:E disc/file access boundary and asset namespace are mapped | missing | S001 | G005 |
+| S021 | AVP:E disc/file access boundary and asset namespace are mapped | partial | S001; issue #9 | G005 |
 | S022 | User disc content provisions into a validated native asset store | blocked | S021 | G001, G005 |
 | S023 | Supported game asset requests use native host storage instead of emulated optical I/O | blocked | S021, S022 | G001, G005 |
 | S024 | Native asset I/O preserves behavior and measurably reduces loading time | blocked | S023 | G005 |
@@ -279,11 +278,25 @@ window has not been launched in this session. Runtime verification still must
 exercise boot, resize, fullscreen, focus, close, and failure reporting. Atomic
 work: issue #3.
 
-### S021 — disc/file access boundary: missing
+### S021 — disc/file access boundary: partial
 
-Missing capability: identify the EE/IOP functions, file tables, archive
-formats, sector mappings, asynchronous completion rules, and error paths that
-connect AVP:E asset requests to the emulated optical drive.
+Observed subset: the `CZFile`/`CZRiffFile`/`CTbdFile` archive path, TBFF index,
+uppercase-CRC lookup, loose fallback order, typed chunks, BWJ decompression,
+and synchronous 1 MiB read loop are grounded statically. Both PCSX2 IOP
+execution engines route `ioman`/`iomanX` imports through the same HLE boundary,
+where an unclaimed request resumes the original IOP implementation. A real
+surfaceless, null-muted boot observed 15 opens at that boundary, including the
+loose TBX/TBD probes and two `TBF.TBF` opens; the absent sentinel produced zero
+observations.
+
+Gap: trace representative movie and streamed-audio lifecycles, prove the
+read/seek/close and error contracts dynamically, map requested files to exact
+disc content, and demonstrate both claimed native reads and deliberately
+unclaimed optical fallbacks before declaring the namespace complete.
+
+Evidence: claim C017, instrument I007, issue #9, and
+[`re/disc-io.md`](re/disc-io.md). Per-run detail is in the ignored
+`scratch/control-test/native-assets-proof.json` artifact.
 
 ### S022 — native asset provisioning: blocked
 

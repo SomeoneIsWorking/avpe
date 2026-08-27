@@ -15,6 +15,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeInput.*` owns gameplay pointer and button semantics.
 - `NativeMenuInput.*` owns discovery and invocation of AVP:E keyboard and
   pointer menu actions.
+- `NativeAssets.*` owns title gating, the AVP:E disc namespace, native-store
+  policy, and host-file replacement. `IopBios.cpp` provides only the grounded
+  `ioman` hook; it must not absorb game paths, manifests, or cache policy.
 - `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*` owns product key-to-action
   and mouse-to-action policy; `HostWindow.*` owns only platform event capture
   and window lifecycle.

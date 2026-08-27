@@ -3,7 +3,12 @@ import unittest
 from pathlib import Path
 from struct import pack
 
-from avpe.control_test import build_argv, build_environment, status_is_verified
+from avpe.control_test import (
+    asset_trace_is_verified,
+    build_argv,
+    build_environment,
+    status_is_verified,
+)
 from avpe.cursor import detect_cursor
 from avpe.launch import build_argv as build_product_argv
 from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
@@ -58,6 +63,42 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertNotIn("DISPLAY", env)
         self.assertNotIn("WAYLAND_DISPLAY", env)
         self.assertEqual(env["UNRELATED"], "kept")
+
+    def test_accepts_grounded_native_asset_trace(self) -> None:
+        trace = {
+            "enabled": True,
+            "target_recognized": True,
+            "total_open_calls": 3,
+            "dropped_unique_paths": 0,
+            "paths": [
+                {"path": r"cdrom0:\TBD\TBF.TBF;1", "flags": 1, "count": 2},
+                {"path": r"cdrom0:\MOVIES\INTRO.PSS;1", "flags": 1, "count": 1},
+            ],
+        }
+
+        self.assertTrue(asset_trace_is_verified(trace))
+
+    def test_rejects_uniform_or_contaminated_native_asset_trace(self) -> None:
+        empty = {
+            "enabled": True,
+            "target_recognized": True,
+            "total_open_calls": 0,
+            "dropped_unique_paths": 0,
+            "paths": [],
+        }
+        contaminated = {
+            "enabled": True,
+            "target_recognized": True,
+            "total_open_calls": 2,
+            "dropped_unique_paths": 0,
+            "paths": [
+                {"path": "cdrom0:/TBD/TBF.TBF;1", "flags": 1, "count": 1},
+                {"path": "cdrom0:/__avpe_absent_asset__", "flags": 1, "count": 1},
+            ],
+        }
+
+        self.assertFalse(asset_trace_is_verified(empty))
+        self.assertFalse(asset_trace_is_verified(contaminated))
 
 
 class ConfigurationIsolationTests(unittest.TestCase):

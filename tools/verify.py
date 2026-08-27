@@ -16,10 +16,12 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/EmulationThread.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp",
@@ -35,6 +37,7 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.h",
@@ -48,6 +51,8 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/Settings.h",
 )
 CORE_SCOPED_SOURCES = {
+    ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp": (
+        (1, 12), (585, 600)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (563, 620), (688, 720)),
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": (
