@@ -14,6 +14,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 
 from avpe.cli import load_env
@@ -24,6 +25,8 @@ from avpe.control_test import (
     build_argv,
     build_environment,
     native_asset_reads_are_verified,
+    native_movie_reads_are_verified,
+    native_stream_reads_are_verified,
     status_is_verified,
 )
 from avpe.cursor import CursorObservation, detect_cursor
@@ -160,37 +163,38 @@ def menu_pointer_state(port: int) -> tuple[int, dict[str, object] | None, str]:
     return status, parsed if isinstance(parsed, dict) else None, detail
 
 
-def probe_native_assets(
+def await_asset_trace(
     port: int,
     deadline: float,
-    require_native_reads: bool,
+    verifier: Callable[[dict[str, object] | None], bool],
+    description: str,
 ) -> dict[str, object]:
     trace: dict[str, object] | None = None
     while time.monotonic() < deadline:
         status, body = request_bytes(port, "GET", "/assets/opens")
         if status != 200:
-            raise RuntimeError(f"native asset trace returned HTTP {status}")
+            raise RuntimeError(f"{description} returned HTTP {status}")
         candidate = json.loads(body)
         if isinstance(candidate, dict):
             trace = candidate
-            verified = (
-                native_asset_reads_are_verified(trace)
-                if require_native_reads
-                else asset_trace_is_verified(trace)
-            )
-            if verified:
-                break
+            if verifier(trace):
+                return trace
         time.sleep(0.05)
-    verified = (
-        native_asset_reads_are_verified(trace)
-        if require_native_reads
-        else asset_trace_is_verified(trace)
-    )
-    if not verified:
-        expected = "native TBF reads" if require_native_reads else "the TBF archive"
-        raise RuntimeError(f"native asset trace never observed {expected}: {trace}")
+    raise RuntimeError(f"{description} was not observed: {trace}")
 
-    assert trace is not None
+
+def probe_native_assets(
+    port: int,
+    deadline: float,
+    require_native_reads: bool,
+) -> dict[str, object]:
+    verifier = (
+        native_asset_reads_are_verified
+        if require_native_reads
+        else asset_trace_is_verified
+    )
+    expected = "native TBF reads" if require_native_reads else "the TBF archive"
+    trace = await_asset_trace(port, deadline, verifier, expected)
     policy: dict[str, str] | None = None
     if require_native_reads:
         cases = {
@@ -742,6 +746,43 @@ def probe_native_menu_activation(port: int, deadline: float) -> dict[str, object
     return proof
 
 
+def probe_native_movie_reads(port: int, deadline: float) -> dict[str, object]:
+    asset_proof = probe_native_assets(port, deadline, True)
+    trace = await_asset_trace(
+        port,
+        deadline,
+        native_movie_reads_are_verified,
+        "complete native EALOGO.PSS lifecycle",
+    )
+    proof = {
+        "boot_asset_boundary": asset_proof,
+        "movie": "MOVIES/EALOGO.PSS",
+        "expected_bytes": 1_687_556,
+        "trace": trace,
+    }
+    (LOG_DIR.parent / "native-movie-reads-proof.json").write_text(
+        json.dumps(proof, indent=2, sort_keys=True) + "\n")
+    return proof
+
+
+def probe_native_stream_reads(port: int, deadline: float) -> dict[str, object]:
+    asset_proof = probe_native_assets(port, deadline, True)
+    trace = await_asset_trace(
+        port,
+        deadline,
+        native_stream_reads_are_verified,
+        "native STREAMS VAG/ZIV sector reads",
+    )
+    proof = {
+        "boot_asset_boundary": asset_proof,
+        "sector_size": 2048,
+        "trace": trace,
+    }
+    (LOG_DIR.parent / "native-stream-reads-proof.json").write_text(
+        json.dumps(proof, indent=2, sort_keys=True) + "\n")
+    return proof
+
+
 def reserve_port(requested: int) -> tuple[int, socket.socket]:
     reservation = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     reservation.bind(("127.0.0.1", requested))
@@ -771,6 +812,10 @@ def main() -> int:
                         help="prove AVP:E asset opens reach the title-specific IOP boundary")
     parser.add_argument("--probe-native-asset-reads", action="store_true",
                         help="prove TBF reads use the validated host store while bootstrap remains optical")
+    parser.add_argument("--probe-native-movie-reads", action="store_true",
+                        help="prove a complete native EALOGO.PSS lifecycle; requires a clean boot and --memory-card-source")
+    parser.add_argument("--probe-native-stream-reads", action="store_true",
+                        help="prove native STREAMS sector reads; requires a clean boot and --memory-card-source")
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
     args = parser.parse_args()
@@ -792,12 +837,28 @@ def main() -> int:
     ))
     if native_input_probe_requested and args.statefile is None:
         parser.error("native input probes require --statefile")
-    if args.probe_native_assets and args.probe_native_asset_reads:
+    native_asset_probe_count = sum((
+        args.probe_native_assets,
+        args.probe_native_asset_reads,
+        args.probe_native_movie_reads,
+        args.probe_native_stream_reads,
+    ))
+    if native_asset_probe_count > 1:
         parser.error("choose only one native asset probe")
+    if args.probe_native_movie_reads and args.statefile is not None:
+        parser.error("--probe-native-movie-reads requires a clean boot without --statefile")
+    if args.probe_native_movie_reads and args.memory_card_source is None:
+        parser.error("--probe-native-movie-reads requires --memory-card-source until native saves replace the card path")
+    if args.probe_native_stream_reads and args.statefile is not None:
+        parser.error("--probe-native-stream-reads requires a clean boot without --statefile")
+    if args.probe_native_stream_reads and args.memory_card_source is None:
+        parser.error("--probe-native-stream-reads requires --memory-card-source until native saves replace the card path")
     probe_requested = (
         native_input_probe_requested
         or args.probe_native_assets
         or args.probe_native_asset_reads
+        or args.probe_native_movie_reads
+        or args.probe_native_stream_reads
     )
 
     if not PCSX2.is_file():
@@ -815,7 +876,7 @@ def main() -> int:
         return 2
 
     native_asset_root: Path | None = None
-    if args.probe_native_asset_reads:
+    if args.probe_native_asset_reads or args.probe_native_movie_reads or args.probe_native_stream_reads:
         try:
             native_asset_root = provision_native_assets(chd, NATIVE_ASSET_DIR)
         except (NativeAssetError, OSError) as error:
@@ -869,6 +930,8 @@ def main() -> int:
     menu_activation_proof: dict[str, object] | None = None
     menu_pointer_proof: dict[str, object] | None = None
     native_assets_proof: dict[str, object] | None = None
+    native_movie_reads_proof: dict[str, object] | None = None
+    native_stream_reads_proof: dict[str, object] | None = None
     probe_error: str | None = None
     graceful_shutdown = False
     try:
@@ -880,6 +943,16 @@ def main() -> int:
                     try:
                         native_assets_proof = probe_native_assets(
                             port, deadline, args.probe_native_asset_reads)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_movie_reads:
+                    try:
+                        native_movie_reads_proof = probe_native_movie_reads(port, deadline)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_stream_reads:
+                    try:
+                        native_stream_reads_proof = probe_native_stream_reads(port, deadline)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_pointer and probe_error is None:
@@ -954,6 +1027,28 @@ def main() -> int:
         print(
             "control-test native-assets proof="
             f"{json.dumps(native_assets_proof, sort_keys=True)}",
+            flush=True)
+    if args.probe_native_movie_reads:
+        if native_movie_reads_proof is None:
+            detail = probe_error or "probe did not run"
+            print(
+                f"FATAL native movie read probe failed: {detail}; see {LOG_DIR}",
+                file=sys.stderr)
+            return 1
+        print(
+            "control-test native-movie-reads proof="
+            f"{json.dumps(native_movie_reads_proof, sort_keys=True)}",
+            flush=True)
+    if args.probe_native_stream_reads:
+        if native_stream_reads_proof is None:
+            detail = probe_error or "probe did not run"
+            print(
+                f"FATAL native stream read probe failed: {detail}; see {LOG_DIR}",
+                file=sys.stderr)
+            return 1
+        print(
+            "control-test native-stream-reads proof="
+            f"{json.dumps(native_stream_reads_proof, sort_keys=True)}",
             flush=True)
     if args.probe_native_pointer:
         if pointer_proof is None:

@@ -8,6 +8,8 @@ from avpe.control_test import (
     build_argv,
     build_environment,
     native_asset_reads_are_verified,
+    native_movie_reads_are_verified,
+    native_stream_reads_are_verified,
     status_is_verified,
 )
 from avpe.cursor import detect_cursor
@@ -137,6 +139,82 @@ class ControlTestPolicyTests(unittest.TestCase):
         }
 
         self.assertFalse(native_asset_reads_are_verified(trace))
+
+    def test_accepts_complete_native_movie_lifecycle(self) -> None:
+        trace = {
+            "enabled": True,
+            "target_recognized": True,
+            "total_open_calls": 4,
+            "dropped_unique_paths": 0,
+            "paths": [
+                {"path": "cdrom0:/SLUS_201.47;1", "count": 1,
+                 "native_open_count": 0},
+                {"path": "cdrom0:/TBD/TBF.TBF;1", "count": 2,
+                 "native_open_count": 1, "read_calls": 2, "bytes_read": 4096},
+                {"path": r"cdrom0:\MOVIES\EALOGO.PSS;1", "count": 1,
+                 "native_open_count": 1, "read_calls": 104,
+                 "bytes_read": 1_687_556, "seek_calls": 2, "close_count": 1},
+            ],
+        }
+
+        self.assertTrue(native_movie_reads_are_verified(trace))
+
+    def test_rejects_incomplete_native_movie_lifecycle(self) -> None:
+        trace = {
+            "enabled": True,
+            "target_recognized": True,
+            "total_open_calls": 4,
+            "dropped_unique_paths": 0,
+            "paths": [
+                {"path": "cdrom0:/SLUS_201.47;1", "count": 1,
+                 "native_open_count": 0},
+                {"path": "cdrom0:/TBD/TBF.TBF;1", "count": 2,
+                 "native_open_count": 1, "read_calls": 2, "bytes_read": 4096},
+                {"path": "cdrom0:/MOVIES/EALOGO.PSS;1", "count": 1,
+                 "native_open_count": 1, "read_calls": 103,
+                 "bytes_read": 1_671_168, "seek_calls": 2, "close_count": 0},
+            ],
+        }
+
+        self.assertFalse(native_movie_reads_are_verified(trace))
+
+    def test_accepts_native_stream_sector_reads(self) -> None:
+        trace = {
+            "enabled": True,
+            "target_recognized": True,
+            "total_open_calls": 4,
+            "dropped_unique_paths": 0,
+            "paths": [
+                {"path": "cdrom0:/SLUS_201.47;1", "count": 1,
+                 "native_open_count": 0},
+                {"path": "cdrom0:/TBD/TBF.TBF;1", "count": 1,
+                 "native_open_count": 1, "read_calls": 2, "bytes_read": 4096},
+                {"path": r"cdrom0:\STREAMS\MENU01.ZIV;1", "count": 1,
+                 "native_open_count": 1, "read_calls": 3,
+                 "bytes_read": 49_152, "seek_calls": 1},
+            ],
+        }
+
+        self.assertTrue(native_stream_reads_are_verified(trace))
+
+    def test_rejects_unaligned_or_optical_stream_reads(self) -> None:
+        trace = {
+            "enabled": True,
+            "target_recognized": True,
+            "total_open_calls": 4,
+            "dropped_unique_paths": 0,
+            "paths": [
+                {"path": "cdrom0:/SLUS_201.47;1", "count": 1,
+                 "native_open_count": 0},
+                {"path": "cdrom0:/TBD/TBF.TBF;1", "count": 1,
+                 "native_open_count": 1, "read_calls": 2, "bytes_read": 4096},
+                {"path": "cdrom0:/STREAMS/MENU01.ZIV;1", "count": 1,
+                 "native_open_count": 0, "read_calls": 3,
+                 "bytes_read": 49_151, "seek_calls": 1},
+            ],
+        }
+
+        self.assertFalse(native_stream_reads_are_verified(trace))
 
 
 class ConfigurationIsolationTests(unittest.TestCase):

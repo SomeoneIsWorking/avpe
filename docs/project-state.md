@@ -12,10 +12,11 @@ means the capability is absent.
 
 ## Current focus
 
-**S023 — native asset reads.** Boot-time TBF reads now use host descriptors in
-the normal product configuration. Work is extending the same grounded proof to
-movies and streamed audio, then adding byte-level oracle comparison and
-CDVD-event exclusion. Current focus is attention, not a separate state.
+**S023 — native asset reads.** TBF, startup movies, and a representative
+streamed-audio file now use native storage through their grounded ioman and
+cdvdman boundaries. Work is adding byte-level oracle comparison, explicit
+CDVD-event exclusion, and bounded caching. Current focus is attention, not a
+separate state.
 
 ## Capability inventory
 
@@ -335,12 +336,25 @@ preserving the oracle. Live policy probes separately returned `native-file`,
 `refused-access` for write and traversal, `refused-missing`, and `unhandled`
 for bootstrap.
 
-Gap: dynamically exercise a movie and streamed-audio lifecycle, compare exact
-read slices/results against the optical oracle, prove claimed descriptors emit
-no CDVD sector/timing events, and add the bounded async/cache layer. Atomic
-work: issue #10.
+A clean-boot movie probe with an isolated formatted-card copy then completed
+`MOVIES/EALOGO.PSS` through native storage: one open, 104 reads totaling its
+exact validated 1,687,556-byte size, two seeks, and one close. Longer traces
+also completed `FOXLOGO.PSS` and `ZONOLOGO.PSS` natively. The no-card negative
+path entered `NOMEMLOGO.TBD` instead of laundering the missing precondition
+into a movie success.
 
-Evidence: claim C019, instrument I009,
+A clean-boot stream probe grounded the separate FSSOUND direct-CDVD boundary.
+`STREAMS/MENU01.ZIV` received one native search/open, one seek, and two native
+sector reads totaling exactly 49,152 bytes (24 2048-byte sectors). Synthetic
+LSNs are scoped to validated VAG/ZIV files; ordinary CDVD calls stay unhandled.
+The run was surfaceless and null-muted, shut down normally, and left the copied
+formatted card byte-identical.
+
+Gap: compare exact read slices/results against the optical oracle, explicitly
+instrument the absence of CDVD sector/timing events for both seams, and add the
+bounded async/cache layer. Atomic work: issue #10.
+
+Evidence: claims C019–C021, instruments I009–I011,
 `scratch/control-test/native-assets-proof.json` (ignored), and
 [`re/disc-io.md`](re/disc-io.md).
 

@@ -5,6 +5,8 @@ from pathlib import Path
 
 EXPECTED_SERIAL = "SLUS-20147"
 EXPECTED_NATIVE_ASSET = "tbd/tbf.tbf"
+EXPECTED_NATIVE_MOVIE = "movies/ealogo.pss"
+EXPECTED_NATIVE_MOVIE_SIZE = 1_687_556
 ABSENT_NATIVE_ASSET_SENTINEL = "__avpe_absent_asset__"
 
 
@@ -116,3 +118,49 @@ def native_asset_reads_are_verified(trace: dict[str, object] | None) -> bool:
         and isinstance(bootstrap, dict)
         and int(bootstrap.get("native_open_count", 0)) == 0
     )
+
+
+def native_movie_reads_are_verified(trace: dict[str, object] | None) -> bool:
+    if not native_asset_reads_are_verified(trace):
+        return False
+    assert trace is not None
+    paths = trace["paths"]
+    assert isinstance(paths, list)
+    movie = next((
+        entry for entry in paths
+        if isinstance(entry, dict)
+        and isinstance(entry.get("path"), str)
+        and EXPECTED_NATIVE_MOVIE in entry["path"].replace("\\", "/").casefold()
+    ), None)
+    return bool(
+        isinstance(movie, dict)
+        and int(movie.get("native_open_count", 0)) == 1
+        and int(movie.get("read_calls", 0)) > 0
+        and int(movie.get("bytes_read", 0)) == EXPECTED_NATIVE_MOVIE_SIZE
+        and int(movie.get("seek_calls", 0)) == 2
+        and int(movie.get("close_count", 0)) == 1
+    )
+
+
+def native_stream_reads_are_verified(trace: dict[str, object] | None) -> bool:
+    if not native_asset_reads_are_verified(trace):
+        return False
+    assert trace is not None
+    paths = trace["paths"]
+    assert isinstance(paths, list)
+    for entry in paths:
+        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
+            continue
+        normalized = entry["path"].replace("\\", "/").casefold()
+        bytes_read = int(entry.get("bytes_read", 0))
+        if (
+            "/streams/" in normalized
+            and normalized.removesuffix(";1").endswith((".vag", ".ziv"))
+            and int(entry.get("native_open_count", 0)) > 0
+            and int(entry.get("read_calls", 0)) > 0
+            and bytes_read > 0
+            and bytes_read % 2048 == 0
+            and int(entry.get("seek_calls", 0)) > 0
+        ):
+            return True
+    return False
