@@ -22,6 +22,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStore.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeCdvdCompletion.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp",
@@ -42,6 +43,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/Runtime.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/Settings.cpp",
     ROOT / "thirdparty/pcsx2/tests/ctest/core/avpe_native_asset_store_tests.cpp",
+    ROOT / "thirdparty/pcsx2/tests/ctest/core/avpe_native_cdvd_completion_tests.cpp",
 )
 CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.h",
@@ -52,6 +54,7 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStore.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeCdvdCompletion.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.h",
@@ -67,8 +70,8 @@ CPP_HEADERS = (
 )
 CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp": (
-        (1, 13), (265, 312), (415, 580), (604, 708), (843, 936),
-        (992, 1059), (1460, 1505), (1600, 1819)),
+        (1, 35), (265, 312), (415, 580), (604, 708), (843, 936),
+        (992, 1120), (1510, 1565), (1600, 1819)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (563, 620), (688, 720)),
     ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp": ((1, 10), (50, 57)),
@@ -148,8 +151,11 @@ def main() -> int:
             ["cmake", "--build", str(BUILD_DIR), "--target", "core_test", "-j2"],
         )
         run(
-            "native asset store production-path tests",
-            [str(CORE_TEST), "--gtest_filter=NativeAssetStoreTest.*"],
+            "native asset production-path tests",
+            [
+                str(CORE_TEST),
+                "--gtest_filter=NativeAssetStoreTest.*:NativeCdvdCompletionTest.*",
+            ],
         )
         run(
             "clang-format",

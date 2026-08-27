@@ -200,6 +200,17 @@ def native_stream_reads_are_verified(trace: dict[str, object] | None) -> bool:
     if not native_asset_reads_are_verified(trace):
         return False
     assert trace is not None
+    completion = trace.get("cdvd_completion")
+    if not isinstance(completion, dict):
+        return False
+    recorded = int(completion.get("recorded", 0))
+    if (
+        recorded <= 0
+        or int(completion.get("consumed", 0)) != recorded
+        or int(completion.get("rejected_records", -1)) != 0
+        or int(completion.get("active_tokens", -1)) != 0
+    ):
+        return False
     paths = trace["paths"]
     assert isinstance(paths, list)
     for entry in paths:

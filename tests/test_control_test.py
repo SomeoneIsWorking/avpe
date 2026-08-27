@@ -284,6 +284,13 @@ class ControlTestPolicyTests(unittest.TestCase):
             "target_recognized": True,
             "total_open_calls": 4,
             "dropped_unique_paths": 0,
+            "cdvd_completion": {
+                "recorded": 3,
+                "consumed": 3,
+                "consume_misses": 2,
+                "rejected_records": 0,
+                "active_tokens": 0,
+            },
             "paths": [
                 {"path": "cdrom0:/SLUS_201.47;1", "count": 1,
                  "native_open_count": 0, "original_fallback_count": 1},
@@ -298,6 +305,33 @@ class ControlTestPolicyTests(unittest.TestCase):
         }
 
         self.assertTrue(native_stream_reads_are_verified(trace))
+
+    def test_rejects_stream_read_with_stale_or_rejected_completion(self) -> None:
+        trace = {
+            "enabled": True,
+            "target_recognized": True,
+            "total_open_calls": 4,
+            "dropped_unique_paths": 0,
+            "cdvd_completion": {
+                "recorded": 3,
+                "consumed": 2,
+                "consume_misses": 0,
+                "rejected_records": 1,
+                "active_tokens": 1,
+            },
+            "paths": [
+                {"path": "cdrom0:/SLUS_201.47;1", "count": 1,
+                 "native_open_count": 0, "original_fallback_count": 1},
+                {"path": "cdrom0:/TBD/TBF.TBF;1", "count": 1,
+                 "native_open_count": 1, "original_fallback_count": 0,
+                 "read_calls": 2, "bytes_read": 4096},
+                {"path": "cdrom0:/STREAMS/MENU01.ZIV;1", "count": 1,
+                 "native_open_count": 1, "original_fallback_count": 0,
+                 "read_calls": 3, "bytes_read": 49_152, "seek_calls": 1},
+            ],
+        }
+
+        self.assertFalse(native_stream_reads_are_verified(trace))
 
     def test_rejects_unaligned_or_optical_stream_reads(self) -> None:
         trace = {

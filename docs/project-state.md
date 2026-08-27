@@ -417,6 +417,16 @@ generation change. A surfaceless/null-muted clean boot observed four fills,
 handle, and zero live handles after 53 native TBF reads; bootstrap remained
 optical and native fallthrough stayed zero.
 
+FSSOUND's native sector path now retains ownership of the immediate
+`sceCdGetError` result instead of consulting unrelated optical-controller
+state. A fixed-capacity one-shot token is keyed by the calling IOP stack. Six
+production tests cover matching and wrong stacks, interleaving, replacement,
+capacity rejection, and reset. The clean surfaceless/null-muted stream run
+recorded two native MENU01 reads and exactly two matching completion
+consumptions, with zero rejected records, zero active tokens, and unchanged
+card bytes; unrelated calls still missed the token owner and used cdvdman's
+original implementation.
+
 Fresh post-landing captures on project `89cc05a` and fork `c0c6611` then
 repeated the native/ISO differential through the shared cache: all 96 canonical
 chunks across TBF, four startup movies, and MENU01 matched, the copied-digest
@@ -439,8 +449,9 @@ save-state recovery; and ground a representative mission transition. Failures
 must never silently fall back. Evidence: claims C024 and C025, instruments I014
 and I015, [`re/disc-io.md`](re/disc-io.md), ignored timing artifact
 `scratch/control-test/load-timing/asset-load-timing-comparison.json`, and ignored
-cache artifact `scratch/control-test/native-asset-cache-proof.json`, claim C026,
-and instrument I016. Atomic work: issue #12.
+cache artifact `scratch/control-test/native-asset-cache-proof.json`, claims C026
+and C027, and instruments I016 and I017. Atomic work: issue #12; resolved issue
+#13 records the native CDVD completion seam.
 
 ### S025 — required firmware service inventory: missing
 
