@@ -14,10 +14,10 @@ means the capability is absent.
 
 **S024 — loading behavior and performance.** Representative native deliveries
 match the ISO oracle byte-for-byte, and the grounded startup interval now has a
-repeatable native-versus-optical timing differential. Work is bounding
-cache/prefetch behavior, proving error results and explicit cold/warm state, and
-grounding a representative mission transition. Current focus is attention, not
-a separate state.
+repeatable native-versus-optical timing differential. Work is proving failure
+equivalence and explicit cold/warm state, exercising native I/O
+recovery across guest reset and save-state load, and grounding a representative
+mission transition. Current focus is attention, not a separate state.
 
 ## Capability inventory
 
@@ -328,8 +328,9 @@ claim. It revalidates content when size or modification time changes and
 invalidates asset generations on unbind. `NativeAssets` separately title-gates
 and normalizes read-only `TBD/`, `MOVIES/`, and `STREAMS/` paths, rejects writes,
 traversal, missing members, and invalid stores, and leaves ELF/IRX bootstrap
-unclaimed. `IopBios` reuses its generic host descriptor mechanics for
-open/read/seek/close instead of duplicating OS I/O in the title module.
+unclaimed. `IopBios` uses a narrow cache-backed native descriptor adapter for
+open/read/seek/close; it keeps per-descriptor cursor semantics without retaining
+a host file descriptor.
 
 Two surfaceless/null-muted native runs observed two TBF native opens,
 41–56 host reads, 67,052–127,138 bytes, 2–4 seeks, and one close. The ELF and
@@ -405,13 +406,35 @@ manifest, membership, size, or requested-file content identity is wrong. This
 closes the previously observed arbitrary-directory and same-size corruption
 gap, but it is not native/oracle guest-result equivalence.
 
-Gap: bound cache memory/file lifetime, prove native and oracle missing,
-short-read, and injected-error results and buffer effects, define and exercise
-explicit cold/warm cache state, and ground a representative mission transition.
-Failures must never silently fall back. Evidence: claims C024 and C025,
-instruments I014 and I015, [`re/disc-io.md`](re/disc-io.md), and ignored artifact
-`scratch/control-test/load-timing/asset-load-timing-comparison.json`. Atomic work:
-issue #12.
+The shipping ioman and synthetic-CDVD paths now share immutable 64 KiB cache
+pages under an exact 512-page/32 MiB true-LRU bound. Cache fills coalesce at
+most 16 pages through one transient host handle, failed/partial fills install
+nothing, and generation changes invalidate all pages. Thirteen production C++
+tests cover unaligned and multipage delivery, hit reuse, short read, EOF,
+failed-fill retry, exact capacity/LRU eviction, explicit page drop, and store
+generation change. A surfaceless/null-muted clean boot observed four fills,
+54 hits, four resident pages (262,144 bytes), zero evictions, one peak transient
+handle, and zero live handles after 53 native TBF reads; bootstrap remained
+optical and native fallthrough stayed zero.
+
+Guest reset clears synthetic mappings after descriptors close while retaining
+the admitted store; shutdown and real disc-epoch changes close native
+descriptors before unbinding the cache/store. Save-state version 1 serializes
+exact native descriptor slots and identities plus synthetic LSN mappings and
+fails closed if the admitted store cannot restore them. The combined Clang
+build and lint pass; a pre-change v0 pause-menu state loaded successfully, and
+a new v1 clean-boot state saved, reloaded, and returned to the same running
+surfaceless/null-muted target. A live save/load with an active native descriptor
+or mapping is still required before calling native-I/O recovery verified.
+
+Gap: prove native and oracle missing, short-read, and injected-error results and
+buffer effects; exercise explicit cold/warm cache protocols and live reset/
+save-state recovery; and ground a representative mission transition. Failures
+must never silently fall back. Evidence: claims C024 and C025, instruments I014
+and I015, [`re/disc-io.md`](re/disc-io.md), ignored timing artifact
+`scratch/control-test/load-timing/asset-load-timing-comparison.json`, and ignored
+cache artifact `scratch/control-test/native-asset-cache-proof.json`, claim C026,
+and instrument I016. Atomic work: issue #12.
 
 ### S025 — required firmware service inventory: missing
 

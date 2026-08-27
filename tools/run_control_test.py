@@ -33,6 +33,7 @@ from avpe.control_test import (
 from avpe.control_http import read_status, request_bytes, request_json, request_shutdown
 from avpe.cursor import CursorObservation, detect_cursor
 from avpe.memory_card_probe import prepare_memory_card_probe
+from avpe.native_asset_cache_probe import await_asset_cache, build_cache_proof
 from avpe.native_assets import (
     NativeAssetError,
     manifest_sha256,
@@ -205,6 +206,16 @@ def probe_native_assets(
     }
     (LOG_DIR.parent / "native-assets-proof.json").write_text(
         json.dumps(proof, indent=2, sort_keys=True) + "\n")
+    return proof
+
+
+def probe_native_asset_cache(port: int, deadline: float) -> dict[str, object]:
+    asset_proof = probe_native_assets(port, deadline, True)
+    snapshot = await_asset_cache(port, deadline)
+    proof = build_cache_proof(asset_proof, snapshot)
+    (LOG_DIR.parent / "native-asset-cache-proof.json").write_text(
+        json.dumps(proof, indent=2, sort_keys=True) + "\n"
+    )
     return proof
 
 
@@ -788,6 +799,8 @@ def main() -> int:
                         help="prove AVP:E asset opens reach the title-specific IOP boundary")
     parser.add_argument("--probe-native-asset-reads", action="store_true",
                         help="prove TBF reads use the validated host store while bootstrap remains optical")
+    parser.add_argument("--probe-native-asset-cache", action="store_true",
+                        help="prove native reads populate the bounded host asset cache")
     parser.add_argument("--probe-native-movie-reads", action="store_true",
                         help="prove a complete native EALOGO.PSS lifecycle; requires a clean boot and --memory-card-source")
     parser.add_argument("--probe-native-stream-reads", action="store_true",
@@ -824,6 +837,7 @@ def main() -> int:
     native_asset_probe_count = sum((
         args.probe_native_assets,
         args.probe_native_asset_reads,
+        args.probe_native_asset_cache,
         args.probe_native_movie_reads,
         args.probe_native_stream_reads,
     ))
@@ -855,6 +869,7 @@ def main() -> int:
         native_input_probe_requested
         or args.probe_native_assets
         or args.probe_native_asset_reads
+        or args.probe_native_asset_cache
         or args.probe_native_movie_reads
         or args.probe_native_stream_reads
         or args.probe_asset_byte_trace
@@ -877,7 +892,8 @@ def main() -> int:
 
     native_asset_root: Path | None = None
     native_asset_manifest_sha256: str | None = None
-    if (args.probe_native_asset_reads or args.probe_native_movie_reads
+    if (args.probe_native_asset_reads or args.probe_native_asset_cache
+            or args.probe_native_movie_reads
             or args.probe_native_stream_reads or args.probe_asset_byte_trace
             or args.probe_load_timing == "native"):
         try:
@@ -942,6 +958,7 @@ def main() -> int:
     menu_activation_proof: dict[str, object] | None = None
     menu_pointer_proof: dict[str, object] | None = None
     native_assets_proof: dict[str, object] | None = None
+    native_asset_cache_proof: dict[str, object] | None = None
     native_movie_reads_proof: dict[str, object] | None = None
     native_stream_reads_proof: dict[str, object] | None = None
     asset_byte_trace: dict[str, object] | None = None
@@ -957,6 +974,11 @@ def main() -> int:
                     try:
                         native_assets_proof = probe_native_assets(
                             port, deadline, args.probe_native_asset_reads)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_asset_cache:
+                    try:
+                        native_asset_cache_proof = probe_native_asset_cache(port, deadline)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_movie_reads:
@@ -1062,6 +1084,19 @@ def main() -> int:
             "control-test native-assets proof="
             f"{json.dumps(native_assets_proof, sort_keys=True)}",
             flush=True)
+    if args.probe_native_asset_cache:
+        if native_asset_cache_proof is None:
+            detail = probe_error or "probe did not run"
+            print(
+                f"FATAL native asset cache probe failed: {detail}; see {LOG_DIR}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            "control-test native-asset-cache proof="
+            f"{json.dumps(native_asset_cache_proof, sort_keys=True)}",
+            flush=True,
+        )
     if args.probe_native_movie_reads:
         if native_movie_reads_proof is None:
             detail = probe_error or "probe did not run"

@@ -136,7 +136,7 @@ is retained only while canonical path, size, and modification time are stable;
 manifest bytes are rehashed on each resolution. Missing members are distinct
 from an invalid store, and unbinding invalidates the asset generation.
 
-The production implementation's seven C++ tests demonstrate both valid and
+The production implementation's eight store-focused C++ tests demonstrate both valid and
 invalid outcomes: unlisted paths, a wrong admission digest, unsafe or duplicate
 records, wrong-size content, same-size corrupt content, mutation after a valid
 resolution, exact-manifest mutation with a restored timestamp, and generation
@@ -279,9 +279,53 @@ boundary drift. Raising copied native EE values to the optical baseline was
 rejected for no measured reduction, so the comparator demonstrated both
 answers.
 
-This proves only the startup TBF-open→post-MENU01-search seek reduction. It
-does not establish bounded caching, cold/warm behavior, failure equivalence, or
-a representative mission transition.
+This timing evidence proves only the startup TBF-open→post-MENU01-search seek
+reduction. Cache bounds have separate evidence below; this timing run does not
+establish cold/warm behavior, failure equivalence, or a representative mission
+transition.
+
+## Bounded native cache and lifecycle
+
+Both claimed delivery paths now enter `NativeAssets::Read` with an admitted
+store record. `NativeAssetCache` owns immutable 64 KiB pages keyed by store
+generation, record ID, and page index. Its true-LRU capacity is exactly 512
+pages/32 MiB; a source operation coalesces at most 16 consecutive missing pages
+and opens at most one transient host stream. Only a complete coalesced read
+installs pages, so failed and partial fills cannot poison later hits.
+
+`NativeAssetFile` implements the ioman `IOManFile` contract as a record plus
+per-descriptor cursor. It has no persistent OS file descriptor. FSSOUND's
+synthetic CDVD mappings retain the same admitted record and use the same cache,
+including the original final-sector zero tail. Store validation remains the
+identity authority before every cache read.
+
+Guest reset ordering is descriptor close followed by synthetic-mapping reset;
+the admitted store and reusable pages remain bound. VM shutdown and an actual
+disc-epoch change selectively close native descriptors, reset mappings, and
+then unbind cache and store. An unexpected in-process root, token, or manifest
+change blocks rebinding until that explicit teardown, preventing old guest
+handles from crossing store generations.
+
+Save-state version 1 includes exact native descriptor indices, cursor and
+admitted size/hash identity, plus each synthetic guest path, LSN, size, and
+hash. Restore re-resolves every path through the admitted store and fails the
+whole state load on identity, descriptor-slot, seek, range, or overlap failure.
+The previous version-0 HostFS representation remains readable, but it cannot
+contain this unreleased native-host schema.
+
+The disk loader now passes the archive's checked version into `memLoadingState`;
+previously it always exposed the current build version to conditional readers.
+A real pre-change version-0 pause-menu state loaded after that correction. A
+new version-1 clean-boot state also saved, reported `0x9A590001`, reloaded, and
+returned to the same running surfaceless/null-muted target.
+
+The production cache tests demonstrate byte reuse and the opposite outcomes
+for short read, EOF, failed fill/retry, capacity eviction, and generation
+change. The surfaceless/null-muted runtime cache probe observed four fills,
+54 hits, four resident pages (262,144 bytes), one peak transient handle, and
+zero live handles after the TBF startup reads. A live reset/save-state
+round-trip with an active native descriptor or synthetic mapping is still
+required; build and unit evidence do not prove that recovery path.
 
 ## Native replacement invariants
 
@@ -298,6 +342,7 @@ a validated, read-only namespace for this title. It must continue to:
 - show that claimed imports do not return to the original IOP/CDVD path, while
   a deliberately unclaimed request does.
 
-Async host prefetch and caching belong behind `NativeAssets` after behavioral
-equivalence. The synchronous game-side `CTbdFile::ReadChunk` contract must not
-be mislabeled as asynchronous merely because the host backend can prefetch.
+Any future asynchronous prefetch belongs behind `NativeAssetCache` and must
+preserve the same bounds and failure semantics. The synchronous game-side
+`CTbdFile::ReadChunk` contract must not be mislabeled as asynchronous merely
+because the host backend can prefetch.
