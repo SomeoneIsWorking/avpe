@@ -146,7 +146,7 @@ all observed paths, including both TBF opens.
 The diagnostic policy probe calls the production resolver and separately
 demonstrates: native TBF read, refused write, refused traversal, refused missing
 file, and unhandled bootstrap. This is a partial S023 proof; it does not yet
-stand in for byte-level oracle comparison or CDVD-event exclusion.
+stand in for byte-level oracle comparison.
 
 `tools/run_control_test.py --probe-native-movie-reads` extends that proof from
 a clean boot with an isolated copy of a formatted card. It requires the exact
@@ -176,6 +176,14 @@ startup movies used native storage. The process reported surfaceless,
 null-muted operation, shut down normally, and left the source and working card
 hashes identical.
 
+The import wrappers also record the branch taken after resolution rather than
+inferring it from I/O totals. In the native clean boot, TBF, all four movies,
+and `MENU01.ZIV` recorded zero returns to the original implementation, while
+`SLUS_201.47` recorded one. In a no-store run of the same binary, both TBF
+opens recorded original fallthrough and zero native claims. A handled import
+returns directly to the guest, so the original IOP/CDVD implementation and its
+sector scheduler cannot execute for that claimed call.
+
 ## Native replacement requirements
 
 The next implementation must preserve the original path as an A/B oracle and
@@ -189,8 +197,8 @@ replace an open it must:
 - implement the existing IOP descriptor and direct CDVD sector contracts,
   including short reads, zero-tail sectors, and errors;
 - prove representative TBF and streamed-audio byte slices match the oracle;
-- show that claimed reads no longer produce CDVD sector/timing events, while a
-  deliberately unclaimed request still exercises the original path.
+- show that claimed imports do not return to the original IOP/CDVD path, while
+  a deliberately unclaimed request does.
 
 Async host prefetch and caching belong behind `NativeAssets` after behavioral
 equivalence. The synchronous game-side `CTbdFile::ReadChunk` contract must not

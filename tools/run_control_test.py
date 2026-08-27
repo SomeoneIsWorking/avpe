@@ -27,6 +27,7 @@ from avpe.control_test import (
     native_asset_reads_are_verified,
     native_movie_reads_are_verified,
     native_stream_reads_are_verified,
+    oracle_asset_fallback_is_verified,
     status_is_verified,
 )
 from avpe.cursor import CursorObservation, detect_cursor
@@ -191,7 +192,7 @@ def probe_native_assets(
     verifier = (
         native_asset_reads_are_verified
         if require_native_reads
-        else asset_trace_is_verified
+        else oracle_asset_fallback_is_verified
     )
     expected = "native TBF reads" if require_native_reads else "the TBF archive"
     trace = await_asset_trace(port, deadline, verifier, expected)
@@ -218,9 +219,9 @@ def probe_native_assets(
         "positive": (
             "TBD/TBF.TBF opened and read through native host storage"
             if require_native_reads
-            else "TBD/TBF.TBF observed through cdrom0: without native claiming"
+            else "TBD/TBF.TBF returned to the original IOP implementation"
         ),
-        "oracle_bootstrap": "SLUS_201.47 remained unclaimed",
+        "oracle_bootstrap": "SLUS_201.47 returned to the original IOP implementation",
         "policy": policy,
         "negative": {
             "sentinel": ABSENT_NATIVE_ASSET_SENTINEL,

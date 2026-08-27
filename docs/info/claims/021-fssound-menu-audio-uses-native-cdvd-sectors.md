@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: assets,audio,cdvd,native-io
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp#ResolveCdvdSearch, thirdparty/pcsx2/pcsx2/IopBios.cpp#searchFile_HLE, tools/run_control_test.py#probe_native_stream_reads
 reconfirmed: 2026-08-27
-verified_at: 2026-08-27 22:04:55
+verified_at: 2026-08-27 22:16:23
 ---
 
 ## Claim
@@ -24,3 +24,7 @@ a clean validated-store run reaches optical CDVD handling for MENU01.ZIV, return
 ## Re-confirmed 2026-08-27
 
 Fork commit bc15e1a passed the full gate and a final clean run reproduced one MENU01.ZIV native search, one seek, and 49152 bytes with bootstrap unclaimed.
+
+## Re-confirmed 2026-08-27
+
+After fork commit 2316c91, the clean run reproduced MENU01.ZIV native search/seek/read with 32768 bytes at acceptance and zero original cdvdman fallthrough.
