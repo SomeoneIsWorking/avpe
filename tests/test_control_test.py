@@ -20,7 +20,11 @@ from avpe.launch import (
     build_environment as build_product_environment,
 )
 from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
-from avpe.pcsx2_config import ensure_product_config, ensure_test_config
+from avpe.pcsx2_config import (
+    ensure_product_config,
+    ensure_test_config,
+    timing_config_identity,
+)
 
 
 class ControlTestPolicyTests(unittest.TestCase):
@@ -271,6 +275,28 @@ class ControlTestPolicyTests(unittest.TestCase):
 
 
 class ConfigurationIsolationTests(unittest.TestCase):
+    def test_timing_identity_excludes_only_qt_layout_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.ini"
+            second = Path(directory) / "second.ini"
+            first.write_text(
+                "[EmuCore/GS]\nRenderer = 13\n[UI]\n"
+                "SetupWizardIncomplete = False\nMainWindowGeometry = one\n"
+                "[GameListTableView]\nHeaderState = one\n"
+            )
+            second.write_text(
+                "[EmuCore/GS]\nRenderer = 13\n[UI]\n"
+                "SetupWizardIncomplete = False\nMainWindowGeometry = two\n"
+                "MainWindowState = two\n[GameListTableView]\nHeaderState = two\n"
+            )
+
+            self.assertEqual(
+                timing_config_identity(first), timing_config_identity(second)
+            )
+            second.write_text(second.read_text().replace("Renderer = 13", "Renderer = 12"))
+            self.assertNotEqual(
+                timing_config_identity(first), timing_config_identity(second)
+            )
     def test_existing_product_ini_is_byte_preserved(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_dir = Path(directory) / "product"

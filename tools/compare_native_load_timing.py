@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from avpe.load_timing import compare_load_timing_samples, validate_load_timing_sample
+from avpe.pcsx2_config import timing_config_identity
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -151,7 +152,7 @@ def main() -> int:
                 "mode": mode,
                 "output": str(output.relative_to(ROOT)),
                 "binary_sha256": sha256_file(PCSX2),
-                "config_sha256": sha256_file(PCSX2_INI),
+                "config_identity": timing_config_identity(PCSX2_INI),
                 "envelope_errors": validate_run_envelope(sample),
             })
 
@@ -166,7 +167,8 @@ def main() -> int:
     ]
     if any(record["binary_sha256"] != binary_sha256 for record in run_records):
         environment_errors.append("control-test binary changed between samples")
-    if len({record["config_sha256"] for record in run_records}) != 1:
+    config_identities = [record["config_identity"] for record in run_records]
+    if any(identity != config_identities[0] for identity in config_identities[1:]):
         environment_errors.append("control-test configuration changed between samples")
     if git_identity(ROOT) != repository_identity["project"] or \
             git_identity(ROOT / "thirdparty" / "pcsx2") != repository_identity["pcsx2_fork"]:
@@ -186,7 +188,7 @@ def main() -> int:
             "binary_sha256": binary_sha256,
             "disc_sha256": manifest.get("source_chd_sha256"),
             "memory_card_source_sha256": sha256_file(args.memory_card_source),
-            "config_sha256": run_records[0]["config_sha256"],
+            "config": config_identities[0],
         },
         "environment_errors": environment_errors,
         "runs": run_records,
