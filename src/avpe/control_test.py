@@ -10,6 +10,21 @@ EXPECTED_NATIVE_MOVIE_SIZE = 1_687_556
 ABSENT_NATIVE_ASSET_SENTINEL = "__avpe_absent_asset__"
 
 
+def find_bios(directory: str) -> Path | None:
+    if not directory:
+        return None
+    root = Path(directory)
+    if not root.is_dir():
+        return None
+    preferred = root / "scph39001.bin"
+    if preferred.is_file():
+        return preferred
+    candidates = sorted(root.glob("*.bin")) + sorted(root.glob("*.BIN"))
+    return next(
+        (path for path in candidates if path.stat().st_size >= 2_000_000), None
+    )
+
+
 def build_argv(
     pcsx2: Path,
     data_dir: Path,
@@ -41,6 +56,7 @@ def build_environment(
     nonce: str,
     native_asset_root: Path | None = None,
     asset_byte_trace_mode: str | None = None,
+    asset_load_timing_mode: str | None = None,
 ) -> dict[str, str]:
     env = dict(base)
     env.update({
@@ -59,6 +75,10 @@ def build_environment(
         env.pop("AVPE_ASSET_BYTE_TRACE", None)
     else:
         env["AVPE_ASSET_BYTE_TRACE"] = asset_byte_trace_mode
+    if asset_load_timing_mode is None:
+        env.pop("AVPE_LOAD_TIMING", None)
+    else:
+        env["AVPE_LOAD_TIMING"] = asset_load_timing_mode
     return env
 
 

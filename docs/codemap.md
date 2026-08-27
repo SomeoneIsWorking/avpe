@@ -23,7 +23,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native host shell | Sole visible top-level window, render-surface lifecycle, resize/fullscreen, focus, product shutdown | `thirdparty/pcsx2/pcsx2-avpe/HostWindow.*`, `RenderSurface.*`, `NativeWindow.*` | `AVPE::HostWindow` | [presentation](host/presentation.md) |
 | Product input routing | Qt key and mouse translation, held-input ownership across menu/game transitions, and typed action dispatch | `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*` | `AVPE::HostInputRouter` | [input path](re/input-path.md) |
 | Presentation bridge | GS-to-host window acquisition and narrow display/settings control | `thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp`, `Runtime.*` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
-| Control-test runner | Silent surfaceless PCSX2 process, isolated profile/card working copies, timebox, exact process-group cleanup | `tools/run_control_test.py`, `src/avpe/memory_card_probe.py` | `main()` | [control-test contract](re/headless.md) |
+| Control-test runner | Silent surfaceless PCSX2 process, isolated profile/card working copies, loopback transport, timebox, exact process-group cleanup | `tools/run_control_test.py`, `src/avpe/control_http.py`, `src/avpe/memory_card_probe.py` | `main()` | [control-test contract](re/headless.md) |
 | Project verification | Python behavior, isolation, dependency, and source-structure regressions | `tests/`, `tools/verify.py` | `tools/verify.py` | — |
 | Project logging | Single Python log-level gate | `src/avpe/log.py` | `log()` | — |
 | Raw-sector conversion | Streaming, validated 2352-byte-sector to ISO block conversion | `src/avpe/raw_sector.py`; CLI in `tools/raw2352.py` | `strip_image()` | — |
@@ -38,6 +38,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: a `NativeSaves` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | target: `AVPE::NativeSaves` | target: save-path RE contract |
 | Native asset I/O | AVP:E title gating, path normalization/store resolution, ioman descriptor lifecycles, FSSOUND cdvdman sector mapping, and target host-read/cache policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.*`; narrow ioman/cdvdman hooks in `IopBios.cpp` | `AVPE::NativeAssets::ResolveIomanOpen()`, `ResolveCdvdSearch()` | [disc-I/O RE contract](re/disc-io.md) |
 | Native asset byte differential | Bounded canonical-chunk assembly, PCSX2 ISO-reader oracle capture, strict source-separated comparison, and mismatch controls | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.*`, `src/avpe/asset_byte_compare.py`, `tools/compare_native_asset_bytes.py` | `AVPE::NativeAssetByteTrace::CaptureIsoOracle()`, `compare_asset_byte_traces()` | [disc-I/O RE contract](re/disc-io.md) |
+| Native load timing differential | Grounded guest/host boundary capture, actual-backend identity, strict symmetric sample validation, alternating-run orchestration, and drift/reduction controls | `thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.*`, `src/avpe/load_timing.py`, `tools/compare_native_load_timing.py` | `AVPE::NativeLoadTiming::SnapshotJson()`, `compare_load_timing_samples()` | [disc-I/O RE contract](re/disc-io.md) |
 | AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: a dedicated `HLE` submodule under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: HLE-BIOS RE contract |
 | Native options integration | AVP:E menu extension and game-facing bindings to host display/graphics settings | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeOptions.*`; narrow settings interface in `thirdparty/pcsx2/pcsx2-avpe/` | target: `AVPE::NativeOptions` | target: native-options contract |
 | Diagnostic UI | RmlUi developer-only diagnostics and inspection surfaces | target: a `DebugUI` module under `thirdparty/pcsx2/pcsx2-avpe/` | target: `AVPE::DebugUI` | target: debug-UI contract |
@@ -51,23 +52,27 @@ in [`project-state.md`](project-state.md), and atomic work is in
 run.sh                         locked launcher shim
 src/avpe/                      host-side product orchestration
 ├── cli.py                     command and prerequisite owner
+├── control_http.py            isolated loopback control transport
 ├── dependencies.py            submodule inspection/provisioning owner
 ├── iso9660.py                 strict user-disc filesystem reader
 ├── launch.py                  emulator process/config owner
 ├── log.py                     Python logging owner
 ├── native_assets.py           validated native-store provisioner
 ├── asset_byte_compare.py      strict native/ISO chunk comparator
+├── load_timing.py             strict symmetric timing comparison policy
 └── raw_sector.py              streaming raw-sector converter
 tools/                         project automation and control clients
 ├── avpe_http.py               live control client
 ├── run_control_test.py        surfaceless and silent test process owner
 ├── compare_native_asset_bytes.py  byte differential and OTHER-answer control
+├── compare_native_load_timing.py  alternating timing differential and controls
 ├── raw2352.py                 disc-sector conversion
 └── ghidra_scripts/            maintainer-only RE extraction
 thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── GuestObjects.*             validated AVP:E guest object/handle reads
 ├── NativeAssets.*             title-gated ioman/CDVD native asset boundary and observations
 ├── NativeAssetByteTrace.*     bounded native/ISO canonical-chunk evidence
+├── NativeLoadTiming.*         grounded native/optical loading-time evidence
 ├── NativeInput.*              gameplay pointer and button semantics
 ├── NativeMenuInput.*          active-menu discovery and typed menu actions
 └── NativePointerMotion.*      shared absolute pointer movement mechanics
@@ -102,6 +107,9 @@ docs/issues/                   atomic work and investigation points
 - Native-versus-ISO byte evidence belongs in the peer `NativeAssetByteTrace`
   module and the strict Python comparator. It does not own shipping I/O policy
   and must stay disabled during loading-time measurements.
+- Native-versus-optical timing evidence belongs in peer `NativeLoadTiming`,
+  the strict Python timing policy, and the sequential comparison tool. It does
+  not own shipping cache policy, and it never runs with byte tracing enabled.
 - AVP:E-specific firmware behavior belongs in a dedicated HLE submodule under
   the fork-local `thirdparty/pcsx2/pcsx2/AVPE/`
   owner. Existing BIOS, EE kernel, and IOP integration points remain narrow
