@@ -20,5 +20,5 @@ independent log lines for surfaceless acquisition and Null audio.
 ## Known failure modes
 
 The runner proves the invisible developer control path, not the user-facing
-AVPE host window. It cannot certify product resize, focus, fullscreen, RmlUi,
-or desktop presentation behavior.
+AVPE host window. It cannot certify product resize, focus, fullscreen, RmlUi
+diagnostics, or desktop presentation behavior.

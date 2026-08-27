@@ -12,10 +12,10 @@ means the capability is absent.
 
 ## Current focus
 
-**S010 — game-native menu input.** Keyboard navigation and mouse hover/click
-now use typed game-native owners and AVP:E's own menu hit-testing. The next
-grounded step is deterministic title-menu coverage and user-observed product
-window event verification.
+**S014 — native-save boundary.** Work is grounding AVP:E's profile, game-save,
+file, and memory-card call graph plus its persistent schema before a host save
+backend is designed. The reported profile-creation failure is evidence at this
+boundary, not a reason to prioritize preservation of the emulated-card path.
 Current focus is attention, not a separate state.
 
 ## Capability inventory
@@ -35,11 +35,11 @@ Current focus is attention, not a separate state.
 | S011 | Selector, camera, minimap, and pointer-mode integration | missing | S008, S009 | G002 |
 | S012 | Fresh-clone provisioning through the zero-argument launcher | partial | S003, S004 | G001 |
 | S013 | End-to-end windowed product playable with native PC RTS controls | blocked | S009, S010, S011, S012, S020 | G001, G002 |
-| S014 | AVP:E save/load boundary and on-card data schema | missing | S001 | G003 |
+| S014 | AVP:E save/load boundary and on-card data schema | partial | S001 | G003 |
 | S015 | Atomic versioned PC-native save backend for AVP:E profiles and slots | blocked | S014 | G003 |
 | S016 | Game save/load path operates without a virtual PS2 memory card | blocked | S014, S015 | G001, G003 |
 | S017 | Existing AVP:E memory-card progress imports into native saves | blocked | S014, S015 | G003 |
-| S018 | RmlUi native options surface is integrated into the AVPE host shell | missing | S020 | G004 |
+| S018 | Desktop options are integrated into AVP:E's own menu system | missing | S010, S020 | G004 |
 | S019 | Graphics, display, and resolution settings enumerate, apply, and persist | blocked | S018 | G004 |
 | S020 | AVPE-owned host shell owns the visible window and presentation lifecycle | partial | S003, S004 | G001, G004 |
 | S021 | AVP:E disc/file access boundary and asset namespace are mapped | missing | S001 | G005 |
@@ -50,6 +50,7 @@ Current focus is attention, not a separate state.
 | S026 | Clean-room AVP:E-specific HLE implements the required platform services | blocked | S025 | G006 |
 | S027 | Supported target boots and runs without retail BIOS bytes | blocked | S026 | G001, G006 |
 | S028 | HLE behavior is differentially verified against the BIOS-backed oracle | blocked | S025, S026 | G006 |
+| S029 | Product prompts name PC keyboard and mouse actions instead of PS2 buttons | missing | S010 | G002, G004 |
 
 ## State details and evidence
 
@@ -217,12 +218,20 @@ representative menu, click/drag selection, right-click contextual command,
 keyboard-shortcut, camera, and minimap interactions using a coherent
 StarCraft-informed PC RTS control scheme.
 
-### S014 — save boundary and schema: missing
+### S014 — save boundary and schema: partial
 
-Missing capability: identify the game functions that enumerate, validate,
-serialize, deserialize, and commit AVP:E save data; map the on-card records and
-checksums from the executable plus at least two deliberately differing real
-saves.
+Observed subset: the `CProfile` create/load/save/delete/list boundary, card
+namespace, multi-stage profile provisioning, 0x118-byte outer record, profile
+payload placement, and compressed game-object stream are grounded from the
+executable. The isolated control runner can now work on a copied formatted card
+and report byte-level changes without exposing a window or mutating the source.
+
+Gap: capture the live profile payload contract and map unknown record fields and
+compressed data from at least two deliberately differing profiles and two game
+saves. The exact high-level interception mechanism also remains unproven.
+
+Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
+issue #7.
 
 ### S015 — native save backend: blocked
 
@@ -242,12 +251,13 @@ Blockers: S014 and S015. Verification requires importing at least two distinct
 real AVP:E saves from a user-selected memory-card image, preserving their
 observable progress, and refusing unrelated or malformed card data by name.
 
-### S018 — RmlUi options surface: missing
+### S018 — in-game native options surface: missing
 
-Missing capability: RmlUi is not integrated into AVPE's windowed render/input
-lifecycle, and the normal product has no project-owned native options screen.
-Verification requires opening and closing the real overlay repeatedly while the
-game runs, with correct keyboard, mouse, focus, resize, and render behavior.
+Missing capability: AVP:E's own options menus do not expose project-owned
+desktop graphics, display-mode, and resolution entries. Verification requires
+opening the normal in-game options path, changing distinct supported settings,
+rejecting an unsupported setting, navigating with keyboard and mouse, and
+observing the persisted choices after a clean restart.
 
 ### S019 — native graphics and display settings: blocked
 
@@ -266,8 +276,8 @@ the Clang link and offscreen configuration check pass.
 
 Gap: respecting the user's no-window test constraint means the real desktop
 window has not been launched in this session. Runtime verification still must
-exercise boot, resize, fullscreen, focus, close, and failure reporting. RmlUi
-same-frame composition is also missing. Atomic work: issue #3.
+exercise boot, resize, fullscreen, focus, close, and failure reporting. Atomic
+work: issue #3.
 
 ### S021 — disc/file access boundary: missing
 
@@ -321,3 +331,11 @@ Blockers: S025 and S026. Verification requires deterministic comparisons of
 service results, guest-visible state, interrupts, and timing against the
 current BIOS-backed oracle, including cases that must differ and explicit
 residuals for any accepted non-semantic timing variance.
+
+### S029 — PC-native action prompts: missing
+
+Missing capability: normal product menus and gameplay still present PS2 button
+glyphs even though keyboard and mouse are the shipping controls. Verification
+requires distinct menu and gameplay prompts to name their configured PC action
+(`Esc — Back` at minimum), update when a binding changes, and contain no
+PlayStation glyph fallback in the normal keyboard/mouse product path.

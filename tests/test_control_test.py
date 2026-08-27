@@ -6,6 +6,7 @@ from struct import pack
 from avpe.control_test import build_argv, build_environment, status_is_verified
 from avpe.cursor import detect_cursor
 from avpe.launch import build_argv as build_product_argv
+from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
 from avpe.pcsx2_config import ensure_product_config, ensure_test_config
 
 
@@ -85,6 +86,38 @@ class ConfigurationIsolationTests(unittest.TestCase):
             ensure_test_config(root / "test", bios)
 
             self.assertEqual(product_ini.read_bytes(), b"[User]\nChoice = preserved\n")
+
+    def test_memory_card_probe_uses_an_isolated_copy_and_reports_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.ps2"
+            source.write_bytes(PS2_CARD_MAGIC + bytes(512 - len(PS2_CARD_MAGIC)))
+            original = source.read_bytes()
+
+            probe = prepare_memory_card_probe(source, root / "test-profile")
+            changed = bytearray(probe.working.read_bytes())
+            changed[100] = 0x5A
+            probe.working.write_bytes(changed)
+            evidence = probe.observe()
+
+            self.assertEqual(source.read_bytes(), original)
+            self.assertNotEqual(probe.working, source)
+            self.assertEqual(evidence["changed_bytes"], 1)
+            self.assertEqual(evidence["first_changed_offset"], 100)
+            self.assertEqual(evidence["last_changed_offset"], 100)
+
+    def test_test_config_enables_only_the_supplied_working_card(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bios = root / "bios.bin"
+            bios.write_bytes(b"bios fixture")
+
+            ensure_test_config(root / "test", bios, "probe.ps2")
+            text = (root / "test" / "PCSX2" / "inis" / "PCSX2.ini").read_text()
+
+            self.assertIn("Slot1_Enable = true", text)
+            self.assertIn("Slot1_Filename = probe.ps2", text)
+            self.assertIn("Slot2_Enable = false", text)
 
 
 class ProductLaunchPolicyTests(unittest.TestCase):

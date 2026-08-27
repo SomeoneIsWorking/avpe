@@ -20,7 +20,7 @@ AVPE-native shell.
 
 Use the PCSX2 emulation core as a library behind an AVPE-owned executable, as a
 frontend such as LRPS2/libretro does. AVPE owns presentation, input routing,
-fullscreen and resize transitions, future RmlUi composition, settings, and
+fullscreen and resize transitions, host settings ownership, and
 product shutdown. `pcsx2-qt` remains only the diagnostic/oracle frontend and
 must not be linked into or instantiated by the product.
 
@@ -40,5 +40,6 @@ no visible product test was run because agent tests must remain windowless.
 - PCSX2's generic main/render/settings UI is absent from the product link graph.
 - Window resize, fullscreen, focus loss/recovery, and shutdown exercise the
   AVPE host lifecycle.
-- RmlUi can compose over a live frame and receive keyboard/mouse input.
+- Optional RmlUi diagnostics can compose over a live frame without becoming
+  the shipping options path.
 - The dedicated control-test runner remains genuinely surfaceless and silent.
