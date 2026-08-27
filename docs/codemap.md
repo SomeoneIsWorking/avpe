@@ -34,7 +34,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native gameplay input | Live gameplay-pointer validation, selector policy, selection edges, and contextual commands | `thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp/.h` | `AVPE::NativeInput::MoveAbsolute()` | [input-path contract](re/input-path.md) |
 | Native menu input | Active menu and menu-capable pointer discovery, focus navigation, hit-testing, and activation/cancel actions | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp/.h` | `AVPE::NativeMenuInput` | [input-path contract](re/input-path.md) |
 | Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: a `NativeSaves` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | target: `AVPE::NativeSaves` | target: save-path RE contract |
-| Native asset I/O | AVP:E file/sector mapping, validated disc-derived asset store, asynchronous host reads, cache, and optical-path bypass | target: a `NativeAssets` peer module under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks in the grounded CDVD/IOP boundary | target: `AVPE::NativeAssets` | target: disc-I/O RE contract |
+| Native asset I/O | AVP:E title gating, file-namespace observation, validated disc-derived asset store, host reads/cache, and optical-path bypass | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.*`; narrow observation hook in `IopBios.cpp`; provisioning remains target work under `src/avpe/` | `AVPE::NativeAssets::ObserveIomanOpen()` | [disc-I/O RE contract](re/disc-io.md) |
 | AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: a dedicated `HLE` submodule under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: HLE-BIOS RE contract |
 | Native options integration | AVP:E menu extension and game-facing bindings to host display/graphics settings | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeOptions.*`; narrow settings interface in `thirdparty/pcsx2/pcsx2-avpe/` | target: `AVPE::NativeOptions` | target: native-options contract |
 | Diagnostic UI | RmlUi developer-only diagnostics and inspection surfaces | target: `thirdparty/pcsx2/pcsx2-avpe/DebugUI/` | target: `AVPE::DebugUI` | target: debug-UI contract |
@@ -58,6 +58,7 @@ tools/                         project automation and control clients
 └── ghidra_scripts/            maintainer-only RE extraction
 thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── GuestObjects.*             validated AVP:E guest object/handle reads
+├── NativeAssets.*             title-gated native asset boundary and observations
 ├── NativeInput.*              gameplay pointer and button semantics
 ├── NativeMenuInput.*          active-menu discovery and typed menu actions
 └── NativePointerMotion.*      shared absolute pointer movement mechanics

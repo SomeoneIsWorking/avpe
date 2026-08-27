@@ -18,7 +18,9 @@ from pathlib import Path
 
 from avpe.cli import load_env
 from avpe.control_test import (
+    ABSENT_NATIVE_ASSET_SENTINEL,
     EXPECTED_SERIAL,
+    asset_trace_is_verified,
     build_argv,
     build_environment,
     status_is_verified,
@@ -153,6 +155,35 @@ def menu_pointer_state(port: int) -> tuple[int, dict[str, object] | None, str]:
     except json.JSONDecodeError:
         return status, None, detail
     return status, parsed if isinstance(parsed, dict) else None, detail
+
+
+def probe_native_assets(port: int, deadline: float) -> dict[str, object]:
+    trace: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, body = request_bytes(port, "GET", "/assets/opens")
+        if status != 200:
+            raise RuntimeError(f"native asset trace returned HTTP {status}")
+        candidate = json.loads(body)
+        if isinstance(candidate, dict):
+            trace = candidate
+            if asset_trace_is_verified(trace):
+                break
+        time.sleep(0.05)
+    if not asset_trace_is_verified(trace):
+        raise RuntimeError(f"native asset trace never observed the TBF archive: {trace}")
+
+    assert trace is not None
+    proof = {
+        "trace": trace,
+        "positive": "TBD/TBF.TBF observed through cdrom0:",
+        "negative": {
+            "sentinel": ABSENT_NATIVE_ASSET_SENTINEL,
+            "observed_count": 0,
+        },
+    }
+    (LOG_DIR.parent / "native-assets-proof.json").write_text(
+        json.dumps(proof, indent=2, sort_keys=True) + "\n")
+    return proof
 
 
 def stable_cursor_snapshot(
@@ -694,6 +725,8 @@ def main() -> int:
                         help="prove activation on a single-item menu; requires --statefile")
     parser.add_argument("--probe-native-menu-pointer", action="store_true",
                         help="prove native menu hover and pointer activation; requires --statefile")
+    parser.add_argument("--probe-native-assets", action="store_true",
+                        help="prove AVP:E asset opens reach the title-specific IOP boundary")
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
     args = parser.parse_args()
@@ -706,15 +739,16 @@ def main() -> int:
         parser.error(f"--statefile is not a file: {args.statefile}")
     if args.memory_card_source is not None and not args.memory_card_source.is_file():
         parser.error(f"--memory-card-source is not a file: {args.memory_card_source}")
-    native_probe_requested = any((
+    native_input_probe_requested = any((
         args.probe_native_pointer,
         args.probe_native_mouse,
         args.probe_native_menu,
         args.probe_native_menu_activate,
         args.probe_native_menu_pointer,
     ))
-    if native_probe_requested and args.statefile is None:
+    if native_input_probe_requested and args.statefile is None:
         parser.error("native input probes require --statefile")
+    probe_requested = native_input_probe_requested or args.probe_native_assets
 
     if not PCSX2.is_file():
         print(f"FATAL built PCSX2 missing: {PCSX2}", file=sys.stderr)
@@ -776,6 +810,7 @@ def main() -> int:
     menu_proof: dict[str, object] | None = None
     menu_activation_proof: dict[str, object] | None = None
     menu_pointer_proof: dict[str, object] | None = None
+    native_assets_proof: dict[str, object] | None = None
     probe_error: str | None = None
     graceful_shutdown = False
     try:
@@ -783,7 +818,12 @@ def main() -> int:
             status = read_status(port)
             if status_is_verified(status, nonce):
                 boot_status = status
-                if args.probe_native_pointer:
+                if args.probe_native_assets:
+                    try:
+                        native_assets_proof = probe_native_assets(port, deadline)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_pointer and probe_error is None:
                     try:
                         pointer_proof = probe_native_pointer(port, deadline)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
@@ -808,7 +848,7 @@ def main() -> int:
                         menu_pointer_proof = probe_native_menu_pointer(port, deadline)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
-                if native_probe_requested:
+                if probe_requested:
                     break
             time.sleep(0.1)
         if proc.poll() is None and request_shutdown(port):
@@ -845,6 +885,17 @@ def main() -> int:
         print(f"FATAL {EXPECTED_SERIAL} never reached Running state; see {LOG_DIR}", file=sys.stderr)
         return 1
     print(f"control-test verified status={json.dumps(boot_status, sort_keys=True)}", flush=True)
+    if args.probe_native_assets:
+        if native_assets_proof is None:
+            detail = probe_error or "probe did not run"
+            print(
+                f"FATAL native asset probe failed: {detail}; see {LOG_DIR}",
+                file=sys.stderr)
+            return 1
+        print(
+            "control-test native-assets proof="
+            f"{json.dumps(native_assets_proof, sort_keys=True)}",
+            flush=True)
     if args.probe_native_pointer:
         if pointer_proof is None:
             detail = probe_error or "probe did not run"

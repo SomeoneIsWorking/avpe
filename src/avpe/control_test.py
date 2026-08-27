@@ -4,6 +4,8 @@ from collections.abc import Mapping
 from pathlib import Path
 
 EXPECTED_SERIAL = "SLUS-20147"
+EXPECTED_NATIVE_ASSET = "tbd/tbf.tbf"
+ABSENT_NATIVE_ASSET_SENTINEL = "__avpe_absent_asset__"
 
 
 def build_argv(
@@ -53,4 +55,27 @@ def status_is_verified(status: dict[str, object] | None, nonce: str) -> bool:
         and status.get("host_mode") == "control-test"
         and status.get("surface") == "surfaceless"
         and status.get("audio") == "null-muted"
+    )
+
+
+def asset_trace_is_verified(trace: dict[str, object] | None) -> bool:
+    if trace is None or trace.get("enabled") is not True \
+            or trace.get("target_recognized") is not True \
+            or int(trace.get("total_open_calls", 0)) <= 0 \
+            or int(trace.get("dropped_unique_paths", -1)) != 0:
+        return False
+    paths = trace.get("paths")
+    if not isinstance(paths, list):
+        return False
+
+    normalized: list[str] = []
+    for entry in paths:
+        if not isinstance(entry, dict) or not isinstance(entry.get("path"), str) \
+                or int(entry.get("count", 0)) <= 0:
+            return False
+        normalized.append(entry["path"].replace("\\", "/").casefold())
+    return (
+        any(path.startswith("cdrom0:") and EXPECTED_NATIVE_ASSET in path
+            for path in normalized)
+        and all(ABSENT_NATIVE_ASSET_SENTINEL not in path for path in normalized)
     )
