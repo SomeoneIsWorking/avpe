@@ -24,6 +24,7 @@ from avpe.control_test import (
     status_is_verified,
 )
 from avpe.cursor import CursorObservation, detect_cursor
+from avpe.memory_card_probe import prepare_memory_card_probe
 from avpe.pcsx2_config import ensure_test_config
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -678,6 +679,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seconds", type=float, default=30.0)
     parser.add_argument("--statefile", type=Path)
+    parser.add_argument(
+        "--memory-card-source",
+        type=Path,
+        help="copy a formatted PS2 card into the isolated profile and report byte changes",
+    )
     parser.add_argument("--probe-native-pointer", action="store_true",
                         help="prove two native cursor positions; requires --statefile")
     parser.add_argument("--probe-native-mouse", action="store_true",
@@ -698,6 +704,8 @@ def main() -> int:
         parser.error("--http-port must be between 0 and 65535")
     if args.statefile is not None and not args.statefile.is_file():
         parser.error(f"--statefile is not a file: {args.statefile}")
+    if args.memory_card_source is not None and not args.memory_card_source.is_file():
+        parser.error(f"--memory-card-source is not a file: {args.memory_card_source}")
     native_probe_requested = any((
         args.probe_native_pointer,
         args.probe_native_mouse,
@@ -722,7 +730,20 @@ def main() -> int:
         print("FATAL no usable BIOS in AVPE_BIOS_DIR", file=sys.stderr)
         return 2
 
-    ensure_test_config(DATA_DIR, bios)
+    try:
+        card_probe = (
+            prepare_memory_card_probe(args.memory_card_source, DATA_DIR)
+            if args.memory_card_source is not None
+            else None
+        )
+    except RuntimeError as error:
+        print(f"FATAL {error}", file=sys.stderr)
+        return 2
+    ensure_test_config(
+        DATA_DIR,
+        bios,
+        card_probe.working.name if card_probe is not None else None,
+    )
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     try:
         port, port_reservation = reserve_port(args.http_port)
@@ -799,6 +820,20 @@ def main() -> int:
     finally:
         stop_process_group(proc)
         stdout.close()
+
+    if card_probe is not None:
+        try:
+            card_proof = card_probe.observe()
+        except RuntimeError as error:
+            print(f"FATAL {error}; see {LOG_DIR}", file=sys.stderr)
+            return 1
+        (LOG_DIR.parent / "memory-card-proof.json").write_text(
+            json.dumps(card_proof, indent=2, sort_keys=True) + "\n"
+        )
+        print(
+            f"control-test memory-card proof={json.dumps(card_proof, sort_keys=True)}",
+            flush=True,
+        )
 
     if proc.returncode != 0:
         print(f"FATAL control test exited rc={proc.returncode}; see {LOG_DIR}", file=sys.stderr)

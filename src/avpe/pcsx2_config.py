@@ -60,7 +60,11 @@ def ensure_product_config(data_dir: Path) -> None:
     save_ini(path, sections)
 
 
-def ensure_test_config(data_dir: Path, bios: Path) -> None:
+def ensure_test_config(
+    data_dir: Path,
+    bios: Path,
+    memory_card_filename: str | None = None,
+) -> None:
     """Create the isolated, silent configuration used by control tests."""
     path = ini_path(data_dir)
     sections = _base_sections(path)
@@ -70,7 +74,8 @@ def ensure_test_config(data_dir: Path, bios: Path) -> None:
     })
     sections.setdefault("EmuCore/GS", {})["Renderer"] = "13"
     sections.setdefault("MemoryCards", {}).update({
-        "Slot1_Enable": "false",
+        "Slot1_Enable": "true" if memory_card_filename else "false",
+        "Slot1_Filename": memory_card_filename or "Mcd001.ps2",
         "Slot2_Enable": "false",
     })
     save_ini(path, sections)

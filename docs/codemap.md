@@ -22,8 +22,8 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Standalone frontend runtime | Product process composition, PCSX2 core thread/lifecycle, and host callbacks | `thirdparty/pcsx2/pcsx2-avpe/Runtime.*`, `EmulationThread.*`, `HostServices.cpp`, `Main.cpp` | `avpe` executable | [presentation](host/presentation.md) |
 | Native host shell | Sole visible top-level window, render-surface lifecycle, resize/fullscreen, focus, product shutdown | `thirdparty/pcsx2/pcsx2-avpe/HostWindow.*`, `RenderSurface.*`, `NativeWindow.*` | `AVPE::HostWindow` | [presentation](host/presentation.md) |
 | Product input routing | Qt key and mouse translation, held-input ownership across menu/game transitions, and typed action dispatch | `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*` | `AVPE::HostInputRouter` | [input path](re/input-path.md) |
-| Presentation bridge | GS-to-host window acquisition now; future same-frame RmlUi composition and narrow display/settings control | `thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp`, `Runtime.*` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
-| Control-test runner | Silent surfaceless PCSX2 process, isolated profile, timebox, exact process-group cleanup | `tools/run_control_test.py` | `main()` | [control-test contract](re/headless.md) |
+| Presentation bridge | GS-to-host window acquisition and narrow display/settings control | `thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp`, `Runtime.*` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
+| Control-test runner | Silent surfaceless PCSX2 process, isolated profile/card working copies, timebox, exact process-group cleanup | `tools/run_control_test.py`, `src/avpe/memory_card_probe.py` | `main()` | [control-test contract](re/headless.md) |
 | Project verification | Python behavior, isolation, dependency, and source-structure regressions | `tests/`, `tools/verify.py` | `tools/verify.py` | — |
 | Project logging | Single Python log-level gate | `src/avpe/log.py` | `log()` | — |
 | Disc conversion | Strict MODE2/2352 to ISO9660 conversion | `tools/raw2352.py` | `main()` | — |
@@ -36,7 +36,8 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: a `NativeSaves` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | target: `AVPE::NativeSaves` | target: save-path RE contract |
 | Native asset I/O | AVP:E file/sector mapping, validated disc-derived asset store, asynchronous host reads, cache, and optical-path bypass | target: a `NativeAssets` peer module under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks in the grounded CDVD/IOP boundary | target: `AVPE::NativeAssets` | target: disc-I/O RE contract |
 | AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: a dedicated `HLE` submodule under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: HLE-BIOS RE contract |
-| Native options UI | RmlUi lifecycle, options documents, and game-facing settings bindings | target: `thirdparty/pcsx2/pcsx2-avpe/UI/` | target: `AVPE::NativeSettingsUI` | target: native-options UI contract |
+| Native options integration | AVP:E menu extension and game-facing bindings to host display/graphics settings | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeOptions.*`; narrow settings interface in `thirdparty/pcsx2/pcsx2-avpe/` | target: `AVPE::NativeOptions` | target: native-options contract |
+| Diagnostic UI | RmlUi developer-only diagnostics and inspection surfaces | target: `thirdparty/pcsx2/pcsx2-avpe/DebugUI/` | target: `AVPE::DebugUI` | target: debug-UI contract |
 | Diagnostic pad injection | Bootstrap-only active-low DS2 injection | `thirdparty/pcsx2/pcsx2/SIO/Pad/PadDualshock2.cpp` | `GetButtons()` integration | [control-channel contract](re/control-channel.md) |
 | RE helpers | Ghidra extraction, caller discovery, singleton inventory | `tools/ghidra_scripts/`, `tools/pthe_syms.txt` | individual tools | [input-path contract](re/input-path.md) |
 | Evidence | Falsifiable claims and verification dependencies | `docs/info/claims/` | claim files | — |
@@ -95,9 +96,13 @@ docs/issues/                   atomic work and investigation points
 - The visible native window and its platform lifecycle belong in the fork's
   standalone `thirdparty/pcsx2/pcsx2-avpe/` frontend. PCSX2's Qt application
   is a diagnostic/oracle frontend only and is absent from the product target.
-- RmlUi documents and input routing belong in a dedicated `UI/` submodule of
-  `pcsx2-avpe`; they compose with the product surface and call narrow existing
-  PCSX2 graphics/display setting owners.
+- Desktop options are presented by AVP:E's existing menu system through a
+  dedicated `NativeOptions` owner. It calls a narrow frontend interface whose
+  standalone implementation delegates to the existing PCSX2 graphics/display
+  setting owners; the guest menu does not own host persistence policy.
+- Optional RmlUi diagnostics belong in a dedicated `DebugUI/` frontend module.
+  They may inspect the same narrow interfaces but do not become the shipping
+  options surface or a second source of settings policy.
 - New HTTP framing/server capability belongs in Lucent; AVPE owns only routes
   and game-specific semantics.
 - New launcher commands compose modules under `src/avpe/`; discovery, build,

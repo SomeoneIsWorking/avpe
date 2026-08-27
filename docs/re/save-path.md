@@ -1,0 +1,88 @@
+# AVP:E save path
+
+This document records the grounded save boundary for the supported
+`SLUS-20147` executable. It is deliberately incomplete: the high-level profile
+and game-save operations and their outer records are mapped, while the profile
+payload fields and compressed world schema still require deliberately differing
+runtime saves.
+
+## High-level owner
+
+`CProfile` at singleton slot `0x0036703C` owns profile/card selection and all
+normal save operations. Its direct boundary is compact and title-specific:
+
+| Address | Function | Contract observed statically |
+|---|---|---|
+| `0x0012FAA0` | `CProfile::LoadProfile(int)` | Read the selected profile's 0x118-byte record, validate revision and payload size, then read the profile payload. |
+| `0x0012FCE0` | `CProfile::SaveProfile()` | Write the 0x118-byte record followed by the fixed-size profile payload. |
+| `0x0012FF90` | `CProfile::CreateProfile(char const*)` | Create the profile definition and directory, save the profile record, then provision the auxiliary files. |
+| `0x00130000` | `CProfile::LoadGame(int)` | Read a save record, attach the decompressor, load the level named in the next 0x20 bytes, then deserialize all game objects. |
+| `0x00130170` | `CProfile::SaveGame(...)` | Save the profile, write a save record and 0x20-byte level name, compress all game objects, pad the slot, then rewrite the finalized record. |
+| `0x001304A0` | `CProfile::BuildProfileList()` | Enumerate `BASLUS-20147*` directories and validate their outer records. |
+| `0x00130800` | `CProfile::BuildGameList()` | Enumerate the current profile's numbered saves and reject mismatched profile ID, revision, or payload size as damaged. |
+
+`CShell::SaveGame` at `0x0016FAE0` and `CShell::LoadGame` at `0x0016FB00`
+are thin forwarders to this owner. A native save bridge therefore belongs at
+the `CProfile` boundary; replacing generic `CZFile` would also capture unrelated
+disc and host file traffic and would not express the profile invariants.
+
+All of these routines use zero for success and nonzero for failure.
+
+## Card namespace and provisioning
+
+`CProfileDef::CreateProfile` at `0x0012F4A0` computes the CRC32 of the visible
+profile name and creates `BASLUS-20147%08X`. `CProfileDef::PostCreate` at
+`0x0012F5B0` then provisions:
+
+- four numbered `%s/%d.SAV` files by default, each padded to `0x7E400` bytes;
+- `List.ico` from the embedded `PS2SysIcon` data;
+- `blart.dat`, padded to `0xC00` bytes;
+- `icon.sys`, populated with the product/profile display strings.
+
+The profile record itself is stored at `%s/%s`: the directory name repeated as
+the filename. `CZFile` flags `0x1001` and `0x1002` select memory-card read and
+write respectively; its PS2 platform layer maps those operations to `sceMc*`
+calls and synchronous completion.
+
+Profile creation is consequently a multi-stage transaction. The observed
+product card already contains the generated `BASLUS-20147F991C326` string and
+`Extinction 1`, proving that at least part of creation reached persistent card
+storage. That observation does not identify which later write failed.
+
+## Outer record
+
+Both profiles and numbered game saves begin with a `CProfileDef` record of
+`0x118` bytes:
+
+| Record offset | Size | Grounded meaning |
+|---|---:|---|
+| `0x000` | `0x80` | Display/profile or save name, NUL-terminated. |
+| `0x080` | `0x80` | Directory or numbered save path, NUL-terminated. |
+| `0x100` | 4 | Profile-name CRC32 in a profile; owning profile CRC32 in a game save. |
+| `0x104` | 4 | Unknown; must be resolved from differing records. |
+| `0x108` | 4 | Game-data revision used to reject incompatible records. |
+| `0x10C` | 4 | Profile modification time in a profile; initialized to `-1` before a record is populated. Its game-save meaning remains unproven. |
+| `0x110` | 4 | Fixed profile/game-data payload size used for compatibility checks. |
+| `0x114` | 4 | Stable profile ID derived from name CRC plus creation time. Its game-save meaning remains unproven. |
+
+The profile payload immediately follows this record and has the size supplied
+through `CProfile::SetGameData` (`CProfile + 0x18` pointer, `+0x1C` size,
+`+0x20` revision). A game save instead writes a 0x20-byte level identifier and
+then a BWJ-compressed `GObject::SaveAll` stream through `CLoadSaveBuffer`.
+
+## Evidence needed next
+
+- Capture the live `SetGameData` pointer, size, revision, and default payload.
+- Produce at least two isolated profile records whose settings differ and two
+  isolated game saves whose progress differs.
+- Compare the records and decompressed streams, including a case that must be
+  rejected, to resolve unknown fields and checksums.
+- Identify the narrow guest-call interception mechanism that can route the five
+  `CProfile` operations to `AVPE::NativeSaves` while keeping the original game
+  routines available as the differential oracle.
+
+`tools/run_control_test.py --memory-card-source CARD.ps2` copies a formatted
+card into the surfaceless/null-muted test profile, never opens the source for
+writing, and emits `scratch/control-test/memory-card-proof.json` with source and
+working hashes plus the changed-byte range. It is the runtime observation seam
+for these comparisons; it is not the native backend.

@@ -38,10 +38,13 @@ semantics instead of presenting keyboard/mouse as a virtual DualShock wrapper.
 right-click contextual commands, keyboard shortcuts, camera movement, minimap
 behavior, selector-mode changes, and every normal game menu (title, mission,
 pause, and in-game) behave coherently with keyboard and mouse as a PC RTS and
-are dynamically verified against the running game. The reference supplies
-interaction conventions, not copied StarCraft assets, code, or game rules.
+are dynamically verified against the running game. Normal product menus and
+gameplay show PC-native action prompts such as `Esc — Back`, mouse buttons, and
+configured key bindings instead of PlayStation button glyphs. The reference
+supplies interaction conventions, not copied StarCraft assets, code, or game
+rules.
 
-**Related state items.** S002, S005–S011, S013.
+**Related state items.** S002, S005–S011, S013, S029.
 
 ## G003 — PC-native saves
 
@@ -64,22 +67,21 @@ one-time import path into the native representation.
 
 ## G004 — Native options and display configuration
 
-**Outcome.** AVPE exposes a project-owned native options surface built with
-RmlUi, including graphics, display mode, and resolution controls appropriate
-to a desktop game.
+**Outcome.** AVPE extends the game's own options menus with project-owned
+graphics, display mode, and resolution controls appropriate to a desktop game.
 
 **Why.** Product settings should be discoverable inside AVPE and expressed in
 game-facing language rather than requiring users to navigate PCSX2's general
 emulator interface or edit configuration files.
 
-**Success conditions.** The RmlUi surface opens from the normal product path,
-enumerates supported display choices, applies graphics and resolution changes
-through their authoritative PCSX2 owners, persists them in project-owned
-configuration, reports rejected combinations clearly, and restores the same
-choices after a clean restart. Keyboard and mouse navigation work without the
-diagnostic control client.
+**Success conditions.** The game's normal options path exposes the desktop
+settings, enumerates supported display choices, applies graphics and resolution
+changes through their authoritative PCSX2 owners, persists them in
+project-owned configuration, reports rejected combinations clearly, and
+restores the same choices after a clean restart. The added controls use the
+same PC-native prompts and keyboard/mouse behavior as the rest of the game.
 
-**Related state items.** S018–S020.
+**Related state items.** S018–S020, S029.
 
 ## G005 — PC-native asset I/O
 
@@ -137,8 +139,10 @@ service is grounded.
   the finished input architecture.
 - StarCraft is a control-design reference only; AVPE does not reproduce its
   copyrighted presentation, assets, code, or title-specific mechanics.
-- RmlUi owns the native options presentation. Existing PCSX2 graphics, display,
-  and persistence subsystems remain authoritative for the settings themselves.
+- AVP:E's own menu system presents native options so the product has one
+  coherent shipping UI stack. Existing PCSX2 graphics, display, and persistence
+  subsystems remain authoritative for the settings themselves. RmlUi may be
+  used for developer diagnostics, but is not the normal product options path.
 - Native saves replace AVP:E's memory-card dependency only. A generic PS2
   memory-card manager or save backend for unrelated games is out of scope.
 - PC-native asset I/O replaces AVP:E's normal game-data reads only. Copyrighted

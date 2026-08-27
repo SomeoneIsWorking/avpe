@@ -46,10 +46,14 @@ capability check is `QT_QPA_PLATFORM=offscreen bin/avpe --test-config`, which
 initializes settings and exits before constructing `Runtime` or `HostWindow`.
 Runtime desktop acceptance remains operator-only through `./run.sh`.
 
-## RmlUi placement
+## Native options and diagnostic UI placement
 
-The native options overlay belongs in `pcsx2-avpe/UI/`. It will compose against
-the same product surface and call narrow graphics/configuration interfaces on
-`Runtime`; it must not import PCSX2 settings dialogs or make `HostWindow` own
-option policy. Keyboard and mouse menu support enters through the same typed
-input boundary used by the game menus.
+Desktop options extend AVP:E's existing menu system through the fork-local
+`AVPE::NativeOptions` owner. That module calls narrow graphics/configuration
+interfaces implemented by the standalone frontend; it must not import PCSX2
+settings dialogs or make `HostWindow` own option policy. Keyboard and mouse
+support enters through the same typed input boundary used by all game menus.
+
+RmlUi may provide a developer-only diagnostic overlay under `DebugUI/`. It can
+inspect the same narrow host interfaces, but it does not own shipping settings
+presentation or persistence.

@@ -21,6 +21,11 @@ surface ownership.
   removed, so the child cannot connect to the user's desktop.
 - The isolated test profile under `scratch/control-test/` selects null audio,
   disables memory cards, and never mutates product settings.
+- Save-boundary runs may explicitly pass `--memory-card-source CARD.ps2`. The
+  runner copies it into the isolated profile, enables only that working copy,
+  verifies the source hash is unchanged, and records byte-level changes in
+  `scratch/control-test/memory-card-proof.json`. Memory cards remain disabled
+  when the option is absent.
 - Each run reserves an available loopback port and generates a nonce. Success
   requires the child to echo that nonce plus its actual `control-test`,
   `surfaceless`, and `null-muted` runtime state, target serial, and CRC.
