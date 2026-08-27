@@ -210,6 +210,60 @@ playback also produced transient reader failures. Oracle capture is therefore
 deferred until the native menu-stream boundary, and byte tracing is never used
 for loading-time evidence.
 
+## Native load-timing differential
+
+`NativeLoadTiming` is independent of the byte tracer. With
+`AVPE_LOAD_TIMING=oracle|native`, it starts at the first supported
+`TBD/TBF.TBF` open before backend selection and ends at the `sceCdSeek`
+immediately following the supported `STREAMS/MENU01.ZIV` search. It records EE
+cycles, IOP cycles, guest frames, secondary steady-clock nanoseconds, event
+ordinals, and the actual backend selected at both ends. A snapshot is complete
+only when both backends match the declared mode, counters increase, no search
+intervenes, the target is recognized, control-test mode is surfaceless, and
+`AVPE_ASSET_BYTE_TRACE` is absent.
+
+`tools/compare_native_load_timing.py` runs clean samples serially in alternating
+oracle/native order. It requires at least three equal sample sets, recomputes
+every delta from endpoints, rejects ordinal drift, bounds EE/IOP spread to 1%,
+frame spread to one, and host spread to 25%, and requires a positive reduction
+for every metric. It also pins clean project/fork revisions, binary and source
+disc hashes, the complete emulation-relevant config, and isolated-card hashes.
+Qt window geometry/state and game-list header values are excluded from config
+identity because the diagnostic frontend rewrites those non-emulation layout
+fields under `-nogui`; a regression proves that an emulation-setting change is
+still detected.
+
+The 2026-08-28 run used project `edbfda4`, fork `87608f3`, SLUS-20147 CRC
+`64DA78A3`, and order oracle/native repeated three times. Every sample used
+boundary ordinals 1→3.
+
+| Pair | Mode | EE cycles | IOP cycles | Frames | Host elapsed ns |
+|---:|---|---:|---:|---:|---:|
+| 1 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,020,651,024 |
+| 1 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 120,172,455,308 |
+| 2 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,021,072,161 |
+| 2 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 119,761,269,569 |
+| 3 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 138,365,053,654 |
+| 3 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 121,386,093,070 |
+
+| Metric | Oracle median | Native median | Oracle spread | Native spread | Reduction |
+|---|---:|---:|---:|---:|---:|
+| EE cycles | 40,408,849,912 | 35,312,223,239 | 0 | 0 | 5,096,626,673 (12.6126%) |
+| IOP cycles | 5,051,106,429 | 4,414,027,549 | 0 | 0 | 637,078,880 (12.6127%) |
+| Frames | 8,213 | 7,178 | 0 | 0 | 1,035 (12.6020%) |
+| Host elapsed ns | 137,021,072,161 | 120,172,455,308 | 1,344,402,630 | 1,624,823,501 | 16,848,616,853 (12.2964%) |
+
+Every run reported the expected actual backends, surfaceless/null-muted status,
+disabled byte tracing, the same binary/disc/config identity, and an unchanged
+isolated card. A copied sample with a changed end ordinal was rejected for
+boundary drift. Raising copied native EE values to the optical baseline was
+rejected for no measured reduction, so the comparator demonstrated both
+answers.
+
+This proves only the startup TBF-open→post-MENU01-search seek reduction. It
+does not establish bounded caching, cold/warm behavior, failure equivalence, or
+a representative mission transition.
+
 ## Native replacement invariants
 
 The native path preserves the original source as an A/B oracle and claims only
