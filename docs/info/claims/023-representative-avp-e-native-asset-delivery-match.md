@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: assets,native-io,oracle
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.cpp#CaptureIsoOracle, src/avpe/asset_byte_compare.py#compare_asset_byte_traces
 reconfirmed: 2026-08-27
-verified_at: 2026-08-27 23:28:39
+verified_at: 2026-08-27 23:29:49
 ---
 
 ## Claim
@@ -24,3 +24,7 @@ a native and ISO-oracle trace from the same supported disc reports a mismatched 
 ## Re-confirmed 2026-08-27
 
 2026-08-27 final CPU-thread ISO-oracle rerun matched the existing native delivery trace across 96/96 canonical chunks; the forced copied-digest control rejected TBD/TBF.TBF offset 0 size 2048, and all 51 tests, clang-format, and clang-tidy passed.
+
+## Re-confirmed 2026-08-27
+
+After fork commit 582e1cb and superproject commit b0c0127 were landed, the final CPU-thread ISO-oracle run still matched the native delivery trace across 96/96 canonical chunks; the forced copied-digest control rejected TBD/TBF.TBF offset 0 size 2048, and the full 51-test/format/tidy gate passed.
