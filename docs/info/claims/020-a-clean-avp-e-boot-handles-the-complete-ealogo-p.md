@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: assets,movie,native-io
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp#ResolveIomanOpen, thirdparty/pcsx2/pcsx2/IopBios.cpp#read_HLE, tools/run_control_test.py#probe_native_movie_reads
 reconfirmed: 2026-08-27
-verified_at: 2026-08-27 22:04:55
+verified_at: 2026-08-27 22:16:23
 ---
 
 ## Claim
@@ -24,3 +24,7 @@ a clean validated-store run reads EALOGO.PSS through the optical fallback, retur
 ## Re-confirmed 2026-08-27
 
 After the signed ioman read-result fix in fork commit bc15e1a, the final clean run again completed EALOGO.PSS through 104 reads totaling 1687556 bytes, two seeks, and one close.
+
+## Re-confirmed 2026-08-27
+
+After fork commit 2316c91, the clean stream run again completed EALOGO.PSS through 104 reads totaling 1687556 bytes, two seeks, one close, and zero original fallthrough.

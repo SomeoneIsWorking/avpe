@@ -14,9 +14,8 @@ means the capability is absent.
 
 **S023 — native asset reads.** TBF, startup movies, and a representative
 streamed-audio file now use native storage through their grounded ioman and
-cdvdman boundaries. Work is adding byte-level oracle comparison, explicit
-CDVD-event exclusion, and bounded caching. Current focus is attention, not a
-separate state.
+cdvdman boundaries. Work is adding byte-level oracle comparison and bounded
+caching. Current focus is attention, not a separate state.
 
 ## Capability inventory
 
@@ -350,11 +349,16 @@ LSNs are scoped to validated VAG/ZIV files; ordinary CDVD calls stay unhandled.
 The run was surfaceless and null-muted, shut down normally, and left the copied
 formatted card byte-identical.
 
-Gap: compare exact read slices/results against the optical oracle, explicitly
-instrument the absence of CDVD sector/timing events for both seams, and add the
+Runtime import-branch counters then showed zero original fallthrough for TBF,
+all four startup movies, and `MENU01.ZIV`, while the bootstrap fell through.
+The no-store opposite control recorded two TBF fallthroughs and zero native
+claims. Claimed calls return directly to the guest before the original
+IOP/CDVD implementation can schedule optical work.
+
+Gap: compare exact read slices/results against the optical oracle and add the
 bounded async/cache layer. Atomic work: issue #10.
 
-Evidence: claims C019–C021, instruments I009–I011,
+Evidence: claims C019–C022, instruments I009–I012,
 `scratch/control-test/native-assets-proof.json` (ignored), and
 [`re/disc-io.md`](re/disc-io.md).
 

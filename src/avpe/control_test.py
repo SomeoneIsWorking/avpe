@@ -113,10 +113,31 @@ def native_asset_reads_are_verified(trace: dict[str, object] | None) -> bool:
     return bool(
         isinstance(tbf, dict)
         and int(tbf.get("native_open_count", 0)) > 0
+        and int(tbf.get("original_fallback_count", 0)) == 0
         and int(tbf.get("read_calls", 0)) > 0
         and int(tbf.get("bytes_read", 0)) > 0
         and isinstance(bootstrap, dict)
         and int(bootstrap.get("native_open_count", 0)) == 0
+        and int(bootstrap.get("original_fallback_count", 0)) > 0
+    )
+
+
+def oracle_asset_fallback_is_verified(trace: dict[str, object] | None) -> bool:
+    if not asset_trace_is_verified(trace):
+        return False
+    assert trace is not None
+    paths = trace["paths"]
+    assert isinstance(paths, list)
+    tbf = next((
+        entry for entry in paths
+        if isinstance(entry, dict)
+        and isinstance(entry.get("path"), str)
+        and EXPECTED_NATIVE_ASSET in entry["path"].replace("\\", "/").casefold()
+    ), None)
+    return bool(
+        isinstance(tbf, dict)
+        and int(tbf.get("native_open_count", 0)) == 0
+        and int(tbf.get("original_fallback_count", 0)) > 0
     )
 
 
@@ -135,6 +156,7 @@ def native_movie_reads_are_verified(trace: dict[str, object] | None) -> bool:
     return bool(
         isinstance(movie, dict)
         and int(movie.get("native_open_count", 0)) == 1
+        and int(movie.get("original_fallback_count", 0)) == 0
         and int(movie.get("read_calls", 0)) > 0
         and int(movie.get("bytes_read", 0)) == EXPECTED_NATIVE_MOVIE_SIZE
         and int(movie.get("seek_calls", 0)) == 2
@@ -157,6 +179,7 @@ def native_stream_reads_are_verified(trace: dict[str, object] | None) -> bool:
             "/streams/" in normalized
             and normalized.removesuffix(";1").endswith((".vag", ".ziv"))
             and int(entry.get("native_open_count", 0)) > 0
+            and int(entry.get("original_fallback_count", 0)) == 0
             and int(entry.get("read_calls", 0)) > 0
             and bytes_read > 0
             and bytes_read % 2048 == 0

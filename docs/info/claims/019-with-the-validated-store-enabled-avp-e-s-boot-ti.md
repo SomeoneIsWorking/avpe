@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: assets,native-io,ioman
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp#ResolveIomanOpen, thirdparty/pcsx2/pcsx2/IopBios.cpp#open_HLE, tools/run_control_test.py#probe_native_assets
 reconfirmed: 2026-08-27
-verified_at: 2026-08-27 22:04:55
+verified_at: 2026-08-27 22:16:23
 ---
 
 ## Claim
@@ -28,3 +28,7 @@ the same validated-store run reaches the original IOP/CDVD implementation for a 
 ## Re-confirmed 2026-08-27
 
 After fork commit bc15e1a, the final clean surfaceless/null-muted stream run reconfirmed native TBF reads and zero bootstrap claims; the 36-test format/tidy gate passed.
+
+## Re-confirmed 2026-08-27
+
+Fork commit 2316c91 and the 38-test full gate reconfirmed native TBF reads with zero original fallthrough; the no-store control recorded two TBF fallthroughs and zero native claims.
