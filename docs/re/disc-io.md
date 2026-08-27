@@ -203,6 +203,33 @@ opens recorded original fallthrough and zero native claims. A handled import
 returns directly to the guest, so the original IOP/CDVD implementation and its
 sector scheduler cannot execute for that claimed call.
 
+## Live native save-state recovery
+
+PCSX2's HLE save-state owner remains authoritative for native descriptor and
+synthetic-CDVD serialization. `NativeAssetStateSnapshot` is a diagnostic view
+captured on the CPU thread immediately before `/state/save` serialization and
+immediately after successful `/state/load`; it reports native guest fd, path,
+cursor, exact CDVD mapping identity and LSN allocation, and transient
+completion-token occupancy. It does not serialize a second copy of that state.
+
+Two clean surfaceless/null-muted probes exercised the production boundary. The
+ioman leg saved `INTRO.PSS` at fd 257/cursor 131,072, allowed reads to advance,
+loaded the state, observed the exact descriptor snapshot, and then advanced
+reads again without another native open or original fallback. The CDVD leg
+saved `MENU01.ZIV` with its exact path, base LSN 3,758,096,384, size 7,602,176,
+SHA-256, and next LSN 3,758,100,096; after load the same mapping resumed sector
+reads and matching one-shot completion consumption with no reopen, fallback,
+rejection, or pending token. Both copied cards remained byte-identical.
+Strengthened reruns also required the post-load runtime to report Running,
+surfaceless, and null-muted, plus a bounded-cache snapshot with zero transient
+host handles. The CDVD leg reached the exact 512-page/32 MiB resident bound and
+continued correctly through eviction.
+
+The policy rejects a snapshot with an active completion token, descriptor or
+mapping drift after load, a post-load reopen, original fallback, or missing
+read/completion progress. Per-run states and JSON proofs are ignored under
+`scratch/control-test/`.
+
 ## Native/ISO byte differential
 
 `NativeAssetByteTrace` is a separate diagnostic owner. In `native` mode it

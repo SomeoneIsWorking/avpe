@@ -62,9 +62,6 @@ ignored evidence is
 - Prove native/oracle missing, short-read, and injected-error return/buffer
   equivalence with no silent fallback.
 - Define and exercise explicit cold and warm cache-state protocols.
-- Exercise guest reset and save/load while native descriptors and synthetic
-  CDVD mappings are live; compile-time integration is not runtime recovery
-  evidence.
 - Ground and measure a representative mission/level transition; the proven
   startup interval does not stand in for that transition.
 
@@ -101,8 +98,12 @@ LSN mappings, and restore fails closed if those identities cannot be admitted.
 This path builds and passes the scoped linter. A pre-change version-0 pause-menu
 state loaded successfully after the version plumbing fix. A new version-1
 clean-boot state then saved and reloaded into the same running
-surfaceless/null-muted target. A live state round-trip with a native descriptor
-or mapping remains required.
+surfaceless/null-muted target. Two later clean runs exercised the live state:
+`INTRO.PSS` restored at the exact descriptor slot and cursor before advancing
+without a reopen, and `MENU01.ZIV` restored its exact mapping identity and LSN
+allocator before advancing native sector reads and matching completion
+consumption. Both runs had zero native fallback and byte-identical card copies.
+Resolved issue #14 records the live recovery proof.
 
 Evidence: claim C026, instrument I016, and ignored artifact
 `scratch/control-test/native-asset-cache-proof.json`.
