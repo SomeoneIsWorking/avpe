@@ -2,7 +2,7 @@
 id: 12
 title: Bound native asset caching and prove loading behavior
 status: investigating
-symptom: Native asset reads remain synchronous and cache bounds, failure equivalence, cold/warm behavior, and representative transition timing are unproven
+symptom: Native asset caching is bounded, but failure equivalence, live reset/save-state recovery, cold/warm behavior, and representative transition timing are unproven
 state_items: S024
 tags: assets,cache,loading,timing
 created: 2026-08-27
@@ -59,12 +59,47 @@ ignored evidence is
 
 ## Remaining
 
-- Bound cache memory and host-file lifetime and prove reset behavior.
 - Prove native/oracle missing, short-read, and injected-error return/buffer
   equivalence with no silent fallback.
 - Define and exercise explicit cold and warm cache-state protocols.
+- Exercise guest reset and save/load while native descriptors and synthetic
+  CDVD mappings are live; compile-time integration is not runtime recovery
+  evidence.
 - Ground and measure a representative mission/level transition; the proven
   startup interval does not stand in for that transition.
+
+## Bounded cache and lifecycle
+
+The ioman and synthetic-CDVD delivery paths now share `NativeAssetCache`, an
+immutable 64 KiB page cache with an exact 512-page/32 MiB true-LRU bound. A
+miss coalesces at most 16 adjacent pages through one transient host handle.
+Failed or partial fills install no page; logical EOF, short reads, and I/O
+errors remain distinct. `NativeAssetFile` retains only a guest cursor and an
+admitted generation-safe record, so an open guest file retains no host handle.
+
+Thirteen production tests cover valid and invalid store admission plus
+unaligned/multipage cache bytes, reuse, short-read/EOF behavior, failed-fill
+retry, exact-capacity eviction, true LRU, explicit page drop, and generation
+change. The surfaceless/null-muted `--probe-native-asset-cache` run observed
+four misses/fills, 54 hits, four resident pages (262,144 bytes), zero
+evictions, one peak transient handle, and zero live handles after 53 native
+TBF reads. It retained the established zero-fallthrough native TBF and optical
+bootstrap boundary. The proof policy lives in
+`src/avpe/native_asset_cache_probe.py`, outside the already-large runner.
+
+Guest reset closes ioman descriptors before clearing synthetic mappings while
+keeping the admitted store. Shutdown and actual disc-epoch changes close
+native descriptors before cache/store unbind. Save-state format version 1
+records exact native descriptor slots, cursor, admitted identity, and synthetic
+LSN mappings, and restore fails closed if those identities cannot be admitted.
+This path builds and passes the scoped linter. A pre-change version-0 pause-menu
+state loaded successfully after the version plumbing fix. A new version-1
+clean-boot state then saved and reloaded into the same running
+surfaceless/null-muted target. A live state round-trip with a native descriptor
+or mapping remains required.
+
+Evidence: claim C026, instrument I016, and ignored artifact
+`scratch/control-test/native-asset-cache-proof.json`.
 
 ## Store-admission invariant
 
@@ -76,7 +111,7 @@ SHA-256 before returning a native asset. Size or modification-time changes
 force content revalidation, manifest bytes are rehashed on every resolution,
 and unbind changes the asset generation.
 
-Seven production-implementation C++ tests demonstrate the positive member and
+Eight store-focused production C++ tests demonstrate the positive member and
 reject an unlisted member, wrong token, unsafe/duplicate records, wrong-size
 content, same-size corruption, post-validation mutation, same-size manifest
 mutation with restored timestamp, and generation change after unbind. The final

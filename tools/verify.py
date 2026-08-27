@@ -18,6 +18,8 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStore.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.cpp",
@@ -26,6 +28,9 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/SaveState.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/EmulationThread.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp",
@@ -43,6 +48,8 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStore.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.h",
@@ -60,15 +67,29 @@ CPP_HEADERS = (
 )
 CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp": (
-        (1, 13), (265, 312), (415, 438), (604, 708), (843, 936),
-        (992, 1059), (1460, 1505)),
+        (1, 13), (265, 312), (415, 580), (604, 708), (843, 936),
+        (992, 1059), (1460, 1505), (1600, 1819)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (563, 620), (688, 720)),
+    ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp": ((1, 10), (50, 57)),
+    ROOT / "thirdparty/pcsx2/pcsx2/SaveState.cpp": (
+        (90, 105), (315, 325), (1080, 1130), (1140, 1165), (1175, 1215)),
+    ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp": (
+        (1, 10), (1690, 1710), (2335, 2400)),
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": (
         (1, 10), (47, 51), (398, 410), (779, 788), (2_205, 2_220)),
 }
+CORE_SCOPED_HEADERS = {
+    ROOT / "thirdparty/pcsx2/pcsx2/IopBios.h": ((69, 77),),
+    ROOT / "thirdparty/pcsx2/pcsx2/SaveState.h": (
+        (20, 32), (70, 100), (345, 358)),
+    ROOT / "thirdparty/pcsx2/pcsx2/VMManager.h": ((210, 220),),
+}
 FULL_FORMAT_SOURCES = tuple(
     path for path in CPP_SOURCES if path not in CORE_SCOPED_SOURCES
+)
+FULL_FORMAT_HEADERS = tuple(
+    path for path in CPP_HEADERS if path not in CORE_SCOPED_HEADERS
 )
 
 
@@ -86,7 +107,9 @@ def run(label: str, argv: list[str]) -> None:
 
 def main() -> int:
     missing_sources = [
-        path for path in (*CPP_SOURCES, *CPP_HEADERS) if not path.is_file()
+        path
+        for path in (*CPP_SOURCES, *CPP_HEADERS, *CORE_SCOPED_HEADERS)
+        if not path.is_file()
     ]
     if missing_sources:
         print(
@@ -134,10 +157,10 @@ def main() -> int:
                 clang_format,
                 "--dry-run",
                 "--Werror",
-                *(str(path) for path in (*FULL_FORMAT_SOURCES, *CPP_HEADERS)),
+                *(str(path) for path in (*FULL_FORMAT_SOURCES, *FULL_FORMAT_HEADERS)),
             ],
         )
-        for path, ranges in CORE_SCOPED_SOURCES.items():
+        for path, ranges in (*CORE_SCOPED_SOURCES.items(), *CORE_SCOPED_HEADERS.items()):
             run(
                 f"clang-format touched ranges in {path.name}",
                 [
@@ -153,13 +176,13 @@ def main() -> int:
                 "name": str(path),
                 "lines": [[1, 10000]],
             }
-            for path in (*FULL_FORMAT_SOURCES, *CPP_HEADERS)
+            for path in (*FULL_FORMAT_SOURCES, *FULL_FORMAT_HEADERS)
         ] + [
             {
                 "name": str(path),
                 "lines": [list(line_range) for line_range in ranges],
             }
-            for path, ranges in CORE_SCOPED_SOURCES.items()
+            for path, ranges in (*CORE_SCOPED_SOURCES.items(), *CORE_SCOPED_HEADERS.items())
         ]
         run(
             "clang-tidy",

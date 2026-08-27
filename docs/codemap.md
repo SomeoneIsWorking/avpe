@@ -24,6 +24,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Product input routing | Qt key and mouse translation, held-input ownership across menu/game transitions, and typed action dispatch | `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*` | `AVPE::HostInputRouter` | [input path](re/input-path.md) |
 | Presentation bridge | GS-to-host window acquisition and narrow display/settings control | `thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp`, `Runtime.*` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
 | Control-test runner | Silent surfaceless PCSX2 process, isolated profile/card working copies, loopback transport, timebox, exact process-group cleanup | `tools/run_control_test.py`, `src/avpe/control_http.py`, `src/avpe/memory_card_probe.py` | `main()` | [control-test contract](re/headless.md) |
+| Native cache proof policy | Bounded-cache snapshot validation and active-cache polling, independent of process orchestration | `src/avpe/native_asset_cache_probe.py` | `cache_snapshot_is_verified()` | [disc-I/O RE contract](re/disc-io.md) |
 | Project verification | Python behavior, isolation, dependency, and source-structure regressions | `tests/`, `tools/verify.py` | `tools/verify.py` | — |
 | Project logging | Single Python log-level gate | `src/avpe/log.py` | `log()` | — |
 | Raw-sector conversion | Streaming, validated 2352-byte-sector to ISO block conversion | `src/avpe/raw_sector.py`; CLI in `tools/raw2352.py` | `strip_image()` | — |
@@ -37,7 +38,9 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native gameplay input | Live gameplay-pointer validation, selector policy, selection edges, and contextual commands | `thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp/.h` | `AVPE::NativeInput::MoveAbsolute()` | [input-path contract](re/input-path.md) |
 | Native menu input | Active menu and menu-capable pointer discovery, focus navigation, hit-testing, and activation/cancel actions | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp/.h` | `AVPE::NativeMenuInput` | [input-path contract](re/input-path.md) |
 | Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: a `NativeSaves` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | target: `AVPE::NativeSaves` | target: save-path RE contract |
-| Native asset I/O | AVP:E title gating, path normalization, ioman descriptor lifecycles, FSSOUND cdvdman sector mapping, and target host-read/cache policy over admitted asset records | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.*`; narrow ioman/cdvdman hooks in `IopBios.cpp` | `AVPE::NativeAssets::ResolveIomanOpen()`, `ResolveCdvdSearch()` | [disc-I/O RE contract](re/disc-io.md) |
+| Native asset I/O | AVP:E title gating, path normalization, store/cache lifecycle composition, and FSSOUND cdvdman sector mapping over admitted records | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.*`; narrow ioman/cdvdman hooks in `IopBios.cpp` | `AVPE::NativeAssets::ResolveIomanOpen()`, `ResolveCdvdSearch()` | [disc-I/O RE contract](re/disc-io.md) |
+| Native asset byte cache | Immutable 64 KiB pages, exact 512-page/32 MiB true-LRU bound, coalesced transient host reads, and generation invalidation shared by ioman and cdvdman | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.*` | `AVPE::NativeAssetCache::ReadAt()` | [disc-I/O RE contract](re/disc-io.md) |
+| Native ioman file adapter | Per-descriptor read/seek cursor over admitted records and the shared cache, with no persistent host file handle | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.*` | `AVPE::NativeAssetFile::Open()` | [disc-I/O RE contract](re/disc-io.md) |
 | Native asset byte differential | Bounded canonical-chunk assembly, PCSX2 ISO-reader oracle capture, strict source-separated comparison, and mismatch controls | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.*`, `src/avpe/asset_byte_compare.py`, `tools/compare_native_asset_bytes.py` | `AVPE::NativeAssetByteTrace::CaptureIsoOracle()`, `compare_asset_byte_traces()` | [disc-I/O RE contract](re/disc-io.md) |
 | Native load timing differential | Grounded guest/host boundary capture, actual-backend identity, strict symmetric sample validation, alternating-run orchestration, and drift/reduction controls | `thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.*`, `src/avpe/load_timing.py`, `tools/compare_native_load_timing.py` | `AVPE::NativeLoadTiming::SnapshotJson()`, `compare_load_timing_samples()` | [disc-I/O RE contract](re/disc-io.md) |
 | AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: a dedicated `HLE` submodule under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: HLE-BIOS RE contract |
@@ -59,6 +62,7 @@ src/avpe/                      host-side product orchestration
 ├── launch.py                  emulator process/config owner
 ├── log.py                     Python logging owner
 ├── native_assets.py           validated native-store provisioner
+├── native_asset_cache_probe.py bounded-cache proof policy
 ├── asset_byte_compare.py      strict native/ISO chunk comparator
 ├── load_timing.py             strict symmetric timing comparison policy
 └── raw_sector.py              streaming raw-sector converter
@@ -73,6 +77,8 @@ thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── GuestObjects.*             validated AVP:E guest object/handle reads
 ├── NativeAssets.*             title-gated ioman/CDVD native asset boundary and observations
 ├── NativeAssetByteTrace.*     bounded native/ISO canonical-chunk evidence
+├── NativeAssetCache.*         bounded immutable-page LRU and transient host reads
+├── NativeAssetFile.*          cache-backed ioman descriptor cursor
 ├── NativeAssetStore.*         exact manifest admission and validated member index
 ├── NativeLoadTiming.*         grounded native/optical loading-time evidence
 ├── NativeInput.*              gameplay pointer and button semantics
@@ -103,10 +109,12 @@ docs/issues/                   atomic work and investigation points
 - AVP:E save interception, schema translation, atomic files, and memory-card
   import belong in the dedicated fork-local `NativeSaves` module; generic PCSX2
   card emulation remains outside that owner.
-- AVP:E namespace and guest-visible asset semantics belong in fork-local
-  `NativeAssets`; exact manifest admission, member lookup, and content identity
-  belong in its private `NativeAssetStore` peer. Future bounded host reads and
-  caching consume generation-safe store records through `NativeAssets`.
+- AVP:E namespace, guest-visible asset semantics, and lifecycle composition
+  belong in fork-local `NativeAssets`; exact manifest admission, member lookup,
+  and content identity belong in its private `NativeAssetStore` peer. Bounded
+  immutable pages and transient host reads belong in `NativeAssetCache`, while
+  `NativeAssetFile` owns only the ioman descriptor cursor. Both ioman and
+  cdvdman consume the same generation-safe cache through `NativeAssets`.
   Grounded CDVD/IOP hooks call that owner; they do not absorb game-specific
   file tables or host I/O policy.
 - Native-versus-ISO byte evidence belongs in the peer `NativeAssetByteTrace`

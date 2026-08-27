@@ -16,9 +16,14 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeMenuInput.*` owns discovery and invocation of AVP:E keyboard and
   pointer menu actions.
 - `NativeAssets.*` owns title gating, the AVP:E disc namespace, ioman host-file
-  replacement, and FSSOUND's direct cdvdman sector mapping.
+  replacement, FSSOUND's direct cdvdman sector mapping, and store/cache
+  lifecycle composition.
   `NativeAssetStore.*` is its private peer for exact manifest admission,
   member lookup, content validation, and generation-safe asset identity.
+  `NativeAssetCache.*` owns the bounded immutable-page LRU and transient host
+  reads; `NativeAssetFile.*` owns only the per-descriptor guest cursor adapter.
+  Native descriptors and synthetic CDVD mappings are frozen by PCSX2's HLE
+  handle save-state owner rather than by any diagnostic route.
   `IopBios.cpp` provides only grounded narrow hooks; it must not absorb game
   paths, manifests, or cache policy, and ordinary disc traffic remains on the
   emulator oracle.
@@ -32,6 +37,8 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `src/avpe/native_assets.py`, `iso9660.py`, and `raw_sector.py` own native
   asset-store provisioning. Derived game bytes stay under ignored `scratch/`;
   only the schema, identity anchors, validation logic, and tests are tracked.
+- `src/avpe/native_asset_cache_probe.py` owns the bounded-cache evidence
+  policy; `tools/run_control_test.py` only orchestrates its surfaceless probe.
 - `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*` owns product key-to-action
   and mouse-to-action policy; `HostWindow.*` owns only platform event capture
   and window lifecycle.

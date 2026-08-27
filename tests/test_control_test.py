@@ -25,6 +25,7 @@ from avpe.pcsx2_config import (
     ensure_test_config,
     timing_config_identity,
 )
+from avpe.native_asset_cache_probe import cache_snapshot_is_verified
 
 
 class ControlTestPolicyTests(unittest.TestCase):
@@ -98,6 +99,44 @@ class ControlTestPolicyTests(unittest.TestCase):
             build_environment(
                 {}, 31234, self.nonce, native_asset_root=Path("/validated/files")
             )
+
+    def test_accepts_active_bounded_native_asset_cache_snapshot(self) -> None:
+        snapshot = {
+            "page_bytes": 64 * 1024,
+            "maximum_pages": 512,
+            "maximum_resident_bytes": 32 * 1024 * 1024,
+            "hits": 4,
+            "misses": 3,
+            "fills": 3,
+            "evictions": 1,
+            "resident_pages": 2,
+            "resident_bytes": 2 * 64 * 1024,
+            "transient_handles": 0,
+            "peak_transient_handles": 1,
+        }
+
+        self.assertTrue(
+            cache_snapshot_is_verified(snapshot, require_activity=True)
+        )
+
+    def test_rejects_unbounded_or_internally_inconsistent_cache_snapshot(self) -> None:
+        snapshot = {
+            "page_bytes": 64 * 1024,
+            "maximum_pages": 512,
+            "maximum_resident_bytes": 32 * 1024 * 1024,
+            "hits": 4,
+            "misses": 513,
+            "fills": 513,
+            "evictions": 0,
+            "resident_pages": 513,
+            "resident_bytes": 513 * 64 * 1024,
+            "transient_handles": 0,
+            "peak_transient_handles": 1,
+        }
+
+        self.assertFalse(
+            cache_snapshot_is_verified(snapshot, require_activity=True)
+        )
 
     def test_accepts_grounded_native_asset_trace(self) -> None:
         trace = {
