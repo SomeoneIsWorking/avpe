@@ -117,12 +117,12 @@ def doctor() -> int:
         )
 
     # 4. Built binary
-    binary = ROOT / "scratch" / "build" / "bin" / "pcsx2-qt"
+    binary = ROOT / "scratch" / "build" / "bin" / "avpe"
     deps_dir = ROOT / "scratch" / "deps"
     if binary.exists():
         print(f"pass  built binary: {binary}")
     else:
-        print(f"FAIL  no built PCSX2 at {binary} — configure+build required before launch")
+        print(f"FAIL  no built AVPE frontend at {binary} — configure+build required before launch")
         failures += 1
     if not check_qt_prefix(deps_dir):
         failures += 1

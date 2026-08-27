@@ -7,7 +7,7 @@ SOURCE_LINE_CAP = 1_200
 PYTHON_ROOTS = (ROOT / "src" / "avpe", ROOT / "tools")
 AVPE_CPP_ROOTS = (
     ROOT / "thirdparty" / "pcsx2" / "pcsx2" / "AVPE",
-    ROOT / "thirdparty" / "pcsx2" / "pcsx2-qt" / "AVPE",
+    ROOT / "thirdparty" / "pcsx2" / "pcsx2-avpe",
 )
 CPP_SUFFIXES = frozenset({".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"})
 
@@ -46,6 +46,31 @@ class ProjectStructureTests(unittest.TestCase):
             violations,
             "first-party source file line cap exceeded:\n" + details,
         )
+
+    def test_product_target_is_independent_of_pcsx2_gui(self) -> None:
+        cmake = (
+            ROOT / "thirdparty" / "pcsx2" / "pcsx2-avpe" / "CMakeLists.txt"
+        ).read_text(encoding="utf-8")
+        self.assertIn("add_executable(avpe", cmake)
+        self.assertIn("PCSX2", cmake)
+        forbidden = (
+            "pcsx2-qt",
+            "MainWindow",
+            "DisplayWidget",
+            "GameList",
+            "Debugger",
+            "Settings/",
+            "KDAB::kddockwidgets",
+        )
+        for dependency in forbidden:
+            self.assertNotIn(dependency, cmake)
+
+    def test_pcsx2_qt_has_no_product_frontend_mode(self) -> None:
+        qt_host = (
+            ROOT / "thirdparty" / "pcsx2" / "pcsx2-qt" / "QtHost.cpp"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("-avpe-host", qt_host)
+        self.assertNotIn("HostWindow", qt_host)
 
 
 if __name__ == "__main__":

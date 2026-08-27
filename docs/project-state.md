@@ -78,8 +78,9 @@ runtime, and EE-call shuttle with Clang against the project dependency prefix.
 The claim checker reports C001 as a coarse file-change advisory, not as
 evidence that the earlier baseline-build claim was falsified.
 
-Evidence: claims C001, C004, C007–C009 and C014; project commit `3f32427`;
-PCSX2 fork commit `ae64681`; successful `pcsx2-qt` Clang build.
+Evidence: claims C001, C004, C007–C009 and C014–C015; project commit
+`3f32427`; PCSX2 fork commit `e8d0317`; successful independent `avpe` and
+`pcsx2-qt` Clang builds.
 
 ### S004 — isolated control-test launch: verified
 
@@ -257,17 +258,16 @@ the selected configuration after a clean restart.
 
 ### S020 — AVPE host shell: partial
 
-Observed subset: `AVPE::HostWindow` is a dedicated top-level product window;
-`-avpe-host` keeps PCSX2's administrative `MainWindow` hidden and routes render
-acquire/release, resize, mouse mode, and mouse lock exclusively to the AVPE
-owner. The default product launcher requires this mode, and the Clang build plus
-offscreen command-line capability check pass.
+Observed subset: the standalone `avpe` executable links the PCSX2 emulation
+core and AVPE-owned runtime, window, surface, settings, and input modules. Its
+target has no PCSX2 `MainWindow`, display widget, game list, debugger, dialogs,
+or settings UI. The default product launcher invokes this executable directly;
+the Clang link and offscreen configuration check pass.
 
 Gap: respecting the user's no-window test constraint means the real desktop
 window has not been launched in this session. Runtime verification still must
-exercise resize, fullscreen, focus, close, and failure reporting without any
-generic PCSX2 dialog escaping. Input routing and RmlUi same-frame composition
-are also missing. Atomic work: issue #3.
+exercise boot, resize, fullscreen, focus, close, and failure reporting. RmlUi
+same-frame composition is also missing. Atomic work: issue #3.
 
 ### S021 — disc/file access boundary: missing
 

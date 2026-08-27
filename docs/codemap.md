@@ -1,8 +1,8 @@
 # AVPE codemap
 
 AVPE is organized as a native product host backed by a maintained PCSX2 fork,
-with locked Python provisioning and test orchestration. The current in-process
-host lives in the fork's AVPE Qt module; Python orchestration lives in
+with locked Python provisioning and test orchestration. The standalone product
+frontend lives in the fork's `pcsx2-avpe` module; Python orchestration lives in
 `src/avpe/`; emulator-thread control and native guest integration live in
 `thirdparty/pcsx2/pcsx2/AVPE/`; reverse-engineering knowledge and evidence live
 under `docs/`.
@@ -19,9 +19,10 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | CLI orchestration | User commands, environment discovery, preflight | `src/avpe/cli.py` | `main()` | — |
 | Dependency provisioning | PCSX2 gitlink inspection plus recursive submodule initialization; dependency provenance | `src/avpe/dependencies.py`, `.gitmodules`, `deps.toml` | `provision_submodules()` | — |
 | Product launch | AVPE host argv, product config, process lifetime | `src/avpe/launch.py` | `launch()` | — |
-| Native host shell | Sole visible top-level window, render-surface lifecycle, resize/fullscreen, focus, product shutdown | `thirdparty/pcsx2/pcsx2-qt/AVPE/HostWindow.cpp/.h` | `-avpe-host`; `AVPE::HostWindow` | [presentation](host/presentation.md) |
-| Product input routing | Qt key and mouse translation, held-input ownership across menu/game transitions, and typed action dispatch | `thirdparty/pcsx2/pcsx2-qt/AVPE/HostInputRouter.cpp/.h` | `AVPE::HostInputRouter` | [input path](re/input-path.md) |
-| Presentation bridge | GS-to-host window acquisition now; future same-frame RmlUi composition and narrow display/settings control | current: `thirdparty/pcsx2/pcsx2-qt/QtHost.cpp` signal boundary; target: a `PresentationBridge` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
+| Standalone frontend runtime | Product process composition, PCSX2 core thread/lifecycle, and host callbacks | `thirdparty/pcsx2/pcsx2-avpe/Runtime.*`, `EmulationThread.*`, `HostServices.cpp`, `Main.cpp` | `avpe` executable | [presentation](host/presentation.md) |
+| Native host shell | Sole visible top-level window, render-surface lifecycle, resize/fullscreen, focus, product shutdown | `thirdparty/pcsx2/pcsx2-avpe/HostWindow.*`, `RenderSurface.*`, `NativeWindow.*` | `AVPE::HostWindow` | [presentation](host/presentation.md) |
+| Product input routing | Qt key and mouse translation, held-input ownership across menu/game transitions, and typed action dispatch | `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*` | `AVPE::HostInputRouter` | [input path](re/input-path.md) |
+| Presentation bridge | GS-to-host window acquisition now; future same-frame RmlUi composition and narrow display/settings control | `thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp`, `Runtime.*` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
 | Control-test runner | Silent surfaceless PCSX2 process, isolated profile, timebox, exact process-group cleanup | `tools/run_control_test.py` | `main()` | [control-test contract](re/headless.md) |
 | Project verification | Python behavior, isolation, dependency, and source-structure regressions | `tests/`, `tools/verify.py` | `tools/verify.py` | — |
 | Project logging | Single Python log-level gate | `src/avpe/log.py` | `log()` | — |
@@ -35,7 +36,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: a `NativeSaves` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | target: `AVPE::NativeSaves` | target: save-path RE contract |
 | Native asset I/O | AVP:E file/sector mapping, validated disc-derived asset store, asynchronous host reads, cache, and optical-path bypass | target: a `NativeAssets` peer module under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks in the grounded CDVD/IOP boundary | target: `AVPE::NativeAssets` | target: disc-I/O RE contract |
 | AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: a dedicated `HLE` submodule under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: HLE-BIOS RE contract |
-| Native options UI | RmlUi lifecycle, options documents, and game-facing settings bindings | target: a dedicated `UI` submodule under `thirdparty/pcsx2/pcsx2-qt/AVPE/` | target: `AVPE::NativeSettingsUI` | target: native-options UI contract |
+| Native options UI | RmlUi lifecycle, options documents, and game-facing settings bindings | target: `thirdparty/pcsx2/pcsx2-avpe/UI/` | target: `AVPE::NativeSettingsUI` | target: native-options UI contract |
 | Diagnostic pad injection | Bootstrap-only active-low DS2 injection | `thirdparty/pcsx2/pcsx2/SIO/Pad/PadDualshock2.cpp` | `GetButtons()` integration | [control-channel contract](re/control-channel.md) |
 | RE helpers | Ghidra extraction, caller discovery, singleton inventory | `tools/ghidra_scripts/`, `tools/pthe_syms.txt` | individual tools | [input-path contract](re/input-path.md) |
 | Evidence | Falsifiable claims and verification dependencies | `docs/info/claims/` | claim files | — |
@@ -59,9 +60,14 @@ thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── NativeInput.*              gameplay pointer and button semantics
 ├── NativeMenuInput.*          active-menu discovery and typed menu actions
 └── NativePointerMotion.*      shared absolute pointer movement mechanics
-thirdparty/pcsx2/pcsx2-qt/AVPE native product platform/input owners
+thirdparty/pcsx2/pcsx2-avpe/    standalone product frontend
+├── Main.cpp                    process composition and product CLI
+├── Runtime.*                   host-facing frontend orchestration
+├── EmulationThread.*           PCSX2 core lifecycle owner
+├── HostServices.cpp            PCSX2 Host callback implementation
 ├── HostInputRouter.*          key/mouse-to-typed-action policy
-└── HostWindow.*               window and platform event capture
+├── HostWindow.*               window and platform event capture
+└── RenderSurface.*            low-level native graphics surface
 docs/re/                       subsystem RE and operating contracts
 docs/info/claims/              evidence ledger
 docs/issues/                   atomic work and investigation points
@@ -87,16 +93,11 @@ docs/issues/                   atomic work and investigation points
   owner. Existing BIOS, EE kernel, and IOP integration points remain narrow
   hooks; they do not become a second copy of the game-specific service model.
 - The visible native window and its platform lifecycle belong in the fork's
-  `thirdparty/pcsx2/pcsx2-qt/AVPE/` host module. PCSX2's generic `MainWindow` remains hidden and
-  administrative; it does not own product presentation.
-- RmlUi documents and input routing belong in a dedicated UI submodule under
-  `thirdparty/pcsx2/pcsx2-qt/AVPE/` while the host remains in-process. Their
-  interfaces must stay independent of `MainWindow` so a future standalone host
-  executable can reuse them.
-- The fork-side presentation bridge belongs under
-  `thirdparty/pcsx2/pcsx2/AVPE/` and exposes only
-  frame and settings operations needed by the host; graphics/display
-  validation and application continue to call existing PCSX2 setting owners.
+  standalone `thirdparty/pcsx2/pcsx2-avpe/` frontend. PCSX2's Qt application
+  is a diagnostic/oracle frontend only and is absent from the product target.
+- RmlUi documents and input routing belong in a dedicated `UI/` submodule of
+  `pcsx2-avpe`; they compose with the product surface and call narrow existing
+  PCSX2 graphics/display setting owners.
 - New HTTP framing/server capability belongs in Lucent; AVPE owns only routes
   and game-specific semantics.
 - New launcher commands compose modules under `src/avpe/`; discovery, build,
