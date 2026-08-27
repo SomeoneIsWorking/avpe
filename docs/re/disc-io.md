@@ -345,6 +345,10 @@ a validated, read-only namespace for this title. It must continue to:
   tracking copyrighted bytes;
 - implement the existing IOP descriptor and direct CDVD sector contracts,
   including short reads, zero-tail sectors, and errors;
+- keep a claimed FSSOUND sector read and its immediate `sceCdGetError` under
+  one native backend: a fixed-capacity one-shot token is keyed by the caller's
+  IOP stack, distinct stacks cannot consume each other's result, and a missing
+  token leaves unrelated cdvdman calls on the oracle;
 - prove representative TBF and streamed-audio byte slices match the oracle;
 - show that claimed imports do not return to the original IOP/CDVD path, while
   a deliberately unclaimed request does.
@@ -353,3 +357,21 @@ Any future asynchronous prefetch belongs behind `NativeAssetCache` and must
 preserve the same bounds and failure semantics. The synchronous game-side
 `CTbdFile::ReadChunk` contract must not be mislabeled as asynchronous merely
 because the host backend can prefetch.
+
+## Native cdvdman completion ownership
+
+FSSOUND calls `sceCdGetError` immediately after its direct `sceCdRead` calls.
+Leaving import index 8 unhandled after claiming index 6 made the result depend
+on cdvdman's unrelated optical-controller error state. `NativeCdvdCompletion`
+now records the native read result against the caller's IOP stack and consumes
+it exactly once for the matching `sceCdGetError`; a caller without a token is
+left on the original cdvdman path. The token store is fixed at 16 entries,
+never evicts a live caller, reports rejected records, and resets with native
+guest state.
+
+A clean surfaceless/null-muted MENU01 run recorded two claimed sector reads and
+two matching result consumptions, with zero rejected records and zero active
+tokens. The same trace counted unrelated token misses, demonstrating that the
+HLE did not swallow general cdvdman error queries. The isolated card source and
+working copy retained SHA-256
+`55237edfb8bd977e22ecf84ae2d1a942f8167fd3cbf9798376259342120f2b2b`.

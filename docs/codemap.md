@@ -41,6 +41,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native asset I/O | AVP:E title gating, path normalization, store/cache lifecycle composition, and FSSOUND cdvdman sector mapping over admitted records | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.*`; narrow ioman/cdvdman hooks in `IopBios.cpp` | `AVPE::NativeAssets::ResolveIomanOpen()`, `ResolveCdvdSearch()` | [disc-I/O RE contract](re/disc-io.md) |
 | Native asset byte cache | Immutable 64 KiB pages, exact 512-page/32 MiB true-LRU bound, coalesced transient host reads, and generation invalidation shared by ioman and cdvdman | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.*` | `AVPE::NativeAssetCache::ReadAt()` | [disc-I/O RE contract](re/disc-io.md) |
 | Native ioman file adapter | Per-descriptor read/seek cursor over admitted records and the shared cache, with no persistent host file handle | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.*` | `AVPE::NativeAssetFile::Open()` | [disc-I/O RE contract](re/disc-io.md) |
+| Native CDVD completion pairing | Fixed-capacity, one-shot caller-stack pairing from claimed FSSOUND sector reads to their matching `sceCdGetError` result | `thirdparty/pcsx2/pcsx2/AVPE/NativeCdvdCompletion.*`; narrow import hooks in `IopBios.cpp` | `AVPE::NativeCdvdCompletion::Record()`, `Consume()` | [disc-I/O RE contract](re/disc-io.md) |
 | Native asset byte differential | Bounded canonical-chunk assembly, PCSX2 ISO-reader oracle capture, strict source-separated comparison, and mismatch controls | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.*`, `src/avpe/asset_byte_compare.py`, `tools/compare_native_asset_bytes.py` | `AVPE::NativeAssetByteTrace::CaptureIsoOracle()`, `compare_asset_byte_traces()` | [disc-I/O RE contract](re/disc-io.md) |
 | Native load timing differential | Grounded guest/host boundary capture, actual-backend identity, strict symmetric sample validation, alternating-run orchestration, and drift/reduction controls | `thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.*`, `src/avpe/load_timing.py`, `tools/compare_native_load_timing.py` | `AVPE::NativeLoadTiming::SnapshotJson()`, `compare_load_timing_samples()` | [disc-I/O RE contract](re/disc-io.md) |
 | AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: a dedicated `HLE` submodule under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: HLE-BIOS RE contract |
@@ -78,6 +79,7 @@ thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── NativeAssets.*             title-gated ioman/CDVD native asset boundary and observations
 ├── NativeAssetByteTrace.*     bounded native/ISO canonical-chunk evidence
 ├── NativeAssetCache.*         bounded immutable-page LRU and transient host reads
+├── NativeCdvdCompletion.*     one-shot native read/GetError result pairing
 ├── NativeAssetFile.*          cache-backed ioman descriptor cursor
 ├── NativeAssetStore.*         exact manifest admission and validated member index
 ├── NativeLoadTiming.*         grounded native/optical loading-time evidence
@@ -115,6 +117,8 @@ docs/issues/                   atomic work and investigation points
   immutable pages and transient host reads belong in `NativeAssetCache`, while
   `NativeAssetFile` owns only the ioman descriptor cursor. Both ioman and
   cdvdman consume the same generation-safe cache through `NativeAssets`.
+  The matching FSSOUND `sceCdGetError` result belongs in the bounded
+  `NativeCdvdCompletion` peer rather than consulting unrelated optical state.
   Grounded CDVD/IOP hooks call that owner; they do not absorb game-specific
   file tables or host I/O policy.
 - Native-versus-ISO byte evidence belongs in the peer `NativeAssetByteTrace`

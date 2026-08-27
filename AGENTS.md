@@ -22,6 +22,8 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   member lookup, content validation, and generation-safe asset identity.
   `NativeAssetCache.*` owns the bounded immutable-page LRU and transient host
   reads; `NativeAssetFile.*` owns only the per-descriptor guest cursor adapter.
+  `NativeCdvdCompletion.*` owns bounded one-shot pairing between a claimed
+  FSSOUND sector read and the matching caller's immediate `sceCdGetError`.
   Native descriptors and synthetic CDVD mappings are frozen by PCSX2's HLE
   handle save-state owner rather than by any diagnostic route.
   `IopBios.cpp` provides only grounded narrow hooks; it must not absorb game
