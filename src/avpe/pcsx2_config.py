@@ -3,6 +3,12 @@
 from pathlib import Path
 
 
+VOLATILE_UI_CONFIG = {
+    "GameListTableView": None,
+    "UI": frozenset({"MainWindowGeometry", "MainWindowState"}),
+}
+
+
 def ini_path(data_dir: Path) -> Path:
     return data_dir / "PCSX2" / "inis" / "PCSX2.ini"
 
@@ -20,6 +26,24 @@ def load_ini(path: Path) -> dict[str, dict[str, str]]:
                 key, _, value = line.partition("=")
                 sections[current][key.strip()] = value.strip()
     return sections
+
+
+def timing_config_identity(path: Path) -> dict[str, dict[str, str]]:
+    """Return every persisted setting except diagnosed Qt UI layout state."""
+
+    identity: dict[str, dict[str, str]] = {}
+    for section, values in load_ini(path).items():
+        excluded = VOLATILE_UI_CONFIG.get(section, frozenset())
+        if excluded is None:
+            continue
+        kept = {
+            key: value
+            for key, value in values.items()
+            if key not in excluded
+        }
+        if kept:
+            identity[section] = kept
+    return identity
 
 
 def save_ini(path: Path, sections: dict[str, dict[str, str]]) -> None:
