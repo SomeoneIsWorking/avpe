@@ -4,7 +4,9 @@ kind: claim
 status: holds
 created: 2026-08-27
 tags: dependencies,provisioning,submodule
-depends: src/avpe/dependencies.py#provision_submodules, src/avpe/cli.py#main, .gitmodules
+depends: src/avpe/cli.py#main
+reconfirmed: 2026-08-27
+verified_at: 2026-08-27 21:13:10
 ---
 
 ## Claim
@@ -18,3 +20,7 @@ On 2026-08-27, uv run --frozen avpe provision synchronized thirdparty/pcsx2 and 
 ## What would falsify it
 
 Provisioning fails from an uninitialized checkout, leaves a nested dependency uninitialized, accepts a checkout whose HEAD differs from the gitlink, or requires the removed deps.toml revision field.
+
+## Re-confirmed 2026-08-27
+
+2026-08-27: after adding the assets CLI branch, the provisioning tests still passed recursive sync/init, revision extraction, and exact gitlink readiness; project-state and the full verifier passed

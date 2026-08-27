@@ -12,10 +12,10 @@ means the capability is absent.
 
 ## Current focus
 
-**S023 — native asset reads.** A validated store now exists and the high-level
-IOP boundary is proven. Work is wiring read-only host descriptors for the
-supported namespaces while preserving the original optical path as an explicit
-A/B oracle. Current focus is attention, not a separate state.
+**S023 — native asset reads.** Boot-time TBF reads now use host descriptors in
+the normal product configuration. Work is extending the same grounded proof to
+movies and streamed audio, then adding byte-level oracle comparison and
+CDVD-event exclusion. Current focus is attention, not a separate state.
 
 ## Capability inventory
 
@@ -43,7 +43,7 @@ A/B oracle. Current focus is attention, not a separate state.
 | S020 | AVPE-owned host shell owns the visible window and presentation lifecycle | partial | S003, S004 | G001, G004 |
 | S021 | AVP:E disc/file access boundary and asset namespace are mapped | partial | S001; issue #9 | G005 |
 | S022 | User disc content provisions into a validated native asset store | verified | S021 | G001, G005 |
-| S023 | Supported game asset requests use native host storage instead of emulated optical I/O | missing | S021, S022; issue #10 | G001, G005 |
+| S023 | Supported game asset requests use native host storage instead of emulated optical I/O | partial | S021, S022; issue #10 | G001, G005 |
 | S024 | Native asset I/O preserves behavior and measurably reduces loading time | blocked | S023 | G005 |
 | S025 | AVP:E's required BIOS, kernel, and IOP service surface is inventoried | missing | S001, S004 | G006 |
 | S026 | Clean-room AVP:E-specific HLE implements the required platform services | blocked | S025 | G006 |
@@ -317,12 +317,32 @@ All derived bytes remain under ignored `scratch/native-assets/`.
 Evidence: claim C018, instrument I008, `src/avpe/native_assets.py`,
 `src/avpe/iso9660.py`, `src/avpe/raw_sector.py`, and `tests/test_assets.py`.
 
-### S023 — native asset reads: missing
+### S023 — native asset reads: partial
 
-Missing capability: route representative game asset loads through the
-project-owned host I/O path with emulated optical seeks and sector-timed
-transfers absent from the same trace. Byte content, ordering, short reads, and
-errors must still match the grounded game contract. Atomic work: issue #10.
+Observed subset: the normal product launcher fully validates/provisions the
+native store before passing its root to the core. `NativeAssets` title-gates
+and normalizes read-only `TBD/`, `MOVIES/`, and `STREAMS/` paths, canonicalizes
+them below that root, rejects writes, traversal, missing files, and invalid
+stores, and leaves ELF/IRX bootstrap unclaimed. `IopBios` reuses its generic
+host descriptor mechanics for open/read/seek/close instead of duplicating OS
+I/O in the title module.
+
+Two surfaceless/null-muted native runs observed two TBF native opens,
+41–56 host reads, 67,052–127,138 bytes, 2–4 seeks, and one close. The ELF and
+every IRX open had zero native claims. Removing `AVPE_NATIVE_ASSET_ROOT` from
+the same binary produced zero native claims for all 15 observed opens,
+preserving the oracle. Live policy probes separately returned `native-file`,
+`refused-access` for write and traversal, `refused-missing`, and `unhandled`
+for bootstrap.
+
+Gap: dynamically exercise a movie and streamed-audio lifecycle, compare exact
+read slices/results against the optical oracle, prove claimed descriptors emit
+no CDVD sector/timing events, and add the bounded async/cache layer. Atomic
+work: issue #10.
+
+Evidence: claim C019, instrument I009,
+`scratch/control-test/native-assets-proof.json` (ignored), and
+[`re/disc-io.md`](re/disc-io.md).
 
 ### S024 — loading behavior and performance: blocked
 

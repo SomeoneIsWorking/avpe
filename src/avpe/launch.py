@@ -1,5 +1,6 @@
 """Launch the user-facing AVPE product."""
 
+from collections.abc import Mapping
 import os
 import signal
 import subprocess
@@ -7,6 +8,7 @@ import sys
 from pathlib import Path
 
 from avpe.log import log
+from avpe.native_assets import NativeAssetError, provision_native_assets
 from avpe.pcsx2_config import ensure_product_config
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -14,6 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 AVPE_BIN = ROOT / "scratch" / "build" / "bin" / "avpe"
 DATA_DIR = ROOT / "scratch" / "pcsx2-home"
 LOG_PATH = ROOT / "scratch" / "logs" / "emulog.txt"
+NATIVE_ASSET_DIR = ROOT / "scratch" / "native-assets"
 
 
 def build_argv(chd: str) -> list[str]:
@@ -25,6 +28,13 @@ def build_argv(chd: str) -> list[str]:
     return argv
 
 
+def build_environment(base: Mapping[str, str], native_asset_root: Path) -> dict[str, str]:
+    env = dict(base)
+    env.pop("AVPE_CONTROL_NONCE", None)
+    env["AVPE_NATIVE_ASSET_ROOT"] = str(native_asset_root.resolve())
+    return env
+
+
 def launch(chd: str) -> int:
     if not AVPE_BIN.exists():
         log("error", "launch", f"{AVPE_BIN} missing — run ./run.sh doctor for the exact blocker")
@@ -33,10 +43,15 @@ def launch(chd: str) -> int:
         log("error", "launch", f"game CHD missing: {chd} — fix AVPE_CHD in .env")
         return 1
 
+    try:
+        native_asset_root = provision_native_assets(Path(chd), NATIVE_ASSET_DIR)
+    except (NativeAssetError, OSError) as error:
+        log("error", "launch", f"native asset provisioning failed: {error}")
+        return 1
+
     ensure_product_config(DATA_DIR)
     argv = build_argv(chd)
-    env = os.environ.copy()
-    env.pop("AVPE_CONTROL_NONCE", None)
+    env = build_environment(os.environ, native_asset_root)
 
     log("info", "launch", "exec: " + " ".join(argv))
     out_path = ROOT / "scratch" / "logs" / "avpe-stdout.log"
