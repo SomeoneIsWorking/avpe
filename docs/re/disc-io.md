@@ -327,6 +327,13 @@ zero live handles after the TBF startup reads. A live reset/save-state
 round-trip with an active native descriptor or synthetic mapping is still
 required; build and unit evidence do not prove that recovery path.
 
+Fresh post-landing oracle/native captures on project `89cc05a` and fork
+`c0c6611` passed all 96 canonical chunk comparisons across TBF, EALOGO,
+FOXLOGO, ZONOLOGO, INTRO, and MENU01 through the shared cache. The deliberate
+TBF digest mismatch was rejected at offset zero, both runs remained
+surfaceless/null-muted, and both isolated card copies retained their source
+SHA-256.
+
 ## Native replacement invariants
 
 The native path preserves the original source as an A/B oracle and claims only

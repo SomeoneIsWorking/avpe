@@ -87,6 +87,12 @@ TBF reads. It retained the established zero-fallthrough native TBF and optical
 bootstrap boundary. The proof policy lives in
 `src/avpe/native_asset_cache_probe.py`, outside the already-large runner.
 
+After landing, fresh clean captures on project `89cc05a` and fork `c0c6611`
+matched the ISO oracle for all 96 canonical chunks across TBF, EALOGO,
+FOXLOGO, ZONOLOGO, INTRO, and MENU01 through the shared cache. The copied
+digest control was rejected at TBF offset zero, and both source/working card
+pairs remained byte-identical.
+
 Guest reset closes ioman descriptors before clearing synthetic mappings while
 keeping the admitted store. Shutdown and actual disc-epoch changes close
 native descriptors before cache/store unbind. Save-state format version 1
