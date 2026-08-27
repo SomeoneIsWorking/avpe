@@ -184,11 +184,36 @@ opens recorded original fallthrough and zero native claims. A handled import
 returns directly to the guest, so the original IOP/CDVD implementation and its
 sector scheduler cannot execute for that claimed call.
 
-## Native replacement requirements
+## Native/ISO byte differential
 
-The next implementation must preserve the original path as an A/B oracle and
-claim only a validated, read-only namespace for this title. Before it may
-replace an open it must:
+`NativeAssetByteTrace` is a separate diagnostic owner. In `native` mode it
+assembles the first 16 canonical 2048-byte file-relative chunks from the actual
+ioman buffers and synthetic cdvdman sectors, independent of guest read-call
+boundaries. In `oracle` mode it captures the same chunks through PCSX2's
+existing `IsoReader` only after the native MENU01 stream boundary has been
+reached. The two sources therefore do not read one another's buffers, and no
+game bytes are persisted—only paths, extents, sizes, and SHA-256 digests.
+
+Two clean surfaceless/null-muted runs on SLUS-20147 CRC 64DA78A3 matched all 16
+chunks for each of `TBF.TBF`, `EALOGO.PSS`, `FOXLOGO.PSS`, `ZONOLOGO.PSS`,
+`INTRO.PSS`, and `MENU01.ZIV`: 96 exact matches, zero mismatches, identical ISO
+extents/sizes, and zero drops or conflicts. Both isolated-card hashes remained
+unchanged. `tools/compare_native_asset_bytes.py` also changes one digest in a
+copy of the native artifact and requires rejection at the exact path, offset,
+and size; the 2026-08-27 control rejected `TBF.TBF` offset 0, size 2048.
+
+An attempted post-DMA optical capture in `cdvdReadSector()` was falsified and
+removed. It saw 1,379 early optical sectors but no asset sectors after the
+corresponding opens registered, so it could not serve as the file-byte oracle.
+Reading whole files through `IsoReader` concurrently with active original-disc
+playback also produced transient reader failures. Oracle capture is therefore
+deferred until the native menu-stream boundary, and byte tracing is never used
+for loading-time evidence.
+
+## Native replacement invariants
+
+The native path preserves the original source as an A/B oracle and claims only
+a validated, read-only namespace for this title. It must continue to:
 
 - normalize the PS2 device path and reject traversal, writes, unknown devices,
   unsupported flags, and paths outside the provisioned manifest;

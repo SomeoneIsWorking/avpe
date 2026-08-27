@@ -18,6 +18,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from avpe.cli import load_env
+from avpe.asset_byte_compare import asset_byte_trace_is_ready
 from avpe.control_test import (
     ABSENT_NATIVE_ASSET_SENTINEL,
     EXPECTED_SERIAL,
@@ -182,6 +183,30 @@ def await_asset_trace(
                 return trace
         time.sleep(0.05)
     raise RuntimeError(f"{description} was not observed: {trace}")
+
+
+def await_asset_byte_trace(port: int, deadline: float, mode: str) -> dict[str, object]:
+    trace: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, body = request_bytes(port, "GET", "/assets/byte-trace")
+        if status != 200:
+            raise RuntimeError(f"asset byte trace returned HTTP {status}")
+        candidate = json.loads(body)
+        if isinstance(candidate, dict):
+            trace = candidate
+            if asset_byte_trace_is_ready(trace, mode):
+                return trace
+        time.sleep(0.05)
+    raise RuntimeError(f"complete {mode} asset byte trace was not observed: {trace}")
+
+
+def capture_iso_oracle(port: int) -> None:
+    status, body = request_bytes(port, "POST", "/assets/capture-iso-oracle", {})
+    if status != 200:
+        raise RuntimeError(
+            f"ISO oracle capture returned HTTP {status}: "
+            f"{body.decode(errors='replace').strip()}"
+        )
 
 
 def probe_native_assets(
@@ -817,6 +842,10 @@ def main() -> int:
                         help="prove a complete native EALOGO.PSS lifecycle; requires a clean boot and --memory-card-source")
     parser.add_argument("--probe-native-stream-reads", action="store_true",
                         help="prove native STREAMS sector reads; requires a clean boot and --memory-card-source")
+    parser.add_argument("--probe-asset-byte-trace", choices=("oracle", "native"),
+                        help="capture bounded optical or native SHA-256 chunks from a clean boot")
+    parser.add_argument("--asset-byte-trace-output", type=Path,
+                        help="write --probe-asset-byte-trace JSON to this scratch path")
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
     args = parser.parse_args()
@@ -854,12 +883,19 @@ def main() -> int:
         parser.error("--probe-native-stream-reads requires a clean boot without --statefile")
     if args.probe_native_stream_reads and args.memory_card_source is None:
         parser.error("--probe-native-stream-reads requires --memory-card-source until native saves replace the card path")
+    if args.probe_asset_byte_trace and args.statefile is not None:
+        parser.error("--probe-asset-byte-trace requires a clean boot without --statefile")
+    if args.probe_asset_byte_trace and args.memory_card_source is None:
+        parser.error("--probe-asset-byte-trace requires --memory-card-source until native saves replace the card path")
+    if args.asset_byte_trace_output is not None and not args.probe_asset_byte_trace:
+        parser.error("--asset-byte-trace-output requires --probe-asset-byte-trace")
     probe_requested = (
         native_input_probe_requested
         or args.probe_native_assets
         or args.probe_native_asset_reads
         or args.probe_native_movie_reads
         or args.probe_native_stream_reads
+        or args.probe_asset_byte_trace
     )
 
     if not PCSX2.is_file():
@@ -877,7 +913,8 @@ def main() -> int:
         return 2
 
     native_asset_root: Path | None = None
-    if args.probe_native_asset_reads or args.probe_native_movie_reads or args.probe_native_stream_reads:
+    if (args.probe_native_asset_reads or args.probe_native_movie_reads
+            or args.probe_native_stream_reads or args.probe_asset_byte_trace):
         try:
             native_asset_root = provision_native_assets(chd, NATIVE_ASSET_DIR)
         except (NativeAssetError, OSError) as error:
@@ -906,7 +943,8 @@ def main() -> int:
         return 2
     nonce = secrets.token_hex(16)
     argv = build_argv(PCSX2, DATA_DIR, LOG_DIR / "emulog.txt", chd, args.statefile)
-    env = build_environment(os.environ, port, nonce, native_asset_root)
+    env = build_environment(
+        os.environ, port, nonce, native_asset_root, args.probe_asset_byte_trace)
     stdout = (LOG_DIR / "stdout.log").open("wb")
     try:
         port_reservation.close()
@@ -933,6 +971,7 @@ def main() -> int:
     native_assets_proof: dict[str, object] | None = None
     native_movie_reads_proof: dict[str, object] | None = None
     native_stream_reads_proof: dict[str, object] | None = None
+    asset_byte_trace: dict[str, object] | None = None
     probe_error: str | None = None
     graceful_shutdown = False
     try:
@@ -954,6 +993,20 @@ def main() -> int:
                 if args.probe_native_stream_reads:
                     try:
                         native_stream_reads_proof = probe_native_stream_reads(port, deadline)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_asset_byte_trace and probe_error is None:
+                    try:
+                        await_asset_trace(
+                            port,
+                            deadline,
+                            native_stream_reads_are_verified,
+                            "native MENU01 stream reads before byte capture",
+                        )
+                        if args.probe_asset_byte_trace == "oracle":
+                            capture_iso_oracle(port)
+                        asset_byte_trace = await_asset_byte_trace(
+                            port, deadline, args.probe_asset_byte_trace)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_pointer and probe_error is None:
@@ -1050,6 +1103,22 @@ def main() -> int:
         print(
             "control-test native-stream-reads proof="
             f"{json.dumps(native_stream_reads_proof, sort_keys=True)}",
+            flush=True)
+    if args.probe_asset_byte_trace:
+        if asset_byte_trace is None:
+            detail = probe_error or "probe did not run"
+            print(
+                f"FATAL {args.probe_asset_byte_trace} asset byte trace failed: "
+                f"{detail}; see {LOG_DIR}",
+                file=sys.stderr)
+            return 1
+        output = args.asset_byte_trace_output or (
+            LOG_DIR.parent / f"asset-byte-trace-{args.probe_asset_byte_trace}.json")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(asset_byte_trace, indent=2, sort_keys=True) + "\n")
+        print(
+            f"control-test asset-byte-trace mode={args.probe_asset_byte_trace} "
+            f"output={output}",
             flush=True)
     if args.probe_native_pointer:
         if pointer_proof is None:

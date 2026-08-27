@@ -40,6 +40,7 @@ def build_environment(
     port: int,
     nonce: str,
     native_asset_root: Path | None = None,
+    asset_byte_trace_mode: str | None = None,
 ) -> dict[str, str]:
     env = dict(base)
     env.update({
@@ -54,6 +55,10 @@ def build_environment(
         env.pop("AVPE_NATIVE_ASSET_ROOT", None)
     else:
         env["AVPE_NATIVE_ASSET_ROOT"] = str(native_asset_root.resolve())
+    if asset_byte_trace_mode is None:
+        env.pop("AVPE_ASSET_BYTE_TRACE", None)
+    else:
+        env["AVPE_ASSET_BYTE_TRACE"] = asset_byte_trace_mode
     return env
 
 

@@ -16,6 +16,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp",
@@ -37,6 +38,7 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.h",
@@ -52,8 +54,8 @@ CPP_HEADERS = (
 )
 CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp": (
-        (1, 12), (264, 311), (414, 437), (603, 706), (841, 927),
-        (983, 1051), (1470, 1485)),
+        (1, 13), (265, 312), (415, 438), (604, 708), (843, 936),
+        (992, 1059), (1460, 1505)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (563, 620), (688, 720)),
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": (

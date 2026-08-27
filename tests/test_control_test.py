@@ -58,7 +58,8 @@ class ControlTestPolicyTests(unittest.TestCase):
         )
         env = build_environment(
             {"DISPLAY": ":0", "WAYLAND_DISPLAY": "wayland-0", "UNRELATED": "kept",
-             "AVPE_NATIVE_ASSET_ROOT": "/ambient/untrusted"},
+             "AVPE_NATIVE_ASSET_ROOT": "/ambient/untrusted",
+             "AVPE_ASSET_BYTE_TRACE": "ambient-untrusted"},
             31234,
             self.nonce,
         )
@@ -71,7 +72,12 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertNotIn("DISPLAY", env)
         self.assertNotIn("WAYLAND_DISPLAY", env)
         self.assertNotIn("AVPE_NATIVE_ASSET_ROOT", env)
+        self.assertNotIn("AVPE_ASSET_BYTE_TRACE", env)
         self.assertEqual(env["UNRELATED"], "kept")
+
+    def test_byte_trace_mode_is_explicitly_scoped(self) -> None:
+        env = build_environment({}, 31234, self.nonce, asset_byte_trace_mode="native")
+        self.assertEqual(env["AVPE_ASSET_BYTE_TRACE"], "native")
 
     def test_accepts_grounded_native_asset_trace(self) -> None:
         trace = {

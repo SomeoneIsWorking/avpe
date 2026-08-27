@@ -4,9 +4,9 @@ kind: claim
 status: holds
 created: 2026-08-27
 tags: assets,native-io,ioman
-depends: thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp#ResolveIomanOpen, thirdparty/pcsx2/pcsx2/IopBios.cpp#open_HLE, tools/run_control_test.py#probe_native_assets
+depends: thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp#ResolveIomanOpen, thirdparty/pcsx2/pcsx2/IopBios.cpp#open_HLE, src/avpe/control_test.py#native_asset_reads_are_verified
 reconfirmed: 2026-08-27
-verified_at: 2026-08-27 22:16:23
+verified_at: 2026-08-27 23:28:39
 ---
 
 ## Claim
@@ -32,3 +32,7 @@ After fork commit bc15e1a, the final clean surfaceless/null-muted stream run rec
 ## Re-confirmed 2026-08-27
 
 Fork commit 2316c91 and the 38-test full gate reconfirmed native TBF reads with zero original fallthrough; the no-store control recorded two TBF fallthroughs and zero native claims.
+
+## Re-confirmed 2026-08-27
+
+2026-08-27 full 51-test/format/tidy gate and fresh native byte-trace boot reconfirmed native TBF opens/reads with exact ISO-matching chunks; the only NativeAssets change registers diagnostic extents when byte tracing is explicitly enabled.
