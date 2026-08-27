@@ -1,0 +1,26 @@
+---
+id: C019
+kind: claim
+status: holds
+created: 2026-08-27
+tags: assets,native-io,ioman
+depends: thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp#ResolveIomanOpen, thirdparty/pcsx2/pcsx2/IopBios.cpp#open_HLE, tools/run_control_test.py#probe_native_assets
+reconfirmed: 2026-08-27
+verified_at: 2026-08-27 21:13:10
+---
+
+## Claim
+
+With the validated store enabled, AVP:E's boot-time TBF lifecycle is handled by a native host descriptor while ELF/IRX bootstrap remains on the original IOP oracle
+
+## Evidence
+
+Two 2026-08-27 surfaceless/null-muted CRC 64DA78A3 runs used the same binary: native mode recorded two TBF native opens, 41-56 host reads, 67052-127138 bytes, 2-4 seeks, and one close while SLUS_201.47 and IRX opens had zero native claims; oracle mode removed AVPE_NATIVE_ASSET_ROOT and all 15 opens, including both TBF opens, had zero native claims. Production policy probes returned native-file, refused-access for write/traversal, refused-missing, and unhandled bootstrap as expected.
+
+## What would falsify it
+
+the same validated-store run reaches the original IOP/CDVD implementation for a claimed TBF descriptor, reads different bytes than its validated file, or the no-root oracle run still claims a native asset
+
+## Re-confirmed 2026-08-27
+
+2026-08-27: after final resolver traversal refusal, live policy route, product environment, and descriptor lifecycle edits, a fresh surfaceless/null-muted native-root run passed with two TBF native opens, 41 reads, 67052 bytes, two seeks, one close, zero bootstrap claims, and all five policy outcomes; the no-root run of the same binary retained zero native claims; 32 tests plus clang-format/clang-tidy passed

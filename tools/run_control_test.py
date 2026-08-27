@@ -23,16 +23,19 @@ from avpe.control_test import (
     asset_trace_is_verified,
     build_argv,
     build_environment,
+    native_asset_reads_are_verified,
     status_is_verified,
 )
 from avpe.cursor import CursorObservation, detect_cursor
 from avpe.memory_card_probe import prepare_memory_card_probe
+from avpe.native_assets import NativeAssetError, provision_native_assets
 from avpe.pcsx2_config import ensure_test_config
 
 ROOT = Path(__file__).resolve().parent.parent
 PCSX2 = ROOT / "scratch" / "build" / "bin" / "pcsx2-qt"
 DATA_DIR = ROOT / "scratch" / "control-test" / "pcsx2-home"
 LOG_DIR = ROOT / "scratch" / "control-test" / "logs"
+NATIVE_ASSET_DIR = ROOT / "scratch" / "native-assets"
 
 
 def find_bios(directory: str) -> Path | None:
@@ -157,7 +160,11 @@ def menu_pointer_state(port: int) -> tuple[int, dict[str, object] | None, str]:
     return status, parsed if isinstance(parsed, dict) else None, detail
 
 
-def probe_native_assets(port: int, deadline: float) -> dict[str, object]:
+def probe_native_assets(
+    port: int,
+    deadline: float,
+    require_native_reads: bool,
+) -> dict[str, object]:
     trace: dict[str, object] | None = None
     while time.monotonic() < deadline:
         status, body = request_bytes(port, "GET", "/assets/opens")
@@ -166,16 +173,51 @@ def probe_native_assets(port: int, deadline: float) -> dict[str, object]:
         candidate = json.loads(body)
         if isinstance(candidate, dict):
             trace = candidate
-            if asset_trace_is_verified(trace):
+            verified = (
+                native_asset_reads_are_verified(trace)
+                if require_native_reads
+                else asset_trace_is_verified(trace)
+            )
+            if verified:
                 break
         time.sleep(0.05)
-    if not asset_trace_is_verified(trace):
-        raise RuntimeError(f"native asset trace never observed the TBF archive: {trace}")
+    verified = (
+        native_asset_reads_are_verified(trace)
+        if require_native_reads
+        else asset_trace_is_verified(trace)
+    )
+    if not verified:
+        expected = "native TBF reads" if require_native_reads else "the TBF archive"
+        raise RuntimeError(f"native asset trace never observed {expected}: {trace}")
 
     assert trace is not None
+    policy: dict[str, str] | None = None
+    if require_native_reads:
+        cases = {
+            "native": ("cdrom0:/TBD/TBF.TBF;1", "read", "native-file"),
+            "write": ("cdrom0:/TBD/TBF.TBF;1", "write", "refused-access"),
+            "traversal": ("cdrom0:/TBD/../SLUS_201.47;1", "read", "refused-access"),
+            "missing": ("cdrom0:/TBD/__AVPE_MISSING__.TBD;1", "read", "refused-missing"),
+            "bootstrap": ("cdrom0:/SLUS_201.47;1", "read", "unhandled"),
+        }
+        policy = {}
+        for name, (path, access, expected) in cases.items():
+            status, result, detail = request_json(
+                port, "POST", "/assets/resolve", {"path": path, "access": access})
+            if status != 200 or result is None or result.get("disposition") != expected:
+                raise RuntimeError(
+                    f"native asset policy {name} expected {expected}, "
+                    f"got HTTP {status}: {detail}")
+            policy[name] = expected
     proof = {
         "trace": trace,
-        "positive": "TBD/TBF.TBF observed through cdrom0:",
+        "positive": (
+            "TBD/TBF.TBF opened and read through native host storage"
+            if require_native_reads
+            else "TBD/TBF.TBF observed through cdrom0: without native claiming"
+        ),
+        "oracle_bootstrap": "SLUS_201.47 remained unclaimed",
+        "policy": policy,
         "negative": {
             "sentinel": ABSENT_NATIVE_ASSET_SENTINEL,
             "observed_count": 0,
@@ -727,6 +769,8 @@ def main() -> int:
                         help="prove native menu hover and pointer activation; requires --statefile")
     parser.add_argument("--probe-native-assets", action="store_true",
                         help="prove AVP:E asset opens reach the title-specific IOP boundary")
+    parser.add_argument("--probe-native-asset-reads", action="store_true",
+                        help="prove TBF reads use the validated host store while bootstrap remains optical")
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
     args = parser.parse_args()
@@ -748,7 +792,13 @@ def main() -> int:
     ))
     if native_input_probe_requested and args.statefile is None:
         parser.error("native input probes require --statefile")
-    probe_requested = native_input_probe_requested or args.probe_native_assets
+    if args.probe_native_assets and args.probe_native_asset_reads:
+        parser.error("choose only one native asset probe")
+    probe_requested = (
+        native_input_probe_requested
+        or args.probe_native_assets
+        or args.probe_native_asset_reads
+    )
 
     if not PCSX2.is_file():
         print(f"FATAL built PCSX2 missing: {PCSX2}", file=sys.stderr)
@@ -763,6 +813,14 @@ def main() -> int:
     if bios is None:
         print("FATAL no usable BIOS in AVPE_BIOS_DIR", file=sys.stderr)
         return 2
+
+    native_asset_root: Path | None = None
+    if args.probe_native_asset_reads:
+        try:
+            native_asset_root = provision_native_assets(chd, NATIVE_ASSET_DIR)
+        except (NativeAssetError, OSError) as error:
+            print(f"FATAL native asset store: {error}", file=sys.stderr)
+            return 2
 
     try:
         card_probe = (
@@ -786,7 +844,7 @@ def main() -> int:
         return 2
     nonce = secrets.token_hex(16)
     argv = build_argv(PCSX2, DATA_DIR, LOG_DIR / "emulog.txt", chd, args.statefile)
-    env = build_environment(os.environ, port, nonce)
+    env = build_environment(os.environ, port, nonce, native_asset_root)
     stdout = (LOG_DIR / "stdout.log").open("wb")
     try:
         port_reservation.close()
@@ -818,9 +876,10 @@ def main() -> int:
             status = read_status(port)
             if status_is_verified(status, nonce):
                 boot_status = status
-                if args.probe_native_assets:
+                if args.probe_native_assets or args.probe_native_asset_reads:
                     try:
-                        native_assets_proof = probe_native_assets(port, deadline)
+                        native_assets_proof = probe_native_assets(
+                            port, deadline, args.probe_native_asset_reads)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_pointer and probe_error is None:
@@ -885,7 +944,7 @@ def main() -> int:
         print(f"FATAL {EXPECTED_SERIAL} never reached Running state; see {LOG_DIR}", file=sys.stderr)
         return 1
     print(f"control-test verified status={json.dumps(boot_status, sort_keys=True)}", flush=True)
-    if args.probe_native_assets:
+    if args.probe_native_assets or args.probe_native_asset_reads:
         if native_assets_proof is None:
             detail = probe_error or "probe did not run"
             print(

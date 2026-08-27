@@ -19,3 +19,6 @@ Claim the grounded read-only AVP:E asset namespaces at the IOP import boundary a
 - Title gating, path normalization, traversal rejection, read-only flags, and missing-file errors are exercised through production policy.
 - Open/read/seek/close for TBF, one movie, and one streamed-audio file match oracle bytes and short-read/error behavior.
 - Claimed requests show host-file lifecycle events and no original IOP/CDVD fallback; an explicitly unclaimed bootstrap request still follows the oracle path.
+
+### Note (2026-08-27)
+2026-08-27: the validated store now claims read-only TBD, MOVIES, and STREAMS paths through NativeAssets and generic host descriptors. Two surfaceless/null-muted runs observed two TBF native opens, 41-56 reads, 67052-127138 bytes, 2-4 seeks, and one close; ELF/IRX remained unclaimed. A no-root run of the same binary produced zero native claims. Live production-policy probes refused writes/traversal/missing files and left bootstrap unhandled. Remaining: representative movie/audio runtime lifecycles, byte-level oracle differential, explicit CDVD-event absence, async/cache, and load timing.

@@ -7,10 +7,14 @@ from avpe.control_test import (
     asset_trace_is_verified,
     build_argv,
     build_environment,
+    native_asset_reads_are_verified,
     status_is_verified,
 )
 from avpe.cursor import detect_cursor
-from avpe.launch import build_argv as build_product_argv
+from avpe.launch import (
+    build_argv as build_product_argv,
+    build_environment as build_product_environment,
+)
 from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
 from avpe.pcsx2_config import ensure_product_config, ensure_test_config
 
@@ -50,7 +54,8 @@ class ControlTestPolicyTests(unittest.TestCase):
             Path("/assets/game.chd"),
         )
         env = build_environment(
-            {"DISPLAY": ":0", "WAYLAND_DISPLAY": "wayland-0", "UNRELATED": "kept"},
+            {"DISPLAY": ":0", "WAYLAND_DISPLAY": "wayland-0", "UNRELATED": "kept",
+             "AVPE_NATIVE_ASSET_ROOT": "/ambient/untrusted"},
             31234,
             self.nonce,
         )
@@ -62,6 +67,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(env["SDL_AUDIODRIVER"], "dummy")
         self.assertNotIn("DISPLAY", env)
         self.assertNotIn("WAYLAND_DISPLAY", env)
+        self.assertNotIn("AVPE_NATIVE_ASSET_ROOT", env)
         self.assertEqual(env["UNRELATED"], "kept")
 
     def test_accepts_grounded_native_asset_trace(self) -> None:
@@ -99,6 +105,38 @@ class ControlTestPolicyTests(unittest.TestCase):
 
         self.assertFalse(asset_trace_is_verified(empty))
         self.assertFalse(asset_trace_is_verified(contaminated))
+
+    def test_accepts_native_tbf_reads_with_unclaimed_bootstrap(self) -> None:
+        trace = {
+            "enabled": True,
+            "target_recognized": True,
+            "total_open_calls": 3,
+            "dropped_unique_paths": 0,
+            "paths": [
+                {"path": "cdrom0:/SLUS_201.47;1", "count": 1,
+                 "native_open_count": 0},
+                {"path": "cdrom0:/TBD/TBF.TBF;1", "count": 2,
+                 "native_open_count": 1, "read_calls": 2, "bytes_read": 4096},
+            ],
+        }
+
+        self.assertTrue(native_asset_reads_are_verified(trace))
+
+    def test_rejects_native_trace_that_claims_no_reads(self) -> None:
+        trace = {
+            "enabled": True,
+            "target_recognized": True,
+            "total_open_calls": 2,
+            "dropped_unique_paths": 0,
+            "paths": [
+                {"path": "cdrom0:/SLUS_201.47;1", "count": 1,
+                 "native_open_count": 0},
+                {"path": "cdrom0:/TBD/TBF.TBF;1", "count": 1,
+                 "native_open_count": 1, "read_calls": 0, "bytes_read": 0},
+            ],
+        }
+
+        self.assertFalse(native_asset_reads_are_verified(trace))
 
 
 class ConfigurationIsolationTests(unittest.TestCase):
@@ -170,6 +208,19 @@ class ProductLaunchPolicyTests(unittest.TestCase):
         self.assertNotIn("-avpe-host", argv)
         self.assertNotIn("-avpe-control-test", argv)
         self.assertNotIn("-nogui", argv)
+
+    def test_product_receives_only_the_validated_native_asset_root(self) -> None:
+        environment = build_product_environment(
+            {"AVPE_CONTROL_NONCE": "test-only", "UNRELATED": "kept"},
+            Path("/validated/avpe-native-assets-v1/files"),
+        )
+
+        self.assertNotIn("AVPE_CONTROL_NONCE", environment)
+        self.assertEqual(
+            environment["AVPE_NATIVE_ASSET_ROOT"],
+            "/validated/avpe-native-assets-v1/files",
+        )
+        self.assertEqual(environment["UNRELATED"], "kept")
 
 
 def make_bmp(width: int, height: int, gold_pixels: set[tuple[int, int]]) -> bytes:

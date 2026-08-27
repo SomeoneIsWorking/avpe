@@ -98,6 +98,28 @@ sync, and a distinct Form2 layout are negative controls. Runtime redirection
 must consume only this validated store; merely pointing the core at an
 arbitrary host directory is not acceptable.
 
+## Native TBF descriptor proof
+
+The product launcher now validates/provisions the store before setting
+`AVPE_NATIVE_ASSET_ROOT`. `NativeAssets::ResolveIomanOpen` recognizes only the
+supported title and the read-only `TBD/`, `MOVIES/`, and `STREAMS/` namespaces;
+it uppercases disc paths, strips the exact `;1` version, rejects unsafe
+components, canonicalizes beneath the store root, and requires its sibling
+manifest. `IopBios` then opens the resolved path through the existing generic
+host descriptor and records the original disc path for lifecycle attribution.
+
+In the native proof, `TBF.TBF` produced two native opens, 41–56 reads,
+67,052–127,138 returned bytes, 2–4 seeks, and one close before the snapshot.
+The early missing TBX/TBD fallbacks were refused as missing. ELF and IRX paths
+were outside the claimed namespaces and stayed on the original implementation.
+Removing the native root from the same binary yielded zero native claims for
+all observed paths, including both TBF opens.
+
+The diagnostic policy probe calls the production resolver and separately
+demonstrates: native TBF read, refused write, refused traversal, refused missing
+file, and unhandled bootstrap. This is a partial S023 proof; it does not yet
+stand in for byte-level oracle comparison or CDVD-event exclusion.
+
 ## Native replacement requirements
 
 The next implementation must preserve the original path as an A/B oracle and

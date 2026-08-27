@@ -33,7 +33,12 @@ def build_argv(
     return argv
 
 
-def build_environment(base: Mapping[str, str], port: int, nonce: str) -> dict[str, str]:
+def build_environment(
+    base: Mapping[str, str],
+    port: int,
+    nonce: str,
+    native_asset_root: Path | None = None,
+) -> dict[str, str]:
     env = dict(base)
     env.update({
         "AVPE_HTTP_PORT": str(port),
@@ -43,6 +48,10 @@ def build_environment(base: Mapping[str, str], port: int, nonce: str) -> dict[st
     })
     env.pop("DISPLAY", None)
     env.pop("WAYLAND_DISPLAY", None)
+    if native_asset_root is None:
+        env.pop("AVPE_NATIVE_ASSET_ROOT", None)
+    else:
+        env["AVPE_NATIVE_ASSET_ROOT"] = str(native_asset_root.resolve())
     return env
 
 
@@ -78,4 +87,32 @@ def asset_trace_is_verified(trace: dict[str, object] | None) -> bool:
         any(path.startswith("cdrom0:") and EXPECTED_NATIVE_ASSET in path
             for path in normalized)
         and all(ABSENT_NATIVE_ASSET_SENTINEL not in path for path in normalized)
+    )
+
+
+def native_asset_reads_are_verified(trace: dict[str, object] | None) -> bool:
+    if not asset_trace_is_verified(trace):
+        return False
+    assert trace is not None
+    paths = trace["paths"]
+    assert isinstance(paths, list)
+    tbf = next((
+        entry for entry in paths
+        if isinstance(entry, dict)
+        and isinstance(entry.get("path"), str)
+        and EXPECTED_NATIVE_ASSET in entry["path"].replace("\\", "/").casefold()
+    ), None)
+    bootstrap = next((
+        entry for entry in paths
+        if isinstance(entry, dict)
+        and isinstance(entry.get("path"), str)
+        and "slus_201.47" in entry["path"].casefold()
+    ), None)
+    return bool(
+        isinstance(tbf, dict)
+        and int(tbf.get("native_open_count", 0)) > 0
+        and int(tbf.get("read_calls", 0)) > 0
+        and int(tbf.get("bytes_read", 0)) > 0
+        and isinstance(bootstrap, dict)
+        and int(bootstrap.get("native_open_count", 0)) == 0
     )
