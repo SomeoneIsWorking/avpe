@@ -12,10 +12,10 @@ means the capability is absent.
 
 ## Current focus
 
-**S021 — native asset-I/O boundary.** The game archive path and the live
-EE-to-IOP open seam are grounded. Work is now extending that proof across
-read/seek/close, movies, and streamed audio before a validated native store is
-allowed to claim requests. Current focus is attention, not a separate state.
+**S023 — native asset reads.** A validated store now exists and the high-level
+IOP boundary is proven. Work is wiring read-only host descriptors for the
+supported namespaces while preserving the original optical path as an explicit
+A/B oracle. Current focus is attention, not a separate state.
 
 ## Capability inventory
 
@@ -42,8 +42,8 @@ allowed to claim requests. Current focus is attention, not a separate state.
 | S019 | Graphics, display, and resolution settings enumerate, apply, and persist | blocked | S018 | G004 |
 | S020 | AVPE-owned host shell owns the visible window and presentation lifecycle | partial | S003, S004 | G001, G004 |
 | S021 | AVP:E disc/file access boundary and asset namespace are mapped | partial | S001; issue #9 | G005 |
-| S022 | User disc content provisions into a validated native asset store | blocked | S021 | G001, G005 |
-| S023 | Supported game asset requests use native host storage instead of emulated optical I/O | blocked | S021, S022 | G001, G005 |
+| S022 | User disc content provisions into a validated native asset store | verified | S021 | G001, G005 |
+| S023 | Supported game asset requests use native host storage instead of emulated optical I/O | missing | S021, S022; issue #10 | G001, G005 |
 | S024 | Native asset I/O preserves behavior and measurably reduces loading time | blocked | S023 | G005 |
 | S025 | AVP:E's required BIOS, kernel, and IOP service surface is inventoried | missing | S001, S004 | G006 |
 | S026 | Clean-room AVP:E-specific HLE implements the required platform services | blocked | S025 | G006 |
@@ -298,19 +298,31 @@ Evidence: claim C017, instrument I007, issue #9, and
 [`re/disc-io.md`](re/disc-io.md). Per-run detail is in the ignored
 `scratch/control-test/native-assets-proof.json` artifact.
 
-### S022 — native asset provisioning: blocked
+### S022 — native asset provisioning: verified
 
-Blocker: S021. Verification requires deriving the supported asset set from a
-user-supplied disc image into a versioned, validated native store, refusing the
-wrong revision and corrupt or incomplete content by name, and never tracking
-copyrighted bytes.
+Observed capability: `avpe assets` extracts the user-supplied CHD into a scoped
+staging directory, stream-converts its raw sectors, strictly traverses ISO9660,
+validates exact `SYSTEM.CNF`, `SLUS_201.47`, and `TBD/TBF.TBF` identity anchors,
+extracts and hashes every file, validates the finished manifest/store, and only
+then atomically publishes `avpe-native-assets-v1`. The real supported disc
+contained 268,924 MODE2 Form1 sectors and produced 137 files totaling
+550,353,354 bytes. A second run fully revalidated and reused the store, and no
+staging directory remained.
 
-### S023 — native asset reads: blocked
+Wrong-disc ISO identity, wrong manifest identity, missing validated files,
+malformed ISO endian fields, bad raw-sector sync, and a distinct Form2 layout
+all produce explicit negative results through production validation paths.
+All derived bytes remain under ignored `scratch/native-assets/`.
 
-Blockers: S021 and S022. Verification requires representative game asset loads
-to complete through the project-owned host I/O path with emulated optical
-seeks and sector-timed transfers absent from the same trace. Byte content,
-ordering, short reads, and errors must still match the grounded game contract.
+Evidence: claim C018, instrument I008, `src/avpe/native_assets.py`,
+`src/avpe/iso9660.py`, `src/avpe/raw_sector.py`, and `tests/test_assets.py`.
+
+### S023 — native asset reads: missing
+
+Missing capability: route representative game asset loads through the
+project-owned host I/O path with emulated optical seeks and sector-timed
+transfers absent from the same trace. Byte content, ordering, short reads, and
+errors must still match the grounded game contract. Atomic work: issue #10.
 
 ### S024 — loading behavior and performance: blocked
 

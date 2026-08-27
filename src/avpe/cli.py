@@ -13,8 +13,10 @@ from pathlib import Path
 
 from avpe.dependencies import inspect_submodule, provision_submodules
 from avpe.log import log
+from avpe.native_assets import NativeAssetError, provision_native_assets
 
 ROOT = Path(__file__).resolve().parent.parent.parent
+NATIVE_ASSET_DIR = ROOT / "scratch" / "native-assets"
 
 
 def load_env() -> dict[str, str]:
@@ -166,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("doctor", help="preflight checks with actionable refusals")
     sub.add_parser("provision", help="initialize the tracked dependency submodules")
+    sub.add_parser("assets", help="provision and validate the PC-native asset store")
     sub.add_parser("launch", help="boot the user-facing AVPE host")
 
     args = parser.parse_args(argv)
@@ -190,6 +193,18 @@ def main(argv: list[str] | None = None) -> int:
             log("error", "provision", "PCSX2 checkout does not match the tracked gitlink")
             return 1
         log("info", "provision", f"PCSX2 ready at {submodule.checkout_revision[:12]}")
+        return 0
+    if args.cmd == "assets":
+        chd = load_env().get("AVPE_CHD", "")
+        if not chd:
+            log("error", "assets", "AVPE_CHD not set in .env")
+            return 1
+        try:
+            root = provision_native_assets(Path(chd), NATIVE_ASSET_DIR)
+        except (NativeAssetError, OSError) as error:
+            log("error", "assets", str(error))
+            return 1
+        log("info", "assets", f"validated native store: {root}")
         return 0
     parser.error(f"unknown command {args.cmd!r}")
     return 2
