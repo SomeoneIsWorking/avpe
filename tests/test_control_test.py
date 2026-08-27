@@ -64,6 +64,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         env = build_environment(
             {"DISPLAY": ":0", "WAYLAND_DISPLAY": "wayland-0", "UNRELATED": "kept",
              "AVPE_NATIVE_ASSET_ROOT": "/ambient/untrusted",
+             "AVPE_NATIVE_ASSET_MANIFEST_SHA256": "ambient-untrusted",
              "AVPE_ASSET_BYTE_TRACE": "ambient-untrusted",
              "AVPE_LOAD_TIMING": "ambient-untrusted"},
             31234,
@@ -78,6 +79,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertNotIn("DISPLAY", env)
         self.assertNotIn("WAYLAND_DISPLAY", env)
         self.assertNotIn("AVPE_NATIVE_ASSET_ROOT", env)
+        self.assertNotIn("AVPE_NATIVE_ASSET_MANIFEST_SHA256", env)
         self.assertNotIn("AVPE_ASSET_BYTE_TRACE", env)
         self.assertNotIn("AVPE_LOAD_TIMING", env)
         self.assertEqual(env["UNRELATED"], "kept")
@@ -90,6 +92,12 @@ class ControlTestPolicyTests(unittest.TestCase):
         env = build_environment({}, 31234, self.nonce,
                                 asset_load_timing_mode="oracle")
         self.assertEqual(env["AVPE_LOAD_TIMING"], "oracle")
+
+    def test_native_asset_root_requires_admission_token(self) -> None:
+        with self.assertRaisesRegex(ValueError, "manifest admission token"):
+            build_environment(
+                {}, 31234, self.nonce, native_asset_root=Path("/validated/files")
+            )
 
     def test_accepts_grounded_native_asset_trace(self) -> None:
         trace = {
@@ -370,12 +378,16 @@ class ProductLaunchPolicyTests(unittest.TestCase):
         environment = build_product_environment(
             {"AVPE_CONTROL_NONCE": "test-only", "UNRELATED": "kept"},
             Path("/validated/avpe-native-assets-v1/files"),
+            "a" * 64,
         )
 
         self.assertNotIn("AVPE_CONTROL_NONCE", environment)
         self.assertEqual(
             environment["AVPE_NATIVE_ASSET_ROOT"],
             "/validated/avpe-native-assets-v1/files",
+        )
+        self.assertEqual(
+            environment["AVPE_NATIVE_ASSET_MANIFEST_SHA256"], "a" * 64
         )
         self.assertEqual(environment["UNRELATED"], "kept")
 

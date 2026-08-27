@@ -12,6 +12,7 @@ from avpe.iso9660 import FileEntry, Iso9660Error, IsoImage
 from avpe.raw_sector import RawSectorError, strip_image
 
 STORE_SCHEMA = "avpe-native-assets-v1"
+MANIFEST_SHA256_ENVIRONMENT = "AVPE_NATIVE_ASSET_MANIFEST_SHA256"
 SUPPORTED_ANCHORS = {
     "SYSTEM.CNF": (57, "a331d8ad574f49fdd824b155e4abd182924c209dc0c335cbfc662c9639d7098f"),
     "SLUS_201.47": (4_829_548, "54d8e87c674cc1f8411c75ee784e4ee46fe2b4797bbcd81f16f077c74fab9a27"),
@@ -147,6 +148,14 @@ def validate_native_store(store: Path, *, full: bool) -> None:
             raise NativeAssetError(f"native asset has wrong size or is missing: {path}")
         if _sha256(path) != expected_hash:
             raise NativeAssetError(f"native asset hash mismatch: {path}")
+
+
+def manifest_sha256(files_root: Path) -> str:
+    """Return the admission token for an already validated store's manifest."""
+    manifest = files_root.resolve().parent / "manifest.json"
+    if not manifest.is_file():
+        raise NativeAssetError(f"native asset manifest is missing: {manifest}")
+    return _sha256(manifest)
 
 
 def validate_supported_image(image: IsoImage, entries: list[FileEntry]) -> None:

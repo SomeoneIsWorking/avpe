@@ -15,11 +15,13 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeInput.*` owns gameplay pointer and button semantics.
 - `NativeMenuInput.*` owns discovery and invocation of AVP:E keyboard and
   pointer menu actions.
-- `NativeAssets.*` owns title gating, the AVP:E disc namespace, native-store
-  policy, ioman host-file replacement, and FSSOUND's direct cdvdman sector
-  mapping. `IopBios.cpp` provides only grounded narrow hooks; it must not
-  absorb game paths, manifests, or cache policy, and ordinary disc traffic
-  remains on the emulator oracle.
+- `NativeAssets.*` owns title gating, the AVP:E disc namespace, ioman host-file
+  replacement, and FSSOUND's direct cdvdman sector mapping.
+  `NativeAssetStore.*` is its private peer for exact manifest admission,
+  member lookup, content validation, and generation-safe asset identity.
+  `IopBios.cpp` provides only grounded narrow hooks; it must not absorb game
+  paths, manifests, or cache policy, and ordinary disc traffic remains on the
+  emulator oracle.
 - `NativeAssetByteTrace.*` owns bounded canonical-chunk assembly and ISO-oracle
   byte evidence. `AVPE.cpp` only exposes its diagnostic snapshot/capture routes;
   byte tracing is never used for timing evidence.

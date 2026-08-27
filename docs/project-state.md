@@ -320,12 +320,16 @@ Evidence: claim C018, instrument I008, `src/avpe/native_assets.py`,
 ### S023 — native asset reads: verified
 
 Observed subset: the normal product launcher fully validates/provisions the
-native store before passing its root to the core. `NativeAssets` title-gates
-and normalizes read-only `TBD/`, `MOVIES/`, and `STREAMS/` paths, canonicalizes
-them below that root, rejects writes, traversal, missing files, and invalid
-stores, and leaves ELF/IRX bootstrap unclaimed. `IopBios` reuses its generic
-host descriptor mechanics for open/read/seek/close instead of duplicating OS
-I/O in the title module.
+native store before passing its root and exact manifest SHA-256 admission token
+to the core. `NativeAssetStore` rehashes that manifest, strictly indexes only
+its safe case-insensitive members, canonicalizes each requested file below the
+root, and verifies its declared size and SHA-256 before a first successful
+claim. It revalidates content when size or modification time changes and
+invalidates asset generations on unbind. `NativeAssets` separately title-gates
+and normalizes read-only `TBD/`, `MOVIES/`, and `STREAMS/` paths, rejects writes,
+traversal, missing members, and invalid stores, and leaves ELF/IRX bootstrap
+unclaimed. `IopBios` reuses its generic host descriptor mechanics for
+open/read/seek/close instead of duplicating OS I/O in the title module.
 
 Two surfaceless/null-muted native runs observed two TBF native opens,
 41–56 host reads, 67,052–127,138 bytes, 2–4 seeks, and one close. The ELF and
@@ -363,6 +367,15 @@ identical ISO extents and file sizes. No trace record was dropped or conflicted.
 A copied-digest OTHER-answer control was rejected at `TBF.TBF` offset zero,
 and strict policy rejects source contamination and insufficient overlap.
 
+The store-admission production tests separately exercise both outcomes for a
+valid member and reject an unlisted member, wrong manifest admission digest,
+unsafe and duplicate records, wrong-size content, same-size corrupt content,
+content mutation after validation, exact-manifest mutation even with restored
+timestamp, and generation change after unbind. A final surfaceless and
+null-muted TBF run through fork `fd1978a` retained two native opens, 56 reads,
+127,138 bytes, four seeks, one close, and zero original fallthrough while
+bootstrap remained optical.
+
 Evidence: claims C019–C023, instruments I009–I013,
 `scratch/control-test/asset-byte-comparison.json` (ignored), and
 [`re/disc-io.md`](re/disc-io.md).
@@ -387,12 +400,18 @@ null-muted execution, disabled byte tracing, and isolated card copies whose
 source and working SHA-256 remained identical. Copied ordinal-drift and
 no-reduction controls were both rejected.
 
-Gap: bound cache memory/file lifetime, prove native and oracle failure results,
-define and exercise explicit cold/warm cache state, and ground a representative
-mission transition. Failures must never silently fall back. Evidence: claim
-C024, instrument I014, [`re/disc-io.md`](re/disc-io.md), and ignored artifact
-`scratch/control-test/load-timing/asset-load-timing-comparison.json`. Atomic
-work: issue #12.
+The runtime now fails store admission before a native claim when the exact
+manifest, membership, size, or requested-file content identity is wrong. This
+closes the previously observed arbitrary-directory and same-size corruption
+gap, but it is not native/oracle guest-result equivalence.
+
+Gap: bound cache memory/file lifetime, prove native and oracle missing,
+short-read, and injected-error results and buffer effects, define and exercise
+explicit cold/warm cache state, and ground a representative mission transition.
+Failures must never silently fall back. Evidence: claims C024 and C025,
+instruments I014 and I015, [`re/disc-io.md`](re/disc-io.md), and ignored artifact
+`scratch/control-test/load-timing/asset-load-timing-comparison.json`. Atomic work:
+issue #12.
 
 ### S025 — required firmware service inventory: missing
 

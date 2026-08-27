@@ -126,10 +126,29 @@ sync, and a distinct Form2 layout are negative controls. Runtime redirection
 must consume only this validated store; merely pointing the core at an
 arbitrary host directory is not acceptable.
 
+The launcher therefore passes two coupled values: the `files/` root and the
+SHA-256 of the exact manifest that completed full Python validation.
+`NativeAssetStore` rehashes the sibling manifest before binding, strictly
+parses its schema and safe case-insensitive file index, and resolves only listed
+members. Before a member is returned it canonicalizes the recorded spelling
+beneath the files root and validates exact size and SHA-256. Content validation
+is retained only while canonical path, size, and modification time are stable;
+manifest bytes are rehashed on each resolution. Missing members are distinct
+from an invalid store, and unbinding invalidates the asset generation.
+
+The production implementation's seven C++ tests demonstrate both valid and
+invalid outcomes: unlisted paths, a wrong admission digest, unsafe or duplicate
+records, wrong-size content, same-size corrupt content, mutation after a valid
+resolution, exact-manifest mutation with a restored timestamp, and generation
+change after unbind. This closes store admission before a native claim. It does
+not yet prove native/oracle guest return values and buffer effects after an IOP
+operation; that remains S024 work.
+
 ## Native TBF descriptor proof
 
 The product launcher now validates/provisions the store before setting
-`AVPE_NATIVE_ASSET_ROOT`. `NativeAssets::ResolveIomanOpen` recognizes only the
+`AVPE_NATIVE_ASSET_ROOT` and its exact manifest admission digest.
+`NativeAssets::ResolveIomanOpen` recognizes only the
 supported title and the read-only `TBD/`, `MOVIES/`, and `STREAMS/` namespaces;
 it uppercases disc paths, strips the exact `;1` version, rejects unsafe
 components, canonicalizes beneath the store root, and requires its sibling

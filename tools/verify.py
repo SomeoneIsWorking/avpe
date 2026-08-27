@@ -11,12 +11,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BUILD_DIR = ROOT / "scratch" / "build"
 COMPILE_COMMANDS = BUILD_DIR / "compile_commands.json"
+CORE_TEST = BUILD_DIR / "bin" / "core_test"
 
 CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStore.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp",
@@ -34,12 +36,14 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/RenderSurface.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/Runtime.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/Settings.cpp",
+    ROOT / "thirdparty/pcsx2/tests/ctest/core/avpe_native_asset_store_tests.cpp",
 )
 CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStore.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.h",
@@ -115,6 +119,14 @@ def main() -> int:
                 "test_*.py",
                 "-v",
             ],
+        )
+        run(
+            "native asset store C++ test build",
+            ["cmake", "--build", str(BUILD_DIR), "--target", "core_test", "-j2"],
+        )
+        run(
+            "native asset store production-path tests",
+            [str(CORE_TEST), "--gtest_filter=NativeAssetStoreTest.*"],
         )
         run(
             "clang-format",
