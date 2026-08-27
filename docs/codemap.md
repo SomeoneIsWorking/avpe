@@ -37,9 +37,10 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native menu input | Active menu and menu-capable pointer discovery, focus navigation, hit-testing, and activation/cancel actions | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp/.h` | `AVPE::NativeMenuInput` | [input-path contract](re/input-path.md) |
 | Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: a `NativeSaves` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | target: `AVPE::NativeSaves` | target: save-path RE contract |
 | Native asset I/O | AVP:E title gating, path normalization/store resolution, ioman descriptor lifecycles, FSSOUND cdvdman sector mapping, and target host-read/cache policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.*`; narrow ioman/cdvdman hooks in `IopBios.cpp` | `AVPE::NativeAssets::ResolveIomanOpen()`, `ResolveCdvdSearch()` | [disc-I/O RE contract](re/disc-io.md) |
+| Native asset byte differential | Bounded canonical-chunk assembly, PCSX2 ISO-reader oracle capture, strict source-separated comparison, and mismatch controls | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.*`, `src/avpe/asset_byte_compare.py`, `tools/compare_native_asset_bytes.py` | `AVPE::NativeAssetByteTrace::CaptureIsoOracle()`, `compare_asset_byte_traces()` | [disc-I/O RE contract](re/disc-io.md) |
 | AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: a dedicated `HLE` submodule under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: HLE-BIOS RE contract |
 | Native options integration | AVP:E menu extension and game-facing bindings to host display/graphics settings | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeOptions.*`; narrow settings interface in `thirdparty/pcsx2/pcsx2-avpe/` | target: `AVPE::NativeOptions` | target: native-options contract |
-| Diagnostic UI | RmlUi developer-only diagnostics and inspection surfaces | target: `thirdparty/pcsx2/pcsx2-avpe/DebugUI/` | target: `AVPE::DebugUI` | target: debug-UI contract |
+| Diagnostic UI | RmlUi developer-only diagnostics and inspection surfaces | target: a `DebugUI` module under `thirdparty/pcsx2/pcsx2-avpe/` | target: `AVPE::DebugUI` | target: debug-UI contract |
 | Diagnostic pad injection | Bootstrap-only active-low DS2 injection | `thirdparty/pcsx2/pcsx2/SIO/Pad/PadDualshock2.cpp` | `GetButtons()` integration | [control-channel contract](re/control-channel.md) |
 | RE helpers | Ghidra extraction, caller discovery, singleton inventory | `tools/ghidra_scripts/`, `tools/pthe_syms.txt` | individual tools | [input-path contract](re/input-path.md) |
 | Evidence | Falsifiable claims and verification dependencies | `docs/info/claims/` | claim files | — |
@@ -55,15 +56,18 @@ src/avpe/                      host-side product orchestration
 ├── launch.py                  emulator process/config owner
 ├── log.py                     Python logging owner
 ├── native_assets.py           validated native-store provisioner
+├── asset_byte_compare.py      strict native/ISO chunk comparator
 └── raw_sector.py              streaming raw-sector converter
 tools/                         project automation and control clients
 ├── avpe_http.py               live control client
 ├── run_control_test.py        surfaceless and silent test process owner
+├── compare_native_asset_bytes.py  byte differential and OTHER-answer control
 ├── raw2352.py                 disc-sector conversion
 └── ghidra_scripts/            maintainer-only RE extraction
 thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── GuestObjects.*             validated AVP:E guest object/handle reads
 ├── NativeAssets.*             title-gated ioman/CDVD native asset boundary and observations
+├── NativeAssetByteTrace.*     bounded native/ISO canonical-chunk evidence
 ├── NativeInput.*              gameplay pointer and button semantics
 ├── NativeMenuInput.*          active-menu discovery and typed menu actions
 └── NativePointerMotion.*      shared absolute pointer movement mechanics
@@ -95,6 +99,9 @@ docs/issues/                   atomic work and investigation points
 - AVP:E asset resolution, native storage, async reads, and caching belong in
   the fork-local `NativeAssets` module. Grounded CDVD/IOP hooks call that owner;
   they do not absorb game-specific file tables or host I/O policy.
+- Native-versus-ISO byte evidence belongs in the peer `NativeAssetByteTrace`
+  module and the strict Python comparator. It does not own shipping I/O policy
+  and must stay disabled during loading-time measurements.
 - AVP:E-specific firmware behavior belongs in a dedicated HLE submodule under
   the fork-local `thirdparty/pcsx2/pcsx2/AVPE/`
   owner. Existing BIOS, EE kernel, and IOP integration points remain narrow

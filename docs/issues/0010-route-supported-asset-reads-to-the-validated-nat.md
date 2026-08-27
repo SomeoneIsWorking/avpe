@@ -1,7 +1,7 @@
 ---
 id: 10
 title: Route supported asset reads to the validated native store
-status: investigating
+status: resolved
 symptom: Supported AVP:E asset opens still continue into the original optical-disc path even though a validated native store exists
 state_items: S023
 tags: assets,ioman,native-io,loading
@@ -31,3 +31,6 @@ Claim the grounded read-only AVP:E asset namespaces at the IOP import boundary a
 
 ### Dead end (2026-08-27)
 2026-08-27: calling grounded `CShell::SetNextLevel("M01/background.tbd")` from mission1.p2s safely raised the normal transition flag but still produced zero fresh opens. `CShell` reused the archive descriptor restored inside the savestate, so even a real level transition cannot turn that descriptor into native evidence. Clean boot is required for descriptor-origin proofs.
+
+### Resolution (2026-08-27)
+The validated store now supplies TBF, all startup movies, and MENU01 through grounded native paths with explicit no-fallthrough branch evidence. A bounded differential compared 16 canonical SHA-256 chunks for each of six files against PCSX2's ISO reader after the menu boundary: 96/96 matched with identical extents and sizes; a forced digest mismatch was rejected at the exact range. Bounded caching, error-result negatives, and timing move to the separate S024 work point.

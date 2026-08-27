@@ -12,10 +12,10 @@ means the capability is absent.
 
 ## Current focus
 
-**S023 — native asset reads.** TBF, startup movies, and a representative
-streamed-audio file now use native storage through their grounded ioman and
-cdvdman boundaries. Work is adding byte-level oracle comparison and bounded
-caching. Current focus is attention, not a separate state.
+**S024 — loading behavior and performance.** Representative native deliveries
+now match the ISO oracle byte-for-byte. Work is bounding cache/prefetch behavior,
+proving error results, and measuring loading with byte tracing disabled. Current
+focus is attention, not a separate state.
 
 ## Capability inventory
 
@@ -43,8 +43,8 @@ caching. Current focus is attention, not a separate state.
 | S020 | AVPE-owned host shell owns the visible window and presentation lifecycle | partial | S003, S004 | G001, G004 |
 | S021 | AVP:E disc/file access boundary and asset namespace are mapped | partial | S001; issue #9 | G005 |
 | S022 | User disc content provisions into a validated native asset store | verified | S021 | G001, G005 |
-| S023 | Supported game asset requests use native host storage instead of emulated optical I/O | partial | S021, S022; issue #10 | G001, G005 |
-| S024 | Native asset I/O preserves behavior and measurably reduces loading time | blocked | S023 | G005 |
+| S023 | Supported game asset requests use native host storage instead of emulated optical I/O | verified | S021, S022 | G001, G005 |
+| S024 | Native asset I/O preserves behavior and measurably reduces loading time | partial | S023; issue #12 | G005 |
 | S025 | AVP:E's required BIOS, kernel, and IOP service surface is inventoried | missing | S001, S004 | G006 |
 | S026 | Clean-room AVP:E-specific HLE implements the required platform services | blocked | S025 | G006 |
 | S027 | Supported target boots and runs without retail BIOS bytes | blocked | S026 | G001, G006 |
@@ -289,10 +289,8 @@ surfaceless, null-muted boot observed 15 opens at that boundary, including the
 loose TBX/TBD probes and two `TBF.TBF` opens; the absent sentinel produced zero
 observations.
 
-Gap: trace representative movie and streamed-audio lifecycles, prove the
-read/seek/close and error contracts dynamically, map requested files to exact
-disc content, and demonstrate both claimed native reads and deliberately
-unclaimed optical fallbacks before declaring the namespace complete.
+Gap: exercise representative mission-load namespaces and guest-visible failure
+results before declaring the wider disc/file namespace complete.
 
 Evidence: claim C017, instrument I007, issue #9, and
 [`re/disc-io.md`](re/disc-io.md). Per-run detail is in the ignored
@@ -317,7 +315,7 @@ All derived bytes remain under ignored `scratch/native-assets/`.
 Evidence: claim C018, instrument I008, `src/avpe/native_assets.py`,
 `src/avpe/iso9660.py`, `src/avpe/raw_sector.py`, and `tests/test_assets.py`.
 
-### S023 — native asset reads: partial
+### S023 — native asset reads: verified
 
 Observed subset: the normal product launcher fully validates/provisions the
 native store before passing its root to the core. `NativeAssets` title-gates
@@ -355,20 +353,30 @@ The no-store opposite control recorded two TBF fallthroughs and zero native
 claims. Claimed calls return directly to the guest before the original
 IOP/CDVD implementation can schedule optical work.
 
-Gap: compare exact read slices/results against the optical oracle and add the
-bounded async/cache layer. Atomic work: issue #10.
+Two further clean surfaceless/null-muted runs assembled canonical file-relative
+chunks from the actual native ioman/cdvdman delivery paths and from PCSX2's
+existing ISO reader. TBF, EALOGO, FOXLOGO, ZONOLOGO, INTRO, and MENU01 each
+matched all 16 sampled 2048-byte chunks, for 96/96 exact SHA-256 matches with
+identical ISO extents and file sizes. No trace record was dropped or conflicted.
+A copied-digest OTHER-answer control was rejected at `TBF.TBF` offset zero,
+and strict policy rejects source contamination and insufficient overlap.
 
-Evidence: claims C019–C022, instruments I009–I012,
-`scratch/control-test/native-assets-proof.json` (ignored), and
+Evidence: claims C019–C023, instruments I009–I013,
+`scratch/control-test/asset-byte-comparison.json` (ignored), and
 [`re/disc-io.md`](re/disc-io.md).
 
-### S024 — loading behavior and performance: blocked
+### S024 — loading behavior and performance: partial
 
-Blocker: S023. Verification requires repeatable cold-cache and warm-cache
-measurements across startup, mission load, and representative transitions,
-plus negative controls proving that missing or corrupt native assets fail
-loudly rather than silently falling back to a slower or semantically different
-disc path.
+Observed subset: representative TBF, movie, and menu-stream native deliveries
+match the PCSX2 ISO oracle across 96 canonical chunks, including identical file
+sizes and extents. This establishes the byte-preservation prerequisite without
+using a timing-sensitive trace as performance evidence.
+
+Gap: bound cache memory/file lifetime, prove native and oracle failure results,
+and record repeatable cold/warm startup plus representative transition timing.
+Measurements must use symmetric guest-cycle/frame boundaries, secondary host
+elapsed time, tracing disabled, and failures that never silently fall back.
+Atomic work: issue #12.
 
 ### S025 — required firmware service inventory: missing
 
