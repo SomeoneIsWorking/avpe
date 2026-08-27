@@ -13,9 +13,11 @@ means the capability is absent.
 ## Current focus
 
 **S024 — loading behavior and performance.** Representative native deliveries
-now match the ISO oracle byte-for-byte. Work is bounding cache/prefetch behavior,
-proving error results, and measuring loading with byte tracing disabled. Current
-focus is attention, not a separate state.
+match the ISO oracle byte-for-byte, and the grounded startup interval now has a
+repeatable native-versus-optical timing differential. Work is bounding
+cache/prefetch behavior, proving error results and explicit cold/warm state, and
+grounding a representative mission transition. Current focus is attention, not
+a separate state.
 
 ## Capability inventory
 
@@ -369,14 +371,28 @@ Evidence: claims C019–C023, instruments I009–I013,
 
 Observed subset: representative TBF, movie, and menu-stream native deliveries
 match the PCSX2 ISO oracle across 96 canonical chunks, including identical file
-sizes and extents. This establishes the byte-preservation prerequisite without
-using a timing-sensitive trace as performance evidence.
+sizes and extents. A separate trace-disabled timing instrument then measured
+three alternating clean oracle/native pairs from the first `TBD/TBF.TBF` open
+through the seek immediately following `STREAMS/MENU01.ZIV` search. All samples
+used boundary ordinals 1→3 with zero EE-cycle, IOP-cycle, or frame spread.
+Native medians reduced the interval from 40,408,849,912 to 35,312,223,239 EE
+cycles (12.6126%), 5,051,106,429 to 4,414,027,549 IOP cycles (12.6127%), and
+8,213 to 7,178 frames (12.6020%). Secondary host elapsed fell from
+137.021072161 s to 120.172455308 s (12.2964%); within-mode host spreads were
+1.344402630 s oracle and 1.624823501 s native.
+
+The runs used project `edbfda4`, fork `87608f3`, one binary/disc/semantic-config
+identity, actual optical/native backends matching their labels, surfaceless and
+null-muted execution, disabled byte tracing, and isolated card copies whose
+source and working SHA-256 remained identical. Copied ordinal-drift and
+no-reduction controls were both rejected.
 
 Gap: bound cache memory/file lifetime, prove native and oracle failure results,
-and record repeatable cold/warm startup plus representative transition timing.
-Measurements must use symmetric guest-cycle/frame boundaries, secondary host
-elapsed time, tracing disabled, and failures that never silently fall back.
-Atomic work: issue #12.
+define and exercise explicit cold/warm cache state, and ground a representative
+mission transition. Failures must never silently fall back. Evidence: claim
+C024, instrument I014, [`re/disc-io.md`](re/disc-io.md), and ignored artifact
+`scratch/control-test/load-timing/asset-load-timing-comparison.json`. Atomic
+work: issue #12.
 
 ### S025 — required firmware service inventory: missing
 
