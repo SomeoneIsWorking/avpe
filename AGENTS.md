@@ -18,6 +18,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeAssets.*` owns title gating, the AVP:E disc namespace, native-store
   policy, and host-file replacement. `IopBios.cpp` provides only the grounded
   `ioman` hook; it must not absorb game paths, manifests, or cache policy.
+- `src/avpe/native_assets.py`, `iso9660.py`, and `raw_sector.py` own native
+  asset-store provisioning. Derived game bytes stay under ignored `scratch/`;
+  only the schema, identity anchors, validation logic, and tests are tracked.
 - `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*` owns product key-to-action
   and mouse-to-action policy; `HostWindow.*` owns only platform event capture
   and window lifecycle.

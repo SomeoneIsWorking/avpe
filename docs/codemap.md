@@ -26,7 +26,9 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Control-test runner | Silent surfaceless PCSX2 process, isolated profile/card working copies, timebox, exact process-group cleanup | `tools/run_control_test.py`, `src/avpe/memory_card_probe.py` | `main()` | [control-test contract](re/headless.md) |
 | Project verification | Python behavior, isolation, dependency, and source-structure regressions | `tests/`, `tools/verify.py` | `tools/verify.py` | — |
 | Project logging | Single Python log-level gate | `src/avpe/log.py` | `log()` | — |
-| Disc conversion | Strict MODE2/2352 to ISO9660 conversion | `tools/raw2352.py` | `main()` | — |
+| Raw-sector conversion | Streaming, validated 2352-byte-sector to ISO block conversion | `src/avpe/raw_sector.py`; CLI in `tools/raw2352.py` | `strip_image()` | — |
+| ISO asset extraction | Strict ISO9660 traversal and bounded file extraction | `src/avpe/iso9660.py` | `IsoImage` | [disc-I/O RE contract](re/disc-io.md) |
+| Native asset provisioning | CHD extraction, supported-revision anchors, manifest/hash validation, atomic store publication | `src/avpe/native_assets.py` | `provision_native_assets()` | [disc-I/O RE contract](re/disc-io.md) |
 | Control client | HTTP operations for state, memory, input, and snapshots | `tools/avpe_http.py` | `main()` | [control-channel contract](re/control-channel.md) |
 | Control server | Loopback routes and VM/CPU-thread dispatch | `thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp/.h` | `AVPE::Start()` | [control-channel contract](re/control-channel.md) |
 | EE-call execution | Guest-call queue, context, return-PC stop, budget, and result handling | `thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp/.h` | `AVPE::EECallShuttle` | [input-path contract](re/input-path.md) |
@@ -49,8 +51,11 @@ run.sh                         locked launcher shim
 src/avpe/                      host-side product orchestration
 ├── cli.py                     command and prerequisite owner
 ├── dependencies.py            submodule inspection/provisioning owner
+├── iso9660.py                 strict user-disc filesystem reader
 ├── launch.py                  emulator process/config owner
-└── log.py                     Python logging owner
+├── log.py                     Python logging owner
+├── native_assets.py           validated native-store provisioner
+└── raw_sector.py              streaming raw-sector converter
 tools/                         project automation and control clients
 ├── avpe_http.py               live control client
 ├── run_control_test.py        surfaceless and silent test process owner

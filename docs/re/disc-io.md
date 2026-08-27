@@ -77,6 +77,27 @@ The same probe required the deliberately absent
 both answers from the instrument. The loose fallback probes are real runtime
 behavior and correct the earlier archive-only static picture.
 
+## Validated native store
+
+`avpe assets` now provisions the store through three independent owners:
+
+- `raw_sector.strip_image` stream-converts the CHD-extracted 2352-byte sectors
+  to address-stable 2048-byte blocks and reports every sector form;
+- `IsoImage` strictly validates both-endian ISO9660 fields, extents, directory
+  records, duplicate case-insensitive paths, and bounded extraction;
+- `provision_native_assets` validates exact supported-revision anchors, hashes
+  every extracted file into a versioned manifest, revalidates the complete
+  store, and atomically renames it out of scoped staging.
+
+The supported disc yielded 268,924 MODE2 Form1 sectors, 137 files, and
+550,353,354 extracted bytes. `SYSTEM.CNF`, `SLUS_201.47`, and `TBD/TBF.TBF`
+are revision anchors. The manifest and bytes live only below ignored
+`scratch/native-assets/avpe-native-assets-v1/`; no game data is tracked.
+Wrong identity, missing validated files, malformed ISO metadata, bad sector
+sync, and a distinct Form2 layout are negative controls. Runtime redirection
+must consume only this validated store; merely pointing the core at an
+arbitrary host directory is not acceptable.
+
 ## Native replacement requirements
 
 The next implementation must preserve the original path as an A/B oracle and
