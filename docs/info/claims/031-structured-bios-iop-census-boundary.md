@@ -7,7 +7,7 @@ tags: bios,hle,iop,inventory
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotAndDisableJson, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#dispatch, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp#OnSaveStateLoaded, src/avpe/native_bios_probe.py#bios_trace_is_verified, tools/run_control_test.py#main, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-28
-verified_at: 2026-08-28 22:45:48
+verified_at: 2026-08-28 22:46:56
 ---
 
 ## Claim
@@ -78,3 +78,7 @@ tests. BIOS-backed surfaceless/null-muted resumes from `title-real.p2s`,
 `pause-menu.p2s`, and `mission1.p2s` captured 220, 251, and 71 ordered events
 with zero overflow. Their differing event mixes confirm that the boundary
 captures restored execution rather than a fixed clean-boot trace.
+
+## Re-confirmed 2026-08-28
+
+Full verifier passed 117 Python tests, 19 production C++ tests, scoped/full clang-format, and all 45 clang-tidy units. Final Release-built BIOS-backed surfaceless/null-muted title-real.p2s resume captured 220 ordered events with zero overflow; title-real, pause-menu, and mission1 resumes captured 220, 251, and 71 events with differing mixes and zero overflow after Host::OnSaveStateLoaded reset.
