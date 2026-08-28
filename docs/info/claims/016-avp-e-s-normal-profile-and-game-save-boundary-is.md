@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: save,profile,re
 depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, tests/test_save_format.py#SaveFormatTests
 reconfirmed: 2026-08-29
-verified_at: 2026-08-29 02:48:19
+verified_at: 2026-08-29 02:58:00
 ---
 
 ## Claim
@@ -62,3 +62,7 @@ After parent a764fa0, uv run --frozen python tools/verify.py passed 131 Python t
 ## Re-confirmed 2026-08-29
 
 Re-verified after parent a764fa0: 131 Python tests, 22 native tests, format, and 46-unit Clang-tidy passed. parse_game_save_record applies the grounded 16-byte object-header layout and rejects truncated/empty-stack structures; real slot0/slot1 records both parse balanced with 189 top-level starts, 1,073 nested starts, 1,262 nested terminators, depth 3, and 67 opaque class IDs.
+
+## Re-confirmed 2026-08-29
+
+Re-verified after parent cee8c85: the grounded Save/Load decompilation identifies class-descriptor-driven scalar, pointer, and pointer-array bodies; the production parser still passes all six save-format tests and real slot0/slot1 records remain balanced with 189 top-level starts, 1,073 nested starts, 1,262 nested terminators, depth 3, and 67 opaque class IDs. Editable field meanings, produced-save load, and native interception remain unproven.
