@@ -105,7 +105,7 @@ def make_mission_sample(
     end = {
         "kind": "shell-load-level-return",
         "path": "M01/background.tbd",
-        "pc": 0x0016F78C,
+        "pc": 0x0016F744,
         "ordinal": ordinal + 1,
         "ee_cycle": start["ee_cycle"] + ee_cycles,
         "iop_cycle": start["iop_cycle"] + iop_cycles,
@@ -353,7 +353,7 @@ class MissionLoadTimingTests(unittest.TestCase):
             ("start", "path", "M02/background.tbd", "M01/background.tbd"),
             ("end", "path", "M01/terrain.tbd", "M01/background.tbd"),
             ("start", "pc", 0x0016F914, "0x0016f910"),
-            ("end", "pc", 0x0016F790, "0x0016f78c"),
+            ("end", "pc", 0x0016F748, "0x0016f744"),
         )
         for section, field, value, expected in mutations:
             with self.subTest(section=section, field=field):
