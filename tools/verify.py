@@ -59,6 +59,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/tests/ctest/core/avpe_native_asset_store_tests.cpp",
     ROOT / "thirdparty/pcsx2/tests/ctest/core/avpe_native_cdvd_completion_tests.cpp",
     ROOT / "thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp",
+    ROOT / "thirdparty/pcsx2/tests/ctest/core/avpe_native_window_tests.cpp",
 )
 CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.h",
@@ -186,7 +187,7 @@ def main() -> int:
             "native asset production-path tests",
             [
                 str(CORE_TEST),
-                "--gtest_filter=NativeAssetStoreTest.*:NativeCdvdCompletionTest.*",
+                "--gtest_filter=NativeAssetStoreTest.*:NativeCdvdCompletionTest.*:NativeWindowHandlesTest.*",
             ],
         )
         run(
