@@ -7,7 +7,7 @@ tags: bios,hle,iop,inventory
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotAndDisableJson, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#dispatch, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_start, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp#OnSaveStateLoaded, src/avpe/native_bios_probe.py#bios_trace_is_verified, src/avpe/native_bios_probe.py#run_bios_phase, src/avpe/native_bios_probe.py#run_requested_bios_probe, tools/run_control_test.py#main, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-28
-verified_at: 2026-08-28 23:06:15
+verified_at: 2026-08-28 23:53:00
 ---
 
 ## Claim
@@ -99,3 +99,7 @@ Full non-windowed verifier passed 119 Python tests, 19 production C++ tests, sco
 ## Re-confirmed 2026-08-28
 
 The committed phase-boundary implementation was verified by the full non-windowed gate: 119 Python tests, 19 production C++ tests, scoped/full clang-format, and all 45 clang-tidy units. Release-built BIOS-backed surfaceless/null-muted pause-menu.p2s menu_down capture produced 63 ordered events with zero overflow; save-then-load phase produced 62 ordered events with zero overflow. The mission attempt was rejected because its grounded world endpoint did not occur.
+
+## Re-confirmed 2026-08-28
+
+After ebd61cd moved POST /bios/trace/capture onto the emulation CPU thread, the full non-windowed verifier passed 120 Python tests, 22 production C++ tests, clang-format, and 46 clang-tidy translation units. Two identical pause-menu menu-down phase runs each captured 7 ordered events (2 EE syscalls and 5 exceptions) with zero overflow. Two save-load runs captured 34 and 31 ordered timer events with zero overflow, exposing that archive restoration still lacks a guest-owned completion boundary; no arbitrary delay was added.

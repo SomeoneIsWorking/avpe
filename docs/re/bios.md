@@ -69,14 +69,16 @@ exceptions and 39 EE timers). The differing mixes demonstrate that the reset
 boundary is observing restored guest execution rather than returning one fixed
 or stale trace.
 
-A pause-menu `menu_down` phase captured 63 events (1 EE syscall, 24
-exceptions, and 38 timers) with zero overflow. A pause-menu save/load phase
-captured 62 events (1 EE syscall, 23 exceptions, and 38 timers) with zero
-overflow.
+A pause-menu `menu_down` phase and a pause-menu save/load phase both complete
+with zero overflow. Capture now runs on the emulation CPU thread: two menu
+runs each produced 7 events (2 EE syscalls and 5 exceptions). Save-load runs
+produced 34 and 31 timer events, so archive restoration still lacks a
+guest-owned completion/quiescence boundary and is not repeatability evidence.
 
 ## Required evidence before S025 can be verified
 
-The census still needs repeated BIOS-backed traces through stable title/menu
+The census still needs a guest-owned completion boundary for save/load and
+then repeated BIOS-backed traces through stable title/menu
 and mission paths, plus explicit service-level save, load, and shutdown
 boundaries. The
 EE syscall stream is an observation boundary, not yet a complete kernel
