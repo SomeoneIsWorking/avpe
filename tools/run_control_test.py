@@ -47,6 +47,7 @@ from avpe.native_mission_probe import (
     await_mission_load_timing,
     probe_marine_m1_transition,
 )
+from avpe.native_camera_probe import probe_native_camera
 from avpe.native_assets import (
     NativeAssetError,
     manifest_sha256,
@@ -597,6 +598,8 @@ def main() -> int:
                         help="prove activation on a single-item menu; requires --statefile")
     parser.add_argument("--probe-native-menu-pointer", action="store_true",
                         help="prove native menu hover and pointer activation; requires --statefile")
+    parser.add_argument("--probe-native-camera", action="store_true",
+                        help="prove native camera, selector, and minimap input; requires --statefile")
     parser.add_argument("--probe-native-assets", action="store_true",
                         help="prove AVP:E asset opens reach the title-specific IOP boundary")
     parser.add_argument("--probe-native-asset-reads", action="store_true",
@@ -650,6 +653,7 @@ def main() -> int:
         args.probe_native_menu,
         args.probe_native_menu_activate,
         args.probe_native_menu_pointer,
+        args.probe_native_camera,
     ))
     if native_input_probe_requested and args.statefile is None:
         parser.error("native input probes require --statefile")
@@ -817,6 +821,7 @@ def main() -> int:
     menu_proof: dict[str, object] | None = None
     menu_activation_proof: dict[str, object] | None = None
     menu_pointer_proof: dict[str, object] | None = None
+    camera_proof: dict[str, object] | None = None
     native_assets_proof: dict[str, object] | None = None
     native_asset_cache_proof: dict[str, object] | None = None
     native_movie_reads_proof: dict[str, object] | None = None
@@ -967,6 +972,15 @@ def main() -> int:
                 if args.probe_native_menu_pointer and probe_error is None:
                     try:
                         menu_pointer_proof = probe_native_menu_pointer(port, deadline)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_camera and probe_error is None:
+                    try:
+                        camera_proof = probe_native_camera(
+                            lambda method, path, payload: request_json(
+                                port, method, path, payload
+                            )
+                        )
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if probe_requested:
@@ -1161,6 +1175,18 @@ def main() -> int:
         print(
             "control-test native-menu-pointer proof="
             f"{json.dumps(menu_pointer_proof, sort_keys=True)}",
+            flush=True)
+    if args.probe_native_camera:
+        if camera_proof is None:
+            detail = probe_error or "probe did not run"
+            print(f"FATAL native camera probe failed: {detail}; see {LOG_DIR}", file=sys.stderr)
+            return 1
+        camera_proof["control_status"] = boot_status
+        camera_output = LOG_DIR.parent / "native-camera-proof.json"
+        camera_output.write_text(json.dumps(camera_proof, indent=2, sort_keys=True) + "\n")
+        print(
+            "control-test native-camera proof="
+            f"{json.dumps(camera_proof, sort_keys=True)}",
             flush=True)
     return 0
 

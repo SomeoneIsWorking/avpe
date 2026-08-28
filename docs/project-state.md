@@ -12,13 +12,10 @@ means the capability is absent.
 
 ## Current focus
 
-**S024 — loading behavior and performance.** Native startup bytes, admission,
-bounded caching, timing reduction, stream-completion ownership, and live
-save-state recovery are verified. A clean-boot grounded shell path now names M1
-as the representative mission-transition target; current work is automating it,
-capturing exact `CShell::ShellLoadLevel` entry/return boundaries, and proving
-that its supported asset operations complete through host storage/cache without
-optical waits. Current focus is attention, not a separate state.
+**S011 — selector, camera, and minimap integration.** The original AVP:E camera
+callbacks are now callable through the native EE boundary and their guest-owned
+state changes are proven; the remaining gap is user-visible window delivery.
+Current focus is attention, not a separate state.
 
 ## Capability inventory
 
@@ -34,7 +31,7 @@ optical waits. Current focus is attention, not a separate state.
 | S008 | Native absolute pointer injection moves the rendered cursor | verified | S007 | G002 |
 | S009 | Native mouse selection and command clicks | verified | S007, S008 | G002 |
 | S010 | Keyboard and mouse menu navigation through game-native paths | partial | S009; issue #6 | G002 |
-| S011 | Selector, camera, minimap, and pointer-mode integration | missing | S008, S009 | G002 |
+| S011 | Selector, camera, minimap, and pointer-mode integration | partial | S008, S009; issue #19 | G002 |
 | S012 | Fresh-clone provisioning through the zero-argument launcher | partial | S003, S004 | G001 |
 | S013 | End-to-end windowed product playable with native PC RTS controls | blocked | S009, S010, S011, S012, S020 | G001, G002 |
 | S014 | AVP:E save/load boundary and on-card data schema | partial | S001 | G003 |
@@ -193,10 +190,30 @@ Evidence: claims C011 and C014, instruments I004–I005, issue #6,
 `scratch/control-test/menu-proof.json`, and
 `scratch/control-test/menu-pointer-proof.json` (ignored per-run artifacts).
 
-### S011 — selector and camera integration: missing
+### S011 — selector and camera integration: partial
 
-Missing capability: runtime evidence is required across selector
-method changes, camera motion, minimap behavior, and pointer-mode transitions.
+Observed subset: `NativeCameraInput` invokes AVP:E's original
+`Input_GPMove(0x001af140)`, `Input_GPRotate(0x001af240)`, and
+`Input_GPZoom(0x001af480)` callbacks through the EE shuttle using the grounded
+eight-byte float-pair `CInputData` prefix. A clean `mission1.p2s` surfaceless,
+null-muted run proved that move changed camera `+0x158/+0x15c` to `[25,0]` and
+retained pointer input type `1`; zoom entered minimap mode and produced a
+bounded cursor/camera-pointer state; rotate changed the minimap cursor and
+camera pointer. Each call reported exact stack restoration and nonzero EE
+cycles, with stable camera, pointer, and minimap singleton identities.
+
+The standalone host maps held W/A/S/D and arrow keys through a 16 ms camera
+tick and maps the mouse wheel to the same game-native zoom callback. The
+surfaceless control route `POST /input/camera` and its acceptance policy
+exercise the native owner, but the real window event delivery remains
+unobserved under the no-window agent-test constraint.
+
+Gap: pointer-mode changes
+after menu selection and a user-visible windowed camera/minimap interaction
+remain required before S011 is verified.
+
+Evidence: claim C030, resolved issue #19, and
+`scratch/control-test/native-camera-proof.json` (ignored per-run artifact).
 
 ### S012 — fresh-clone launcher: partial
 

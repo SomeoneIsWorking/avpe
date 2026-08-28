@@ -90,6 +90,25 @@ SC-style control mapping now fully RE'd: move=absolute pointer inject,
 LMB=Mouse1 pair (SelectChanging), RMB release=ReleaseMouse2(CommandMove),
 pan/zoom=minimap cam pointer, groups=MakeSquad/SendMessageToSquad.
 
+The callable camera contracts are now explicit. `Input_GPMove` receives the
+same eight-byte `{float x, float y}` prefix used by the input callbacks and
+updates camera movement at `camera+0x158/0x15c`; it also calls
+`SetInputType(pointer,1,1)` in the normal camera path. `Input_GPZoom` consumes
+`x` and, while `camera+0x238` is clear, enters minimap mode and calls
+`MoveCamPointerPos(minimap, CVector*)`; that function scales and clamps the
+minimap cursor at `+0xbc0/+0xbc4/+0xbc8` and derives the camera pointer at
+`+0x250/+0x254`. `Input_GPRotate` uses the same minimap path for `x` or calls
+`Gyrate(x,0,0,camera,0)` when camera mode requires it. The native bridge calls
+these original functions through the EE shuttle and captures the camera,
+minimap, and pointer-mode fields before and after each call.
+
+The standalone host maps held W/A/S/D and arrow keys to the grounded
+`Input_GPMove` pair at a 16 ms tick, and the mouse wheel to `Input_GPZoom`.
+Menu discovery is attempted first, so the same keys navigate a live AVP:E menu
+and become camera controls only when no menu owns them. The control route
+`POST /input/camera` is the surfaceless evidence seam for move, rotate, and
+zoom; it does not replace the host route.
+
 ## Native menu actions
 
 `GInputDevice` stores its live `ZArray<CCallbackTrigger,32>` at `this+0x48`
