@@ -6,6 +6,8 @@ created: 2026-08-28
 tags: bios,hle,iop,inventory
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
+reconfirmed: 2026-08-28
+verified_at: 2026-08-28 21:24:49
 ---
 
 ## Claim
@@ -30,3 +32,7 @@ exposes the snapshot for later clean runtime traces.
 A runtime or production test demonstrates a changed IOP return/fallback,
 missing event ordering, an unbounded event store, or a snapshot that reports
 events after capture is disabled.
+
+## Re-confirmed 2026-08-28
+
+Post-change Clang production tests passed: NativeBiosTraceTest covers disabled capture, ordered EE syscall/name/arguments plus IOP events, and the exact 4096-event overflow bound; the full AVPE verifier passed 110 Python tests, build, format, and clang-tidy. The common R5900::Interpreter::OpcodeImpl::SYSCALL owner and NativeBiosTrace SnapshotJson implementation are present at the declared dependencies.
