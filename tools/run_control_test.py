@@ -41,8 +41,8 @@ from avpe.native_asset_probe import (
 )
 from avpe.native_bios_probe import (
     add_arguments as add_bios_arguments,
-    capture_bios_trace_if_requested,
     report_bios_trace,
+    run_requested_bios_probe,
     validate_arguments as validate_bios_arguments,
 )
 from avpe.menu_probe import (
@@ -739,6 +739,7 @@ def main() -> int:
         or args.probe_asset_byte_trace
         or args.probe_load_timing
         or args.probe_bios_trace
+        or args.probe_bios_phase is not None
     )
 
     if not PCSX2.is_file():
@@ -843,6 +844,8 @@ def main() -> int:
     asset_byte_trace: dict[str, object] | None = None
     load_timing: dict[str, object] | None = None
     bios_trace: dict[str, object] | None = None
+    bios_phase: str | None = None
+    bios_operation: str | None = None
     probe_error: str | None = None
     graceful_shutdown = False
     try:
@@ -962,8 +965,8 @@ def main() -> int:
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if probe_error is None:
-                    bios_trace, bios_error = capture_bios_trace_if_requested(
-                        args.probe_bios_trace, port, probe_error
+                    bios_trace, bios_phase, bios_operation, bios_error = (
+                        run_requested_bios_probe(args, port, deadline, LOG_DIR)
                     )
                     if bios_error is not None:
                         probe_error = bios_error
@@ -1154,7 +1157,7 @@ def main() -> int:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(load_timing, indent=2, sort_keys=True) + "\n")
         print(f"control-test load-timing mode={args.probe_load_timing} output={output}", flush=True)
-    if args.probe_bios_trace:
+    if args.probe_bios_trace or args.probe_bios_phase is not None:
         if not report_bios_trace(
             bios_trace,
             args.bios_trace_output,
@@ -1162,6 +1165,8 @@ def main() -> int:
             LOG_DIR,
             args.statefile,
             probe_error,
+            bios_phase,
+            bios_operation,
         ):
             return 1
     if not report_json_probe(args.probe_native_pointer, pointer_proof, "native-pointer", probe_error, LOG_DIR):

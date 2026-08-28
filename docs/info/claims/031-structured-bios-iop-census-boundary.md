@@ -4,10 +4,10 @@ kind: claim
 status: holds
 created: 2026-08-28
 tags: bios,hle,iop,inventory
-depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotAndDisableJson, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#dispatch, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp#OnSaveStateLoaded, src/avpe/native_bios_probe.py#bios_trace_is_verified, tools/run_control_test.py#main, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
+depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotAndDisableJson, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#dispatch, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_start, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp#OnSaveStateLoaded, src/avpe/native_bios_probe.py#bios_trace_is_verified, src/avpe/native_bios_probe.py#run_bios_phase, src/avpe/native_bios_probe.py#run_requested_bios_probe, tools/run_control_test.py#main, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-28
-verified_at: 2026-08-28 22:46:56
+verified_at: 2026-08-28 23:05:55
 ---
 
 ## Claim
@@ -82,3 +82,16 @@ captures restored execution rather than a fixed clean-boot trace.
 ## Re-confirmed 2026-08-28
 
 Full verifier passed 117 Python tests, 19 production C++ tests, scoped/full clang-format, and all 45 clang-tidy units. Final Release-built BIOS-backed surfaceless/null-muted title-real.p2s resume captured 220 ordered events with zero overflow; title-real, pause-menu, and mission1 resumes captured 220, 251, and 71 events with differing mixes and zero overflow after Host::OnSaveStateLoaded reset.
+
+## Re-confirmed 2026-08-28
+
+After adding the explicit BIOS phase-start route, the full verifier passed 119
+Python tests, 19 production C++ tests, scoped/full clang-format, and all 45
+clang-tidy units. A pause-menu `menu_down` phase captured 63 ordered events
+and a save-then-load phase captured 62 ordered events; both had zero overflow.
+The menu action completed synchronously, while the save/load artifact records
+post-load execution and does not claim to observe game-profile serialization.
+
+## Re-confirmed 2026-08-28
+
+Full non-windowed verifier passed 119 Python tests, 19 production C++ tests, scoped/full clang-format, and all 45 clang-tidy units. Release-built BIOS-backed surfaceless/null-muted pause-menu.p2s menu_down capture produced 63 ordered events with zero overflow; save-then-load phase produced 62 ordered events with zero overflow. The mission phase was not accepted because its grounded world endpoint did not occur.

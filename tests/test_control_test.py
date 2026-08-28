@@ -27,6 +27,7 @@ from avpe.native_bios_probe import (
     bios_trace_failure_detail,
     bios_trace_is_verified,
     capture_bios_trace,
+    start_bios_trace,
     write_bios_trace,
 )
 from avpe.pcsx2_config import (
@@ -167,6 +168,29 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(artifact["phase"], "statefile_to_running")
         self.assertEqual(artifact["statefile"], "title-real.p2s")
 
+    def test_bios_trace_artifact_records_explicit_phase_operation(self) -> None:
+        trace = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "events": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "bios-trace.json"
+            write_bios_trace(
+                trace,
+                output,
+                self.status,
+                Path(directory) / "pause-menu.p2s",
+                "statefile_to_menu",
+                "menu_down",
+            )
+            artifact = json.loads(output.read_text())
+
+        self.assertEqual(artifact["phase"], "statefile_to_menu")
+        self.assertEqual(artifact["operation"], "menu_down")
+
     def test_bios_trace_capture_uses_atomic_capture_route(self) -> None:
         trace = {
             "schema": "avpe-bios-trace-v1",
@@ -185,6 +209,15 @@ class ControlTestPolicyTests(unittest.TestCase):
             self.assertEqual(capture_bios_trace(31234), trace)
 
         request.assert_called_once_with(31234, "POST", "/bios/trace/capture", {})
+
+    def test_bios_trace_start_clears_and_enables_phase_sink(self) -> None:
+        with patch(
+            "avpe.native_bios_probe.request_bytes",
+            return_value=(200, b'{"started":true}'),
+        ) as request:
+            start_bios_trace(31234)
+
+        request.assert_called_once_with(31234, "POST", "/bios/trace/start", {})
 
     def test_bios_trace_failure_detail_is_bounded(self) -> None:
         trace = {

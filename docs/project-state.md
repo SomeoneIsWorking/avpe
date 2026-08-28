@@ -527,8 +527,16 @@ respectively, all with zero overflow; their event mixes differ (`title-real`:
 EE syscalls/exceptions, `pause-menu`: EE syscalls/exceptions/timers,
 `mission1`: EE exceptions/timers).
 
-Gap: capture repeated clean BIOS-backed traces from boot through a stable menu,
-then separate menu, mission, save/load, and shutdown phases. EE timers,
+The phase runner can clear and re-enable the sink at a later control boundary.
+A pause-menu `down` action produced a 63-event `statefile_to_menu` trace, and
+an isolated save-then-load sequence produced a 62-event
+`save_load_to_running` trace; both had zero overflow. The menu action completed
+synchronously in this state, which the probe accepts alongside the deferred
+form used by other menu owners.
+
+Gap: repeat the menu and save/load captures, add mission and shutdown phase
+boundaries, and separate archive/service operations from resumed execution.
+EE timers,
 remaining interrupt delivery, kernel primitives, executable loading, IOP module
 loads, and service-level negative-path semantics remain incomplete; S025 cannot
 become verified from the current dispatch census alone.
