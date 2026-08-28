@@ -18,8 +18,9 @@ and no corresponding EE-kernel or firmware-service inventory.
 ## Current work
 
 `NativeBiosTrace` now records EE `SYSCALL` dispatches through the shared
-interpreter implementation, EE/IOP exception entry, plus IOP imports, loadcore
-module registration and release, interrupt registration, and SIF RPC
+interpreter implementation, including their four argument registers and
+post-dispatch signed `v0` result, EE/IOP exception entry, plus IOP imports,
+loadcore module registration and release, interrupt registration, and SIF RPC
 registration through narrow calls at the existing owners. It is observation-
 only and exposed at
 `GET /bios/trace` for control-test diagnostics.
@@ -29,9 +30,9 @@ only and exposed at
 Capture repeated clean traces across boot, menu, mission, save/load, and
 shutdown. Add separate grounded observation seams for kernel primitives,
 executable loading, timers, interrupt delivery, and IOP module loads, then
-capture service results and negative paths before designing the HLE
-implementation. The EE syscall dispatch seam exists but still needs runtime
-phase traces and service-level interpretation.
+capture their service results and negative paths before designing the HLE
+implementation. The EE syscall result boundary now exists but still needs
+runtime phase traces and service-level interpretation.
 
 ## Resolution
 

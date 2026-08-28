@@ -13,7 +13,8 @@ surfaceless control-test mode enables it and exposes its snapshot at
 - every IOP import dispatch with library, ordinal, resolved name, four input
   arguments, return value, and whether an HLE or debug handler was selected;
 - every EE `SYSCALL` dispatch through the shared interpreter implementation,
-  with the normalized syscall number, BIOS name, and four argument registers;
+  with the normalized syscall number, BIOS name, four argument registers, and
+  signed `v0` return status captured after dispatch;
 - EE and IOP exception-entry boundaries with domain, cause code, pre-entry PC,
   and branch-delay state;
 - `RegisterLibraryEntries` and `ReleaseLibraryEntries` module name/version;
