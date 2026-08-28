@@ -44,6 +44,10 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `src/avpe/bios_inventory.py` owns deterministic summaries of captured BIOS/IOP
   traces; `tools/analyze_bios_traces.py` is only its JSON-file CLI and must not
   infer service calls that are absent from the trace.
+- `src/avpe/save_format.py` owns the grounded BWJ decoder and fixed game-save
+  prefix parser; `tools/analyze_save_records.py` is only its JSON-file CLI.
+  This is save-format evidence, not the native-save backend and not permission
+  to infer game-object meanings that have not been decoded.
 - `src/avpe/native_asset_cache_probe.py` owns the bounded-cache evidence
   policy; `tools/run_control_test.py` only orchestrates its surfaceless probe.
 - `src/avpe/native_asset_probe.py` owns native asset lifecycle, byte/timing

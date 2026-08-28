@@ -4,7 +4,9 @@ This document records the grounded save boundary for the supported
 `SLUS-20147` executable. It is deliberately incomplete: the high-level profile
 and game-save operations and their outer records are mapped, while the profile
 payload fields and compressed world schema still require semantic decoding from
-deliberately differing runtime saves.
+deliberately differing runtime saves. The BWJ wire decoder and the fixed
+game-save prefix are now grounded; the object classes and editable field
+meanings remain opaque.
 
 ## High-level owner
 
@@ -70,6 +72,12 @@ The profile payload immediately follows this record and has the size supplied
 through `CProfile::SetGameData` (`CProfile + 0x18` pointer, `+0x1C` size,
 `+0x20` revision). A game save instead writes a 0x20-byte level identifier and
 then a BWJ-compressed `GObject::SaveAll` stream through `CLoadSaveBuffer`.
+
+The attached `CLoadSaveBuffer` stream starts with a two-byte BWJ mode word and
+its first control word. Consequently the 0x20-byte level buffer begins four
+bytes after the outer record, not immediately at `record + 0x118`. `SaveGame`
+writes that level buffer through the compressor, then calls `GObject::SaveAll`.
+`LoadGame` reads the same 0x20 bytes before loading the object stream.
 
 ## Single observed profile record
 
@@ -166,14 +174,52 @@ structurally valid numbered save records and that the compressed payload is
 state-dependent. It does not yet identify the decompressed object differences,
 prove a load of either record, or provide the native-save interception.
 
+## BWJ decode and fixed game-save prefix
+
+The Ghidra decompilations of `CBWJCompressor` at `0x001088F0`,
+`0x00108A10`, `0x00108AE0`, `0x00108C70`, `0x00108EE0`, and `0x00109170`
+establish a little-endian 16-bit word stream. A mode word is followed by
+16-token control words. A zero control bit copies one literal word; a set bit
+reads a token whose high bits select a prior word distance and whose low bits
+select a word length. A zero token is the explicit end marker. The observed
+mode is `0x07FF`, which derives a five-bit length mask (`0x1F`) and a five-bit
+distance shift. The implementation is in `src/avpe/save_format.py` and is
+bounded by the caller before it allocates decoded output.
+
+The same parser reads the fixed prefix described by `SaveAll` at
+`0x0011D7C0`: the 0x20-byte level buffer, one game-time float, 0x2000 bytes
+of handle bitmap words, the repeated game-time float, and then the object
+stream at decoded offset `0x2028`. `LoadAll` at `0x0011D2A0` compares the two
+time values before proceeding. The parser reports exact marker occurrences,
+not an object count: `0x7FEA419D` marks each top-level object and the
+top-level end record, while `0xBADF00DE` is shared by nested-object headers
+and nested end markers.
+
+Running `tools/analyze_save_records.py` through the parser logic on the two
+retained raw-card records produced these observations:
+
+| Record | BWJ mode / shift / mask | Compressed bytes consumed | Decoded bytes | Level | Game time | Nonzero handle words | Marker occurrences (`7FEA` / `BADF`) |
+|---|---:|---:|---:|---|---:|---:|---:|
+| slot 0 | `0x07FF / 5 / 0x1F` | 160,544 | 640,724 | `M01/background.tbd` | 1466.283203125 | 31 | 190 / 2,335 |
+| slot 1 | `0x07FF / 5 / 0x1F` | 160,584 | 640,836 | `M01/background.tbd` | 1482.699462890625 | 31 | 190 / 2,335 |
+
+Both decoded time prefixes match their repeated time values byte-for-byte.
+The level buffers contain the same NUL-terminated ASCII name and a retained
+nonzero suffix byte (`01`) followed by padding; that suffix is not assigned a
+meaning. The identical marker totals and changed game-time/decoded-size values
+show that the decoder reaches the same broad serialization structure while
+preserving state-dependent data. They do not identify class IDs, editable field
+types, or gameplay semantics, and they do not prove that the original game
+loads either produced record.
+
 ## Evidence needed next
 
 - Produce at least two isolated profile records whose settings differ and two
   isolated game saves whose progress differs. Two structurally distinct save
-  bodies now exist; their decompressed gameplay meaning still needs to be
-  identified.
-- Compare the records and decompressed streams, including a case that must be
-  rejected, to resolve unknown fields and checksums.
+  bodies now exist; their decompressed object/class and gameplay meaning still
+  needs to be identified.
+- Decode the object headers and editable field records, including a case that
+  must be rejected, to resolve unknown fields and checksums.
 - Capture a normal in-game save completion and identify the narrow guest-call
   interception mechanism that can route the five `CProfile` operations to
   `AVPE::NativeSaves` while keeping the original game routines available as
