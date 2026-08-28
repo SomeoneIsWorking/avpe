@@ -301,25 +301,25 @@ identity because the diagnostic frontend rewrites those non-emulation layout
 fields under `-nogui`; a regression proves that an emulation-setting change is
 still detected.
 
-The 2026-08-28 run used project `edbfda4`, fork `87608f3`, SLUS-20147 CRC
+The 2026-08-28 run used project `8fcf8d1`, fork `e8c7af9`, SLUS-20147 CRC
 `64DA78A3`, and order oracle/native repeated three times. Every sample used
 boundary ordinals 1→3.
 
 | Pair | Mode | EE cycles | IOP cycles | Frames | Host elapsed ns |
 |---:|---|---:|---:|---:|---:|
-| 1 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,020,651,024 |
-| 1 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 120,172,455,308 |
-| 2 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,021,072,161 |
-| 2 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 119,761,269,569 |
-| 3 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 138,365,053,654 |
-| 3 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 121,386,093,070 |
+| 1 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,019,880,383 |
+| 1 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 120,056,785,587 |
+| 2 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,020,742,427 |
+| 2 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 120,081,436,193 |
+| 3 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,020,964,076 |
+| 3 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 120,072,932,485 |
 
 | Metric | Oracle median | Native median | Oracle spread | Native spread | Reduction |
 |---|---:|---:|---:|---:|---:|
 | EE cycles | 40,408,849,912 | 35,312,223,239 | 0 | 0 | 5,096,626,673 (12.6126%) |
 | IOP cycles | 5,051,106,429 | 4,414,027,549 | 0 | 0 | 637,078,880 (12.6127%) |
 | Frames | 8,213 | 7,178 | 0 | 0 | 1,035 (12.6020%) |
-| Host elapsed ns | 137,021,072,161 | 120,172,455,308 | 1,344,402,630 | 1,624,823,501 | 16,848,616,853 (12.2964%) |
+| Host elapsed ns | 137,020,742,427 | 120,072,932,485 | 1,083,693 | 24,650,606 | 16,947,809,942 (12.3688%) |
 
 Every run reported the expected actual backends, surfaceless/null-muted status,
 disabled byte tracing, the same binary/disc/config identity, and an unchanged
