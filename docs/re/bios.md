@@ -30,25 +30,38 @@ unhandled/oracle path and are recorded with `hle: false`. Both the interpreter
 and dynarec route the EE `SYSCALL` opcode through the same implementation, so
 the syscall observation is not engine-specific.
 
-## Clean-boot capture
+## Boot and savestate captures
 
 `tools/run_control_test.py --probe-bios-trace` starts a fresh BIOS-backed,
 surfaceless process, waits for the verified `Running` boundary, then calls
-`POST /bios/trace/capture`. The production route snapshots and disables the
-sink while holding its mutex, so high-rate guest timer/syscall traffic cannot
-overflow the bounded trace while it is being read. The runner writes a
-`clean_boot_to_running` artifact under ignored `scratch/` storage.
+`POST /bios/trace/capture`. With `--statefile`, the same runner resumes a
+known BIOS-backed state. The standalone frontend's `Host::OnSaveStateLoaded`
+callback resets the observation sink after a successful archive restore and
+before the emulation thread enters `Running`; the resulting artifact is
+labelled `statefile_to_running` and does not mix restore-time scheduler traffic
+with post-restore execution.
+
+The production capture route snapshots and disables the sink while holding its
+mutex, so high-rate guest timer/syscall traffic cannot overflow the bounded
+trace while it is being read. The runner writes artifacts under ignored
+`scratch/` storage.
 
 Three repeated captures currently produce the same 28-event slice: 20 module
 registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero
 overflow. This is repeatability evidence for the boot boundary only; EE
 syscall/import activity begins after that boundary and still needs separate
-menu, mission, save/load, and shutdown captures.
+menu, mission, save, and shutdown captures. Three restored states also passed
+with zero overflow: `title-real.p2s` produced 220 events (104 EE syscalls and
+116 EE exceptions), `pause-menu.p2s` produced 251 events (2 EE syscalls, 98 EE
+exceptions, and 151 EE timers), and `mission1.p2s` produced 71 events (32 EE
+exceptions and 39 EE timers). The differing mixes demonstrate that the reset
+boundary is observing restored guest execution rather than returning one fixed
+or stale trace.
 
 ## Required evidence before S025 can be verified
 
-The census still needs BIOS-backed traces through a stable menu, then separate
-menu, mission, save/load, and shutdown traces. The
+The census still needs BIOS-backed traces through a stable menu, plus separate
+menu, mission, save, load, and shutdown traces. The
 EE syscall stream is an observation boundary, not yet a complete kernel
 inventory: kernel primitives, executable loading, timers, interrupt delivery,
 and the results of each required service still need separate evidence. A

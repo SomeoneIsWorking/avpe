@@ -33,9 +33,17 @@ exceptions, 1 IOP timer event, zero overflow), proving the boot boundary is
 repeatable. The capture is deliberately labelled `clean_boot_to_running`; it
 does not claim to cover later EE or game-service activity.
 
+Successful savestate restoration is now an explicit phase boundary: the
+standalone frontend resets the sink from `Host::OnSaveStateLoaded()` before the
+emulation thread enters `Running`. The `title-real.p2s`, `pause-menu.p2s`, and
+`mission1.p2s` resumes produced 220, 251, and 71 ordered events respectively,
+all with zero overflow and different event mixes. This proves the bounded
+instrument can observe post-restore execution without retaining the high-rate
+restore-time scheduler burst.
+
 ## Remaining work
 
-Capture repeated clean traces across boot, menu, mission, save/load, and
+Capture repeated clean traces across boot, menu, mission, save, load, and
 shutdown. Add a separate grounded observation seam for remaining interrupt
 delivery, kernel primitives, executable loading, and IOP module loads, then
 capture their service results and negative paths before designing the HLE
