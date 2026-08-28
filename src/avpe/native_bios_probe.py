@@ -74,8 +74,9 @@ def bios_trace_failure_detail(trace: object) -> str:
     )
 
 
-def capture_bios_trace(port: int) -> dict[str, object]:
-    status, body = request_bytes(port, "POST", "/bios/trace/capture", {})
+def capture_bios_trace(port: int, at_guest_boundary: bool = True) -> dict[str, object]:
+    route = "/bios/trace/capture-at-guest-boundary" if at_guest_boundary else "/bios/trace/capture"
+    status, body = request_bytes(port, "POST", route, {}, timeout=7.0)
     if status != 200:
         raise RuntimeError(f"BIOS trace capture returned HTTP {status}")
     trace = json.loads(body)

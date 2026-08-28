@@ -208,7 +208,25 @@ class ControlTestPolicyTests(unittest.TestCase):
         ) as request:
             self.assertEqual(capture_bios_trace(31234), trace)
 
-        request.assert_called_once_with(31234, "POST", "/bios/trace/capture", {})
+        request.assert_called_once_with(
+            31234, "POST", "/bios/trace/capture-at-guest-boundary", {}, timeout=7.0
+        )
+
+    def test_bios_trace_capture_can_use_immediate_diagnostic_route(self) -> None:
+        trace = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "events": [{"sequence": 1, "kind": "import"}],
+        }
+        with patch(
+            "avpe.native_bios_probe.request_bytes",
+            return_value=(200, json.dumps(trace).encode()),
+        ) as request:
+            self.assertEqual(capture_bios_trace(31234, at_guest_boundary=False), trace)
+
+        request.assert_called_once_with(31234, "POST", "/bios/trace/capture", {}, timeout=7.0)
 
     def test_bios_trace_start_clears_and_enables_phase_sink(self) -> None:
         with patch(

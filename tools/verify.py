@@ -98,7 +98,7 @@ CORE_SCOPED_SOURCES = {
         (1, 35), (265, 312), (415, 708), (843, 936),
         (992, 1120), (1428, 1498), (1510, 1565), (1600, 1819)),
     ROOT / "thirdparty/pcsx2/pcsx2/IopCounters.cpp": ((1, 16), (207, 240)),
-	ROOT / "thirdparty/pcsx2/pcsx2/Counters.cpp": ((1, 20), (682, 723)),
+	ROOT / "thirdparty/pcsx2/pcsx2/Counters.cpp": ((1, 20), (488, 494), (682, 723)),
 	ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp": (
 		(1, 18), (910, 925), (1068, 1069), (1205, 1206), (1215, 1215)),
     ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp": ((1, 18), (96, 99)),

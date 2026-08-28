@@ -59,6 +59,15 @@ returns before a guest-owned completion/quiescence condition has been
 identified. An arbitrary host delay would hide this boundary defect rather
 than establish service semantics.
 
+Phase capture now has a narrower boundary: the control route can arm the sink
+and wait for the next `Counters::VSyncStart` transition on the emulation CPU
+thread. Two repeated pause-menu captures through that route remained bounded
+with zero overflow but retained 21 and 11 event identities, with different
+exception/syscall identity sets. This removes the control request's frame
+position race, but the differing traces show that a frame transition is not
+the guest-owned post-restore completion boundary still needed for repeatable
+mission/save/load inventory.
+
 The retained trace set is now mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict validator and
 groups only events actually present in each capture. The selected seven
