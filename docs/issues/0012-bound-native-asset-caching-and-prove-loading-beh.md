@@ -37,7 +37,7 @@ request, and keep byte tracing disabled during timing.
 
 ## Timing evidence
 
-On project `edbfda4` and PCSX2 fork `87608f3`, the dedicated timing tool ran
+On project `8fcf8d1` and PCSX2 fork `e8c7af9`, the dedicated timing tool ran
 `1:oracle, 1:native, 2:oracle, 2:native, 3:oracle, 3:native` against
 SLUS-20147 CRC `64DA78A3`. Every sample used the first `TBD/TBF.TBF` open as
 ordinal 1 and the seek immediately after `STREAMS/MENU01.ZIV` search as ordinal
@@ -45,22 +45,22 @@ ordinal 1 and the seek immediately after `STREAMS/MENU01.ZIV` search as ordinal
 
 | Pair | Mode | EE cycles | IOP cycles | Frames | Host elapsed ns |
 |---:|---|---:|---:|---:|---:|
-| 1 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,020,651,024 |
-| 1 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 120,172,455,308 |
-| 2 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,021,072,161 |
-| 2 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 119,761,269,569 |
-| 3 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 138,365,053,654 |
-| 3 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 121,386,093,070 |
+| 1 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,019,880,383 |
+| 1 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 120,056,785,587 |
+| 2 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,020,742,427 |
+| 2 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 120,081,436,193 |
+| 3 | oracle | 40,408,849,912 | 5,051,106,429 | 8,213 | 137,020,964,076 |
+| 3 | native | 35,312,223,239 | 4,414,027,549 | 7,178 | 120,072,932,485 |
 
 | Metric | Oracle median | Native median | Oracle spread | Native spread | Reduction |
 |---|---:|---:|---:|---:|---:|
 | EE cycles | 40,408,849,912 | 35,312,223,239 | 0 | 0 | 5,096,626,673 (12.6126%) |
 | IOP cycles | 5,051,106,429 | 4,414,027,549 | 0 | 0 | 637,078,880 (12.6127%) |
 | Frames | 8,213 | 7,178 | 0 | 0 | 1,035 (12.6020%) |
-| Host elapsed ns | 137,021,072,161 | 120,172,455,308 | 1,344,402,630 | 1,624,823,501 | 16,848,616,853 (12.2964%) |
+| Host elapsed ns | 137,020,742,427 | 120,072,932,485 | 1,083,693 | 24,650,606 | 16,947,809,942 (12.3688%) |
 
 The binary SHA-256 was
-`247b17e230dab7d664ff37e1a9a984905d2d40d57a678bcb7dab66f9761e09d8`;
+`d877a65b734fd9aae4e4ca9460c6e61c5f4deba5b8cd117a548ec10021f8cb9b`;
 the source CHD SHA-256 was
 `b9165e126aeb7154d95f17d2dea21c21d7754f2480e3fae5217dcdf55155e9a0`.
 All samples had the same emulation-relevant configuration, byte tracing was
@@ -69,7 +69,7 @@ working copy stayed at
 `55237edfb8bd977e22ecf84ae2d1a942f8167fd3cbf9798376259342120f2b2b`.
 Copied ordinal-drift and no-reduction controls were both rejected. Detailed
 ignored evidence is
-`scratch/control-test/load-timing/asset-load-timing-comparison.json`.
+`scratch/control-test/load-timing-refresh-210/asset-load-timing-comparison.json`.
 
 ## Remaining
 

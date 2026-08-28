@@ -420,10 +420,10 @@ used boundary ordinals 1→3 with zero EE-cycle, IOP-cycle, or frame spread.
 Native medians reduced the interval from 40,408,849,912 to 35,312,223,239 EE
 cycles (12.6126%), 5,051,106,429 to 4,414,027,549 IOP cycles (12.6127%), and
 8,213 to 7,178 frames (12.6020%). Secondary host elapsed fell from
-137.021072161 s to 120.172455308 s (12.2964%); within-mode host spreads were
+137.021072161 s to 120.172455308 s (12.3688%); within-mode host spreads were
 1.344402630 s oracle and 1.624823501 s native.
 
-The runs used project `edbfda4`, fork `87608f3`, one binary/disc/semantic-config
+The runs used project `8fcf8d1`, fork `e8c7af9`, one binary/disc/semantic-config
 identity, actual optical/native backends matching their labels, surfaceless and
 null-muted execution, disabled byte tracing, and isolated card copies whose
 source and working SHA-256 remained identical. Copied ordinal-drift and
@@ -503,7 +503,7 @@ timing proof. Live guest reset cleanup is now verified in issue #15. Evidence:
 claims C024 through C029,
 instruments I014 through I018,
 [`re/disc-io.md`](re/disc-io.md), ignored timing artifact
-`scratch/control-test/load-timing/asset-load-timing-comparison.json`, and ignored
+`scratch/control-test/load-timing-refresh-210/asset-load-timing-comparison.json`, and ignored
 cache artifact `scratch/control-test/native-asset-cache-proof.json`, and ignored
 transition artifact `scratch/control-test/native-marine-m1-transition-proof.json`.
 Atomic work: issue #12; resolved issues #13–#15 record the native CDVD
