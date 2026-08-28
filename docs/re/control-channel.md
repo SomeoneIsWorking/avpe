@@ -13,6 +13,9 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | GET `/mem/read` | `addr=0xHEX&len=HEX` (≤4096) | EE bytes as hex (vtlb_ramRead, PINE-style) |
 | GET `/mem/scan` | `start&end&hex=` (range ≤4MiB) | first 16 match addresses + hit count |
 | GET `/debug` | — | `{"transfers","lastfifo","inject"}` host-side truth |
+| GET `/bios/trace` | — | current bounded BIOS/IOP observation snapshot |
+| POST `/bios/trace/start` | `{}` | clear and enable the bounded BIOS/IOP sink for a new phase |
+| POST `/bios/trace/capture` | `{}` | atomically snapshot and disable the BIOS/IOP sink |
 | POST `/mem/write` | `{"addr":"0x..","hex":"aabb.."}` | raw writes (vtlb_ramWrite) |
 | POST `/state/save` | `{"path":"/abs/x.p2s"}` | CPU-thread save + flush; success includes the native asset state captured immediately before serialization |
 | POST `/state/load` | `{"path":"/abs/x.p2s"}` | CPU-thread load; success includes the native asset state captured immediately after restoration |

@@ -46,6 +46,17 @@ mutex, so high-rate guest timer/syscall traffic cannot overflow the bounded
 trace while it is being read. The runner writes artifacts under ignored
 `scratch/` storage.
 
+For a later boundary, `POST /bios/trace/start` clears and enables the same sink.
+The runner exposes this as `--probe-bios-phase menu` and
+`--probe-bios-phase save-load`, both requiring a BIOS-backed `--statefile`.
+The menu phase starts a fresh sink, invokes the active game's `down` action,
+accepts either its synchronous or deferred completion, and captures the
+resulting `statefile_to_menu` slice. The save-load phase saves to an isolated
+scratch state, starts a fresh sink, loads the requested state, and captures
+the `save_load_to_running` slice after the successful load callback reset. It
+proves the control boundary and resumed service traffic; it does not claim to
+observe archive serialization internals or shutdown after the process exits.
+
 Three repeated captures currently produce the same 28-event slice: 20 module
 registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero
 overflow. This is repeatability evidence for the boot boundary only; EE
@@ -58,10 +69,16 @@ exceptions and 39 EE timers). The differing mixes demonstrate that the reset
 boundary is observing restored guest execution rather than returning one fixed
 or stale trace.
 
+A pause-menu `menu_down` phase captured 63 events (1 EE syscall, 24
+exceptions, and 38 timers) with zero overflow. A pause-menu save/load phase
+captured 62 events (1 EE syscall, 23 exceptions, and 38 timers) with zero
+overflow.
+
 ## Required evidence before S025 can be verified
 
-The census still needs BIOS-backed traces through a stable menu, plus separate
-menu, mission, save, load, and shutdown traces. The
+The census still needs repeated BIOS-backed traces through stable title/menu
+and mission paths, plus explicit service-level save, load, and shutdown
+boundaries. The
 EE syscall stream is an observation boundary, not yet a complete kernel
 inventory: kernel primitives, executable loading, timers, interrupt delivery,
 and the results of each required service still need separate evidence. A

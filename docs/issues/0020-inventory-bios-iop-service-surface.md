@@ -41,6 +41,14 @@ all with zero overflow and different event mixes. This proves the bounded
 instrument can observe post-restore execution without retaining the high-rate
 restore-time scheduler burst.
 
+The phase runner now has a reset/start boundary. A pause-menu `menu_down`
+capture accepted the game's synchronous native action and produced 63 events
+(1 EE syscall, 24 exceptions, 38 timers); a save-then-load capture produced
+62 events (1 EE syscall, 23 exceptions, 38 timers). Both were ordered and had
+zero overflow. The latter proves post-load service traffic, while the save
+archive itself remains a control-boundary observation rather than an invented
+BIOS event claim.
+
 ## Remaining work
 
 Capture repeated clean traces across boot, menu, mission, save, load, and
