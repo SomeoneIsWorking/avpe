@@ -50,6 +50,14 @@ holding its mutex; any earlier overflow remains explicit in the artifact. The
 runner writes artifacts under ignored
 `scratch/` storage.
 
+Phase probes capture through `POST /bios/trace/capture-at-guest-boundary`. This
+route arms the sink and waits for the next `Counters::VSyncStart` transition on
+the emulation CPU thread before atomically disabling and returning the trace.
+The five-second deadline refuses a missing guest frame boundary; it is not a
+host sleep and does not claim that one frame is a complete guest-owned
+quiescence condition. `POST /bios/trace/capture` remains available for
+immediate raw diagnostics.
+
 For a later boundary, `POST /bios/trace/start` clears and enables the same sink.
 The runner exposes this as `--probe-bios-phase menu` and
 `--probe-bios-phase save-load`, both requiring a BIOS-backed `--statefile`.
@@ -83,6 +91,13 @@ with zero overflow. Capture now runs on the emulation CPU thread: two menu
 runs each produced 7 events (2 EE syscalls and 5 exceptions). Save-load runs
 produced 34 and 31 timer events, so archive restoration still lacks a
 guest-owned completion/quiescence boundary and is not repeatability evidence.
+
+Two further pause-menu captures used the CPU-owned frame-boundary route. They
+remained bounded with zero overflow but retained 21 and 11 event identities,
+respectively; their exception and syscall identity sets differed. The frame
+transition removes the control request's frame-position race, but it does not
+establish a stable post-restore guest completion condition. This is negative
+repeatability evidence, not menu-service coverage.
 
 Two fresh `mission1.p2s` statefile-to-running captures on 2026-08-29 also
 demonstrated that boundary defect: the first contained 237 events (2 EE
