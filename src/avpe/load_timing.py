@@ -60,7 +60,7 @@ _MISSION_POLICY = _TimingPolicy(
             "shell-load-level-entry", "M01/background.tbd", 0x0016F910
         ),
         "end": _BoundaryIdentity(
-            "shell-load-level-return", "M01/background.tbd", 0x0016FAD4
+            "shell-load-level-return", "M01/background.tbd", 0x0016FAD0
         ),
     },
     validates_startup_backends=False,
