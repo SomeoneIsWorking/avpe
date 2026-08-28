@@ -307,9 +307,9 @@ rejected for no measured reduction, so the comparator demonstrated both
 answers.
 
 This timing evidence proves only the startup TBF-open→post-MENU01-search seek
-reduction. Cache bounds have separate evidence below; this timing run does not
-establish cold/warm behavior, failure equivalence, or a representative mission
-transition.
+reduction. Cache bounds have separate evidence below. The clean-boot M1
+transition trigger is separately verified, but its exact ShellLoadLevel timing
+and interval-wide optical exclusion remain S024 work.
 
 ## Bounded native cache and lifecycle
 
@@ -350,9 +350,10 @@ The production cache tests demonstrate byte reuse and the opposite outcomes
 for short read, EOF, failed fill/retry, capacity eviction, and generation
 change. The surfaceless/null-muted runtime cache probe observed four fills,
 54 hits, four resident pages (262,144 bytes), one peak transient handle, and
-zero live handles after the TBF startup reads. A live reset/save-state
-round-trip with an active native descriptor or synthetic mapping is still
-required; build and unit evidence do not prove that recovery path.
+zero live handles after the TBF startup reads. Live native descriptor and
+synthetic-CDVD save-state round trips are verified in the recovery section
+above. Guest reset while either structure is active remains a separate
+unverified hardening path tracked by issue #15.
 
 Fresh post-landing oracle/native captures on project `89cc05a` and fork
 `c0c6611` passed all 96 canonical chunk comparisons across TBF, EALOGO,

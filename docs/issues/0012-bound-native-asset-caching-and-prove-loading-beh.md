@@ -1,8 +1,8 @@
 ---
 id: 12
-title: Bound native asset caching and prove loading behavior
+title: Collapse supported asset operations to host-disk completion
 status: investigating
-symptom: Native asset caching is bounded, but failure equivalence, live reset/save-state recovery, cold/warm behavior, and representative transition timing are unproven
+symptom: Startup native I/O is byte-equivalent, bounded, and faster, but the representative M1 transition lacks automated no-optical and exact ShellLoadLevel timing proof
 state_items: S024
 tags: assets,cache,loading,timing
 created: 2026-08-27
@@ -11,15 +11,29 @@ updated: 2026-08-28
 
 ## Scope
 
-Add a bounded cache/prefetch layer behind NativeAssets without changing guest-visible read, seek, short-read, zero-tail, or failure behavior. Measure symmetric startup and representative transition boundaries with byte tracing disabled.
+Automate a clean-boot `CShell::SetNextLevel` transition into M1 and measure the
+exact `CShell::ShellLoadLevel` entry-to-return interval. Every supported
+asset operation in that interval must complete through `NativeAssets` at
+host-storage/cache speed rather than emulated CDVD seek, sector-ready, or
+transfer timing. Preserve validated bytes and exercised guest success
+semantics, fail closed before a native claim when the store cannot serve a
+request, and keep byte tracing disabled during timing.
 
 ## Acceptance
 
-- Cache memory and file lifetime are explicitly bounded and reset safely.
-- Native and oracle success plus missing/corrupt/error results remain behaviorally equivalent; failures never silently fall back.
-- At least three alternating clean pairs record EE cycles, IOP cycles, guest frames, and secondary host elapsed time across the grounded TBF-open to post-MENU01-search seek interval.
-- Raw samples, determinism spread, and reduction are recorded without averaging away boundary drift.
-- Runs remain surfaceless, null-muted, isolated, and card-hash preserving.
+- Clean-boot M1 automation uses no input savestate or pad injection and proves
+  the exact staged `SetNextLevel` request plus pre/post transition state. Menu
+  keyboard/mouse delivery remains independently owned by issue #6.
+- Exact `ShellLoadLevel` entry/return boundaries and the supported operation
+  backend trace are captured.
+- Supported interval operations have zero original IOP/CDVD fallthrough and
+  zero optical timing waits; bootstrap and unsupported traffic remain
+  separately identified.
+- At least three alternating clean oracle/native mission pairs report guest
+  cycles/frames and secondary host elapsed time with identity, boundary,
+  spread, and no-reduction controls.
+- Existing cache bounds, byte differential, surfaceless/null-muted isolation,
+  and card hashes remain valid.
 
 ## Timing evidence
 
@@ -59,11 +73,11 @@ ignored evidence is
 
 ## Remaining
 
-- Prove native/oracle missing, short-read, and injected-error return/buffer
-  equivalence with no silent fallback.
-- Define and exercise explicit cold and warm cache-state protocols.
-- Ground and measure a representative mission/level transition; the proven
-  startup interval does not stand in for that transition.
+- Automate the clean-boot M1 loader route and exact pre/post transition evidence.
+- Capture the exact `ShellLoadLevel` entry and return PCs.
+- Prove supported operations inside that interval never enter optical timing or
+  original IOP/CDVD delivery.
+- Run and compare three alternating clean oracle/native mission pairs.
 
 ## Bounded cache and lifecycle
 
@@ -125,6 +139,17 @@ mutation with restored timestamp, and generation change after unbind. The final
 surfaceless/null-muted runtime proof retained the expected native TBF lifecycle
 with zero fallthrough and an optical bootstrap.
 
-This fixes corrupt-store admission; it does not prove the oracle's guest return
-values or buffer effects. Those require a separate post-return IOP trace and
-remain in this issue.
+This establishes fail-closed admission for the PC-native path. Exhaustive
+emulated optical-error return/buffer parity is not an acceptance condition for
+disc-operation collapse; title-observed failure tracing is issue #16.
+
+### Dead end (2026-08-28)
+The legacy scratch/states/mission1.p2s snapshot is not native mission-load evidence: a surfaceless/null-muted run with the admitted native store restored native_asset_state.descriptors=[] and cdvd_mappings=[], and /assets/opens stayed empty. It was captured before the native boundary existed, so clean boot is required for descriptor-origin and mission-transition proof.
+
+### Note (2026-08-28)
+A 90-second clean boot was still inside `INTRO.PSS`, so issuing
+`SetNextLevel` before the startup stream boundary did not reach the normal
+`CShell::MainLoop` consumer. The successful clean proof waits for native
+`STREAMS/MENU01.ZIV` readiness, then stages `M01/background.tbd` through the
+grounded `SetNextLevel` ABI and observes the populated M1 world. The proof is
+recorded in `scratch/control-test/native-marine-m1-transition-proof.json`.

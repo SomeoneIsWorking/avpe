@@ -60,6 +60,7 @@ def build_environment(
     native_asset_manifest_sha256: str | None = None,
     asset_byte_trace_mode: str | None = None,
     asset_load_timing_mode: str | None = None,
+    asset_load_timing_target: str | None = None,
 ) -> dict[str, str]:
     env = dict(base)
     env.update({
@@ -86,6 +87,10 @@ def build_environment(
         env.pop("AVPE_LOAD_TIMING", None)
     else:
         env["AVPE_LOAD_TIMING"] = asset_load_timing_mode
+    if asset_load_timing_target is None:
+        env.pop("AVPE_LOAD_TIMING_TARGET", None)
+    else:
+        env["AVPE_LOAD_TIMING_TARGET"] = asset_load_timing_target
     return env
 
 

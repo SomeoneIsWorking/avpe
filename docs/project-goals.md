@@ -94,15 +94,19 @@ console constraints, not desirable PC behavior. Collapsing that path into
 native file reads should make mission and transition loading substantially
 faster while keeping the game's asset semantics intact.
 
-**Success conditions.** The executable's disc/file access boundary and asset
-namespace are grounded; user-supplied disc content is provisioned into a
-validated native asset store; normal game asset requests resolve through a
-project-owned host I/O layer with bounded asynchronous reads and caching; byte
-content, ordering, short-read, missing-file, and failure behavior remain
-compatible with the game; and representative cold and warm loading sequences
-are measurably faster than the emulated-disc baseline. After bootstrap, the
-normal product path does not depend on emulated optical seeks or sector-timed
-transfers for supported game assets.
+**Success conditions.** The executable's disc/file boundary and supported
+asset namespace are grounded; user-supplied disc content provisions into a
+validated native asset store; and, after bootstrap, supported game asset
+opens, searches, seeks, and reads complete when native host storage or the
+bounded host cache completes them. Those operations do not enter the emulated
+optical seek, sector-ready, or transfer-timing path and do not add console-disc
+latency. Representative startup and mission/transition traces show zero
+optical fallthrough for supported assets and materially lower loading time,
+while byte content and the guest-visible success semantics exercised by the
+title remain intact. Missing or invalid native-store inputs fail closed before
+a native claim. Exhaustive reproduction of malformed-disc,
+optical-media-error, and console-drive timing behavior is not a success
+condition for the PC-native path.
 
 **Related state items.** S021–S024.
 

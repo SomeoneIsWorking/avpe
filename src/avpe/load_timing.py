@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from statistics import median
 from typing import Any
 
 
 TIMING_SCHEMA = "avpe-load-timing-v1"
+MISSION_TIMING_SCHEMA = "avpe-mission-load-timing-v1"
 COMPARISON_SCHEMA = "avpe-load-timing-comparison-v1"
+MISSION_COMPARISON_SCHEMA = "avpe-mission-load-timing-comparison-v1"
 MINIMUM_SAMPLES = 3
 MAX_FRAME_SPREAD = 1
 MAX_CYCLE_SPREAD_PERCENT = 1.0
@@ -20,10 +23,49 @@ _BOUNDARY_COUNTERS = {
     "frames": "frame",
     "host_elapsed_ns": "host_time_ns",
 }
-_BOUNDARIES = {
-    "start": ("tbf-open", "TBD/TBF.TBF"),
-    "end": ("menu01-post-search-seek", "STREAMS/MENU01.ZIV"),
-}
+
+
+@dataclass(frozen=True)
+class _BoundaryIdentity:
+    kind: str
+    path: str
+    pc: int | None = None
+
+
+@dataclass(frozen=True)
+class _TimingPolicy:
+    schema: str
+    target: str | None
+    boundaries: dict[str, _BoundaryIdentity]
+    validates_startup_backends: bool
+    allows_zero_frame_delta: bool = False
+
+
+_STARTUP_POLICY = _TimingPolicy(
+    schema=TIMING_SCHEMA,
+    target=None,
+    boundaries={
+        "start": _BoundaryIdentity("tbf-open", "TBD/TBF.TBF"),
+        "end": _BoundaryIdentity(
+            "menu01-post-search-seek", "STREAMS/MENU01.ZIV"
+        ),
+    },
+    validates_startup_backends=True,
+)
+_MISSION_POLICY = _TimingPolicy(
+    schema=MISSION_TIMING_SCHEMA,
+    target="mission",
+    boundaries={
+        "start": _BoundaryIdentity(
+            "shell-load-level-entry", "M01/background.tbd", 0x0016F910
+        ),
+        "end": _BoundaryIdentity(
+            "shell-load-level-return", "M01/background.tbd", 0x0016FAD4
+        ),
+    },
+    validates_startup_backends=False,
+    allows_zero_frame_delta=True,
+)
 
 
 class _InvalidSample(ValueError):
@@ -39,7 +81,7 @@ def validate_load_timing_sample(sample: object, expected_mode: str) -> dict[str,
 
     if expected_mode not in ("oracle", "native"):
         raise ValueError("expected_mode must be 'oracle' or 'native'")
-    return _validate_sample(sample, expected_mode).copy()
+    return _validate_sample(sample, expected_mode, _STARTUP_POLICY).copy()
 
 
 def load_timing_sample_is_ready(sample: object, expected_mode: str) -> bool:
@@ -47,6 +89,30 @@ def load_timing_sample_is_ready(sample: object, expected_mode: str) -> bool:
 
     try:
         validate_load_timing_sample(sample, expected_mode)
+    except (ValueError, TypeError):
+        return False
+    return True
+
+
+def validate_mission_load_timing_sample(
+    sample: object,
+    expected_mode: str,
+) -> dict[str, int]:
+    """Validate one mission-transition sample and return canonical deltas."""
+
+    if expected_mode not in ("oracle", "native"):
+        raise ValueError("expected_mode must be 'oracle' or 'native'")
+    return _validate_sample(sample, expected_mode, _MISSION_POLICY).copy()
+
+
+def mission_load_timing_sample_is_ready(
+    sample: object,
+    expected_mode: str,
+) -> bool:
+    """Return whether a mission snapshot is a complete valid timing sample."""
+
+    try:
+        validate_mission_load_timing_sample(sample, expected_mode)
     except (ValueError, TypeError):
         return False
     return True
@@ -64,8 +130,30 @@ def compare_load_timing_samples(
     guest boundaries.
     """
 
+    return _compare_timing_samples(oracle_runs, native_runs, _STARTUP_POLICY)
+
+
+def compare_mission_load_timing_samples(
+    oracle_runs: object,
+    native_runs: object,
+) -> dict[str, Any]:
+    """Compare symmetric oracle/native mission-transition timing samples."""
+
+    return _compare_timing_samples(oracle_runs, native_runs, _MISSION_POLICY)
+
+
+def _compare_timing_samples(
+    oracle_runs: object,
+    native_runs: object,
+    policy: _TimingPolicy,
+) -> dict[str, Any]:
     report: dict[str, Any] = {
-        "schema": COMPARISON_SCHEMA,
+        "schema": (
+            MISSION_COMPARISON_SCHEMA
+            if policy.target == "mission"
+            else COMPARISON_SCHEMA
+        ),
+        **({"target": "mission"} if policy.target == "mission" else {}),
         "verified": False,
         "policy": {
             "minimum_samples_per_mode": MINIMUM_SAMPLES,
@@ -118,7 +206,7 @@ def compare_load_timing_samples(
     for mode, runs in (("oracle", oracle_runs), ("native", native_runs)):
         for index, sample in enumerate(runs):
             try:
-                deltas = _validate_sample(sample, mode)
+                deltas = _validate_sample(sample, mode, policy)
             except _InvalidSample as error:
                 errors.append({
                     "code": "invalid_sample",
@@ -189,11 +277,17 @@ def compare_load_timing_samples(
     return report
 
 
-def _validate_sample(sample: object, expected_mode: str) -> dict[str, int]:
+def _validate_sample(
+    sample: object,
+    expected_mode: str,
+    policy: _TimingPolicy,
+) -> dict[str, int]:
     if not isinstance(sample, dict):
         raise _InvalidSample("sample must be an object")
-    if sample.get("schema") != TIMING_SCHEMA:
-        raise _InvalidSample(f"schema must be {TIMING_SCHEMA!r}")
+    if sample.get("schema") != policy.schema:
+        raise _InvalidSample(f"schema must be {policy.schema!r}")
+    if policy.target is not None and sample.get("target") != policy.target:
+        raise _InvalidSample(f"target must be {policy.target!r}")
     if sample.get("enabled") is not True:
         raise _InvalidSample("timing capture was not enabled")
     if sample.get("target_recognized") is not True:
@@ -202,15 +296,7 @@ def _validate_sample(sample: object, expected_mode: str) -> dict[str, int]:
         raise _InvalidSample("asset byte tracing must be disabled")
     if sample.get("mode") != expected_mode:
         raise _InvalidSample(f"mode must be {expected_mode!r}")
-    expected_backend = "native" if expected_mode == "native" else "optical"
-    backends = sample.get("backends")
-    if not isinstance(backends, dict):
-        raise _InvalidSample("backends must be an object")
-    for boundary in ("tbf", "menu01_seek"):
-        if backends.get(boundary) != expected_backend:
-            raise _InvalidSample(
-                f"backends.{boundary} must be {expected_backend!r}"
-            )
+    _validate_backend_contract(sample, expected_mode, policy)
     if sample.get("complete") is not True:
         raise _InvalidSample("capture must be complete")
     sequence_errors = sample.get("sequence_errors")
@@ -222,7 +308,7 @@ def _validate_sample(sample: object, expected_mode: str) -> dict[str, int]:
         )
 
     boundaries = {
-        name: _validate_boundary(sample.get(name), name)
+        name: _validate_boundary(sample.get(name), name, policy.boundaries[name])
         for name in ("start", "end")
     }
     start = boundaries["start"]
@@ -236,8 +322,16 @@ def _validate_sample(sample: object, expected_mode: str) -> dict[str, int]:
     canonical: dict[str, int] = {}
     for metric in _METRICS:
         value = deltas.get(metric)
-        if not _is_positive_int(value):
-            raise _InvalidSample(f"deltas.{metric} must be a positive integer")
+        valid_delta = (
+            _is_nonnegative_int(value)
+            if metric == "frames" and policy.allows_zero_frame_delta
+            else _is_positive_int(value)
+        )
+        if not valid_delta:
+            requirement = "a non-negative integer" if (
+                metric == "frames" and policy.allows_zero_frame_delta
+            ) else "a positive integer"
+            raise _InvalidSample(f"deltas.{metric} must be {requirement}")
         counter = _BOUNDARY_COUNTERS[metric]
         recomputed = end[counter] - start[counter]
         if value != recomputed:
@@ -248,15 +342,41 @@ def _validate_sample(sample: object, expected_mode: str) -> dict[str, int]:
     return canonical
 
 
-def _validate_boundary(boundary: object, name: str) -> dict[str, Any]:
+def _validate_backend_contract(
+    sample: dict[str, Any],
+    expected_mode: str,
+    policy: _TimingPolicy,
+) -> None:
+    if not policy.validates_startup_backends:
+        if "backends" in sample:
+            raise _InvalidSample("mission samples must not contain startup backends")
+        return
+
+    expected_backend = "native" if expected_mode == "native" else "optical"
+    backends = sample.get("backends")
+    if not isinstance(backends, dict):
+        raise _InvalidSample("backends must be an object")
+    for boundary in ("tbf", "menu01_seek"):
+        if backends.get(boundary) != expected_backend:
+            raise _InvalidSample(
+                f"backends.{boundary} must be {expected_backend!r}"
+            )
+
+
+def _validate_boundary(
+    boundary: object,
+    name: str,
+    identity: _BoundaryIdentity,
+) -> dict[str, Any]:
     if not isinstance(boundary, dict):
         raise _InvalidSample(f"{name} must be an object")
-    expected_kind, expected_path = _BOUNDARIES[name]
-    if boundary.get("kind") != expected_kind:
-        raise _InvalidSample(f"{name}.kind must be {expected_kind!r}")
-    if boundary.get("path") != expected_path:
-        raise _InvalidSample(f"{name}.path must be {expected_path!r}")
-    for field in ("ordinal", "ee_cycle", "iop_cycle", "frame"):
+    if boundary.get("kind") != identity.kind:
+        raise _InvalidSample(f"{name}.kind must be {identity.kind!r}")
+    if boundary.get("path") != identity.path:
+        raise _InvalidSample(f"{name}.path must be {identity.path!r}")
+    if identity.pc is not None and boundary.get("pc") != identity.pc:
+        raise _InvalidSample(f"{name}.pc must be {identity.pc:#010x}")
+    for field in ("ordinal", "ee_cycle", "iop_cycle", "frame", "host_time_ns"):
         if not _is_nonnegative_int(boundary.get(field)):
             raise _InvalidSample(f"{name}.{field} must be a non-negative integer")
     return boundary

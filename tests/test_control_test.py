@@ -67,7 +67,8 @@ class ControlTestPolicyTests(unittest.TestCase):
              "AVPE_NATIVE_ASSET_ROOT": "/ambient/untrusted",
              "AVPE_NATIVE_ASSET_MANIFEST_SHA256": "ambient-untrusted",
              "AVPE_ASSET_BYTE_TRACE": "ambient-untrusted",
-             "AVPE_LOAD_TIMING": "ambient-untrusted"},
+             "AVPE_LOAD_TIMING": "ambient-untrusted",
+             "AVPE_LOAD_TIMING_TARGET": "ambient-untrusted"},
             31234,
             self.nonce,
         )
@@ -83,6 +84,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertNotIn("AVPE_NATIVE_ASSET_MANIFEST_SHA256", env)
         self.assertNotIn("AVPE_ASSET_BYTE_TRACE", env)
         self.assertNotIn("AVPE_LOAD_TIMING", env)
+        self.assertNotIn("AVPE_LOAD_TIMING_TARGET", env)
         self.assertEqual(env["UNRELATED"], "kept")
 
     def test_byte_trace_mode_is_explicitly_scoped(self) -> None:
@@ -93,6 +95,18 @@ class ControlTestPolicyTests(unittest.TestCase):
         env = build_environment({}, 31234, self.nonce,
                                 asset_load_timing_mode="oracle")
         self.assertEqual(env["AVPE_LOAD_TIMING"], "oracle")
+
+    def test_build_environment_sets_mission_load_timing_target(self) -> None:
+        env = build_environment(
+            {},
+            1234,
+            "nonce",
+            asset_load_timing_mode="native",
+            asset_load_timing_target="mission",
+        )
+
+        self.assertEqual(env["AVPE_LOAD_TIMING"], "native")
+        self.assertEqual(env["AVPE_LOAD_TIMING_TARGET"], "mission")
 
     def test_native_asset_root_requires_admission_token(self) -> None:
         with self.assertRaisesRegex(ValueError, "manifest admission token"):

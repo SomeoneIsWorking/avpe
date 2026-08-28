@@ -17,6 +17,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/LoadTimingPoint.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.cpp",
@@ -25,6 +26,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeCdvdCompletion.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMissionLoadTiming.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.cpp",
@@ -34,6 +36,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/SaveState.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900Jump.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/EmulationThread.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.cpp",
@@ -50,6 +53,7 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/LoadTimingPoint.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.h",
@@ -58,6 +62,7 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeCdvdCompletion.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMissionLoadTiming.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.h",
@@ -75,14 +80,17 @@ CORE_SCOPED_SOURCES = {
         (1, 35), (265, 312), (415, 708), (843, 936),
         (992, 1120), (1510, 1565), (1600, 1819)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
-        (1, 10), (22, 35), (563, 620), (688, 720)),
+        (1, 10), (22, 35), (177, 182), (563, 620), (688, 720)),
     ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp": ((1, 10), (50, 57)),
     ROOT / "thirdparty/pcsx2/pcsx2/SaveState.cpp": (
         (90, 105), (315, 325), (1080, 1130), (1140, 1165), (1175, 1215)),
     ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp": (
         (1, 10), (1690, 1710), (2335, 2400)),
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": (
-        (1, 10), (47, 51), (398, 410), (779, 788), (2_205, 2_220)),
+        (1, 10), (47, 51), (398, 410), (779, 788), (1_698, 1_707),
+        (2_205, 2_220), (2_350, 2_357)),
+    ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900Jump.cpp": (
+        (1, 10), (75, 82)),
 }
 CORE_SCOPED_HEADERS = {
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.h": ((64, 90),),
