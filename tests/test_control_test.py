@@ -1,7 +1,9 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
 from struct import pack
+from unittest.mock import patch
 
 from avpe.control_test import (
     asset_trace_is_verified,
@@ -12,6 +14,7 @@ from avpe.control_test import (
     native_movie_reads_are_verified,
     native_stream_reads_are_verified,
     oracle_asset_fallback_is_verified,
+    report_json_probe,
     status_is_verified,
 )
 from avpe.cursor import detect_cursor
@@ -20,6 +23,7 @@ from avpe.launch import (
     build_environment as build_product_environment,
 )
 from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
+from avpe.native_bios_probe import bios_trace_is_verified, capture_bios_trace, write_bios_trace
 from avpe.pcsx2_config import (
     ensure_product_config,
     ensure_test_config,
@@ -95,6 +99,78 @@ class ControlTestPolicyTests(unittest.TestCase):
         env = build_environment({}, 31234, self.nonce,
                                 asset_load_timing_mode="oracle")
         self.assertEqual(env["AVPE_LOAD_TIMING"], "oracle")
+
+    def test_accepts_ordered_bounded_bios_trace(self) -> None:
+        trace = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "events": [
+                {"sequence": 1, "kind": "import"},
+            ],
+        }
+
+        self.assertTrue(bios_trace_is_verified(trace))
+
+    def test_rejects_unordered_or_overflowed_bios_trace(self) -> None:
+        trace = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "events": [
+                {"sequence": 2, "kind": "import"},
+                {"sequence": 1, "kind": "ee_syscall"},
+            ],
+        }
+        overflowed = {**trace, "overflow": 1}
+
+        self.assertFalse(bios_trace_is_verified(trace))
+        self.assertFalse(bios_trace_is_verified(overflowed))
+
+    def test_bios_trace_artifact_names_the_clean_boot_phase(self) -> None:
+        trace = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "events": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "bios-trace.json"
+            write_bios_trace(trace, output, self.status)
+            artifact = json.loads(output.read_text())
+
+        self.assertEqual(artifact["phase"], "clean_boot_to_running")
+        self.assertEqual(artifact["trace"], trace)
+
+    def test_bios_trace_capture_uses_atomic_capture_route(self) -> None:
+        trace = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "events": [
+                {"sequence": 1, "kind": "import"},
+                {"sequence": 2, "kind": "ee_syscall"},
+            ],
+        }
+        with patch(
+            "avpe.native_bios_probe.request_bytes",
+            return_value=(200, json.dumps(trace).encode()),
+        ) as request:
+            self.assertEqual(capture_bios_trace(31234), trace)
+
+        request.assert_called_once_with(31234, "POST", "/bios/trace/capture", {})
+
+    def test_json_probe_reporting_rejects_missing_requested_proof(self) -> None:
+        self.assertTrue(
+            report_json_probe(False, None, "unused", None, Path("/logs"))
+        )
+        self.assertFalse(
+            report_json_probe(True, None, "native-camera", "not observed", Path("/logs"))
+        )
 
     def test_build_environment_sets_mission_load_timing_target(self) -> None:
         env = build_environment(

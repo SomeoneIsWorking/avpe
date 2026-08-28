@@ -1,8 +1,8 @@
 # AVP:E BIOS/IOP observation contract
 
 The required BIOS/HLE surface is not inventoried yet. This document records
-the first observation slice only; it is not an HLE implementation or a claim
-that the observed imports are the complete firmware contract.
+the first observation slices only; it is not an HLE implementation or a claim
+that the observed services are the complete firmware contract.
 
 ## Structured census
 
@@ -30,10 +30,25 @@ unhandled/oracle path and are recorded with `hle: false`. Both the interpreter
 and dynarec route the EE `SYSCALL` opcode through the same implementation, so
 the syscall observation is not engine-specific.
 
+## Clean-boot capture
+
+`tools/run_control_test.py --probe-bios-trace` starts a fresh BIOS-backed,
+surfaceless process, waits for the verified `Running` boundary, then calls
+`POST /bios/trace/capture`. The production route snapshots and disables the
+sink while holding its mutex, so high-rate guest timer/syscall traffic cannot
+overflow the bounded trace while it is being read. The runner writes a
+`clean_boot_to_running` artifact under ignored `scratch/` storage.
+
+Three repeated captures currently produce the same 28-event slice: 20 module
+registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero
+overflow. This is repeatability evidence for the boot boundary only; EE
+syscall/import activity begins after that boundary and still needs separate
+menu, mission, save/load, and shutdown captures.
+
 ## Required evidence before S025 can be verified
 
-The census still needs clean repeated BIOS-backed traces from boot through a
-stable menu, then separate menu, mission, save/load, and shutdown traces. The
+The census still needs BIOS-backed traces through a stable menu, then separate
+menu, mission, save/load, and shutdown traces. The
 EE syscall stream is an observation boundary, not yet a complete kernel
 inventory: kernel primitives, executable loading, timers, interrupt delivery,
 and the results of each required service still need separate evidence. A

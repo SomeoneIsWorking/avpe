@@ -4,10 +4,10 @@ kind: claim
 status: holds
 created: 2026-08-28
 tags: bios,hle,iop,inventory
-depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
+depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotAndDisableJson, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#dispatch, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, src/avpe/native_bios_probe.py#bios_trace_is_verified, tools/run_control_test.py#main, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-28
-verified_at: 2026-08-28 21:59:58
+verified_at: 2026-08-28 22:17:22
 ---
 
 ## Claim
@@ -30,6 +30,11 @@ outcome;
 `IopBios.cpp` records import results after the existing debug/HLE dispatch and
 records registrations at their existing narrow owners. `GET /bios/trace`
 exposes the snapshot for later clean runtime traces.
+
+Three repeated BIOS-backed surfaceless clean boots captured the same 28-event
+boot-to-`Running` slice with zero overflow through the atomic capture route.
+The artifact is explicitly limited to that boundary; it does not establish
+later EE syscall/import or game-service phase coverage.
 
 ## What would falsify it
 
@@ -60,3 +65,7 @@ After landing submodule c429234, focused core_test passed all 22 NativeBiosTrace
 ## Re-confirmed 2026-08-28
 
 After landing submodule 7740773, focused core_test passed all 22 NativeBiosTrace, NativeAssetStore, and NativeCdvdCompletion tests, including EE/IOP timer fields with positive and suppressed delivery outcomes. The full uv run --frozen python tools/verify.py gate passed 110 Python tests, production C++ tests, scoped clang-format, and all 45 clang-tidy translation units. EE and IOP counter owners record target/overflow attempts without changing counter transitions or interrupt behavior.
+
+## Re-confirmed 2026-08-28
+
+After adding the atomic POST /bios/trace/capture boundary and the clean-boot runner policy, the focused NativeBiosTraceTest suite passed all 4 tests including capture-disable behavior. Three repeated BIOS-backed surfaceless clean boots each captured the same 28 ordered events (20 module registrations, 7 IOP exceptions, 1 IOP timer), with zero overflow, and shut down cleanly. The full uv run --frozen python tools/verify.py gate passed 115 Python tests, production C++ tests, scoped clang-format, and all 45 clang-tidy translation units.

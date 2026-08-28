@@ -26,7 +26,9 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Product input routing | Qt key and mouse translation, held-input ownership across menu/game transitions, wheel translation, and typed action dispatch | `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*`, `HostWindow.*` | `AVPE::HostInputRouter` | [input path](re/input-path.md) |
 | Presentation bridge | GS-to-host window acquisition and narrow display/settings control | `thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp`, `Runtime.*` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
 | Control-test runner | Silent surfaceless PCSX2 process, isolated profile/card working copies, loopback transport, timebox, exact process-group cleanup | `tools/run_control_test.py`, `src/avpe/control_http.py`, `src/avpe/memory_card_probe.py` | `main()` | [control-test contract](re/headless.md) |
+| Control-test proof reporting | Shared JSON probe acceptance/error reporting for surfaceless diagnostics | `src/avpe/control_test.py` | `report_json_probe()` | [control-test contract](re/headless.md) |
 | Native cache proof policy | Bounded-cache snapshot validation and active-cache polling, independent of process orchestration | `src/avpe/native_asset_cache_probe.py` | `cache_snapshot_is_verified()` | [disc-I/O RE contract](re/disc-io.md) |
+| BIOS/IOP trace proof policy | Clean-boot polling, strict bounded/ordered census acceptance, and phase-labelled artifact writing | `src/avpe/native_bios_probe.py` | `bios_trace_is_verified()`, `await_bios_trace()` | [BIOS/IOP contract](re/bios.md) |
 | Project verification | Python behavior, isolation, dependency, and source-structure regressions | `tests/`, `tools/verify.py` | `tools/verify.py` | — |
 | Project logging | Single Python log-level gate | `src/avpe/log.py` | `log()` | — |
 | Raw-sector conversion | Streaming, validated 2352-byte-sector to ISO block conversion | `src/avpe/raw_sector.py`; CLI in `tools/raw2352.py` | `strip_image()` | — |
@@ -72,6 +74,7 @@ src/avpe/                      host-side product orchestration
 ├── native_assets.py           validated native-store provisioner
 ├── native_asset_cache_probe.py bounded-cache proof policy
 ├── native_asset_probe.py       native lifecycle and live save/load proof policy
+├── native_bios_probe.py        clean-boot BIOS/IOP trace proof policy
 ├── asset_byte_compare.py      strict native/ISO chunk comparator
 ├── load_timing.py             strict symmetric timing comparison policy
 └── raw_sector.py              streaming raw-sector converter

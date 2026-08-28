@@ -527,7 +527,9 @@ loads, and service-level negative-path semantics remain incomplete; S025 cannot
 become verified from the current dispatch census alone.
 
 Evidence: claim C031, [`re/bios.md`](re/bios.md), issue #20, and the
-`NativeBiosTraceTest` production tests.
+`NativeBiosTraceTest` production tests. Three repeated surfaceless clean boots
+also captured the same 28-event `clean_boot_to_running` trace with zero
+overflow through the atomic production capture route.
 
 ### S026 — AVP:E-specific HLE implementation: blocked
 

@@ -1,5 +1,7 @@
 """Launch and acceptance policy for the isolated AVPE control-test process."""
 
+import json
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -10,6 +12,26 @@ EXPECTED_NATIVE_ASSET = "tbd/tbf.tbf"
 EXPECTED_NATIVE_MOVIE = "movies/ealogo.pss"
 EXPECTED_NATIVE_MOVIE_SIZE = 1_687_556
 ABSENT_NATIVE_ASSET_SENTINEL = "__avpe_absent_asset__"
+
+
+def report_json_probe(
+    enabled: bool,
+    proof: dict[str, object] | None,
+    label: str,
+    probe_error: str | None,
+    log_dir: Path,
+) -> bool:
+    if not enabled:
+        return True
+    if proof is None:
+        detail = probe_error or "probe did not run"
+        print(f"FATAL {label} probe failed: {detail}; see {log_dir}", file=sys.stderr)
+        return False
+    print(
+        f"control-test {label} proof={json.dumps(proof, sort_keys=True)}",
+        flush=True,
+    )
+    return True
 
 
 def find_bios(directory: str) -> Path | None:

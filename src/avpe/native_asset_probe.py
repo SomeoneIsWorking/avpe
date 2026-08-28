@@ -60,6 +60,15 @@ def await_asset_byte_trace(port: int, deadline: float, mode: str) -> dict[str, o
     raise RuntimeError(f"complete {mode} asset byte trace was not observed: {trace}")
 
 
+def write_asset_byte_trace(
+    trace: dict[str, object], mode: str, output: Path | None, log_dir: Path
+) -> Path:
+    actual_output = output or (log_dir / f"asset-byte-trace-{mode}.json")
+    actual_output.parent.mkdir(parents=True, exist_ok=True)
+    actual_output.write_text(json.dumps(trace, indent=2, sort_keys=True) + "\n")
+    return actual_output
+
+
 def await_load_timing(port: int, deadline: float, mode: str) -> dict[str, object]:
     timing: dict[str, object] | None = None
     while time.monotonic() < deadline:
