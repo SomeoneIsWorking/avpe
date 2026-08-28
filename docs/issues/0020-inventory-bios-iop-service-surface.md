@@ -18,9 +18,10 @@ and no corresponding EE-kernel or firmware-service inventory.
 ## Current work
 
 `NativeBiosTrace` now records EE `SYSCALL` dispatches through the shared
-interpreter implementation, plus IOP imports, loadcore module registration and
-release, interrupt registration, and SIF RPC registration through narrow calls
-at the existing owners. It is observation-only and exposed at
+interpreter implementation, EE/IOP exception entry, plus IOP imports, loadcore
+module registration and release, interrupt registration, and SIF RPC
+registration through narrow calls at the existing owners. It is observation-
+only and exposed at
 `GET /bios/trace` for control-test diagnostics.
 
 ## Remaining work
