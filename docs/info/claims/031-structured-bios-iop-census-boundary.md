@@ -103,3 +103,17 @@ The committed phase-boundary implementation was verified by the full non-windowe
 ## Re-confirmed 2026-08-28
 
 After ebd61cd moved POST /bios/trace/capture onto the emulation CPU thread, the full non-windowed verifier passed 120 Python tests, 22 production C++ tests, clang-format, and 46 clang-tidy translation units. Two identical pause-menu menu-down phase runs each captured 7 ordered events (2 EE syscalls and 5 exceptions) with zero overflow. Two save-load runs captured 34 and 31 ordered timer events with zero overflow, exposing that archive restoration still lacks a guest-owned completion boundary; no arbitrary delay was added.
+
+## Re-confirmed 2026-08-29
+
+The new `bios_inventory` seam reuses `bios_trace_is_verified()` and rejects
+invalid or overflowed artifacts before grouping their observed events. Its
+tests cover service identity aggregation, distinct return values, runtime
+exception/timer categories, and multi-capture totals. Running
+`tools/analyze_bios_traces.py` over two repeated clean boots, one title-real
+resume, two menu captures, and two save-load captures produced a 7-capture,
+335-event report. Those runtime artifacts contain EE syscalls, module
+registrations, EE/IOP exceptions, and EE timers; they contain no IOP import,
+interrupt-registration, or RPC events in the selected windows. This improves
+inventory accounting but does not close the guest-owned save/load boundary or
+complete the firmware census.

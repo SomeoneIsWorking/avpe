@@ -50,6 +50,18 @@ Targeted caller analysis identified the normal save path through
 at `0x00202640` and `0x002092C0`. The save menu supplies the save name,
 description, slot, and species to the `CShell` forwarder, so a direct four-
 register diagnostic call cannot reproduce the `CProfile::SaveGame` ABI. The
-remaining runtime work is to reach that menu path and capture its card output.
+remaining work is to decode the differing payloads, prove a load round-trip,
+and identify the native interception boundary.
+
+### Finding (2026-08-29, two normal game saves)
+
+Two isolated BIOS-backed runs exercised the title's Save Game menu. The first
+populated `BASLUS-20147F991C326/0.SAV`; a second run from that copied card
+populated `BASLUS-20147F991C326/1.SAV` and returned to the pause/game flow
+before clean shutdown. The two 0x7E400-byte save spans share the same outer
+compatibility fields but their serialized bodies differ in 154,166 bytes.
+This establishes a normal title-owned multi-slot write path and state-dependent
+save content. It does not yet identify the decompressed object differences,
+prove a load round-trip, or isolate the native interception point.
 
 ## Resolution

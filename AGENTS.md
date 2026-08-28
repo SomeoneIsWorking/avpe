@@ -41,6 +41,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `src/avpe/native_assets.py`, `iso9660.py`, and `raw_sector.py` own native
   asset-store provisioning. Derived game bytes stay under ignored `scratch/`;
   only the schema, identity anchors, validation logic, and tests are tracked.
+- `src/avpe/bios_inventory.py` owns deterministic summaries of captured BIOS/IOP
+  traces; `tools/analyze_bios_traces.py` is only its JSON-file CLI and must not
+  infer service calls that are absent from the trace.
 - `src/avpe/native_asset_cache_probe.py` owns the bounded-cache evidence
   policy; `tools/run_control_test.py` only orchestrates its surfaceless probe.
 - `src/avpe/native_asset_probe.py` owns native asset lifecycle, byte/timing

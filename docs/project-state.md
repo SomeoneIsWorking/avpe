@@ -254,13 +254,15 @@ and a BIOS-backed paused state. The isolated control runner can now work on a
 copied formatted card and report byte-level changes without exposing a window
 or mutating the source.
 
-Gap: map unknown record fields and compressed data from at least two deliberately
-differing profiles and two game saves, and observe a normal in-game save
-completion. A direct diagnostic call is not a substitute because it exceeded
-the shuttle budget while driving synchronous card services. The exact
-high-level interception mechanism is now narrowed to the `CProfile` operation
-boundary and its `CShell`/save-menu callers, but remains unproven in a native
-implementation.
+Gap: map unknown record fields and the decompressed gameplay meaning of at
+least two deliberately differing profiles and two game saves, observe a load
+of a produced save, and implement the native interception. Two normal Save
+Game menu runs now produced separate slot-0 and slot-1 records with different
+serialized bodies on isolated card copies. A direct diagnostic call is not a
+substitute because it exceeded the shuttle budget while driving synchronous
+card services. The exact high-level interception mechanism is still narrowed
+to the `CProfile` operation boundary and its `CShell`/save-menu callers, but
+remains unproven in a native implementation.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.
@@ -547,6 +549,14 @@ runs on the emulation CPU thread: two menu runs each produced 7 events (2 EE
 syscalls and 5 exceptions). Save-load runs produced 34 and 31 timer events,
 so archive restoration still lacks a guest-owned completion/quiescence
 boundary and is not repeatability evidence.
+
+`tools/analyze_bios_traces.py` now turns retained captures into a deterministic
+inventory report using the same strict trace validator as the runner. Across
+two repeated clean boots, one title-real resume, two menu captures, and two
+save-load captures it reports 7 captures and 335 events, with runtime evidence
+for EE syscalls, module registration, EE/IOP exceptions, and EE timers. The
+selected set contains no runtime IOP import, interrupt-registration, or RPC
+events; production-test coverage of those event encodings remains separate.
 
 Gap: define a guest-owned completion boundary before repeating save/load
 captures, add mission and shutdown phase
