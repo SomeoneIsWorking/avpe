@@ -1155,7 +1155,14 @@ def main() -> int:
         output.write_text(json.dumps(load_timing, indent=2, sort_keys=True) + "\n")
         print(f"control-test load-timing mode={args.probe_load_timing} output={output}", flush=True)
     if args.probe_bios_trace:
-        if not report_bios_trace(bios_trace, args.bios_trace_output, boot_status, LOG_DIR):
+        if not report_bios_trace(
+            bios_trace,
+            args.bios_trace_output,
+            boot_status,
+            LOG_DIR,
+            args.statefile,
+            probe_error,
+        ):
             return 1
     if not report_json_probe(args.probe_native_pointer, pointer_proof, "native-pointer", probe_error, LOG_DIR):
         return 1

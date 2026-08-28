@@ -15,14 +15,12 @@ BIOS_EVENT_KINDS = frozenset(
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--probe-bios-trace", action="store_true",
-                        help="capture the bounded BIOS/IOP census from a clean boot")
+                        help="capture the bounded BIOS/IOP census from boot or a savestate")
     parser.add_argument("--bios-trace-output", type=Path,
                         help="write --probe-bios-trace JSON to this scratch path")
 
 
 def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
-    if args.probe_bios_trace and args.statefile is not None:
-        parser.error("--probe-bios-trace requires a clean boot without --statefile")
     if args.bios_trace_output is not None and not args.probe_bios_trace:
         parser.error("--bios-trace-output requires --probe-bios-trace")
 
@@ -50,13 +48,27 @@ def bios_trace_is_verified(trace: object) -> bool:
     return True
 
 
+def bios_trace_failure_detail(trace: object) -> str:
+    if not isinstance(trace, dict):
+        return f"response is not an object ({type(trace).__name__})"
+    events = trace.get("events")
+    event_count = len(events) if isinstance(events, list) else "invalid"
+    return (
+        f"schema={trace.get('schema')!r} enabled={trace.get('enabled')!r} "
+        f"events={event_count} overflow={trace.get('overflow')!r}"
+    )
+
+
 def capture_bios_trace(port: int) -> dict[str, object]:
     status, body = request_bytes(port, "POST", "/bios/trace/capture", {})
     if status != 200:
         raise RuntimeError(f"BIOS trace capture returned HTTP {status}")
     trace = json.loads(body)
     if not bios_trace_is_verified(trace):
-        raise RuntimeError(f"complete BIOS trace was not observed: {trace}")
+        raise RuntimeError(
+            "complete BIOS trace was not observed: "
+            f"{bios_trace_failure_detail(trace)}"
+        )
     return trace
 
 
@@ -75,12 +87,15 @@ def write_bios_trace(
     trace: dict[str, object],
     output: Path,
     control_status: dict[str, object],
+    statefile: Path | None,
 ) -> None:
     artifact = {
-        "phase": "clean_boot_to_running",
+        "phase": "clean_boot_to_running" if statefile is None else "statefile_to_running",
         "control_status": control_status,
         "trace": trace,
     }
+    if statefile is not None:
+        artifact["statefile"] = statefile.name
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n")
 
@@ -90,11 +105,14 @@ def report_bios_trace(
     output: Path | None,
     control_status: dict[str, object],
     log_dir: Path,
+    statefile: Path | None,
+    probe_error: str | None,
 ) -> bool:
     if trace is None:
-        print("FATAL BIOS trace failed; see " + str(log_dir), file=sys.stderr)
+        detail = probe_error or "probe did not run"
+        print(f"FATAL BIOS trace failed: {detail}; see {log_dir}", file=sys.stderr)
         return False
     actual_output = output or (log_dir.parent / "bios-trace.json")
-    write_bios_trace(trace, actual_output, control_status)
+    write_bios_trace(trace, actual_output, control_status, statefile)
     print(f"control-test bios-trace output={actual_output}", flush=True)
     return True

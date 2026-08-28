@@ -12,9 +12,9 @@ means the capability is absent.
 
 ## Current focus
 
-**S011 — selector, camera, and minimap integration.** The original AVP:E camera
-callbacks are now callable through the native EE boundary and their guest-owned
-state changes are proven; the remaining gap is user-visible window delivery.
+**S025 — required firmware service inventory.** The bounded BIOS census now has
+repeatable clean-boot and post-savestate phase evidence; the remaining work is
+the complete menu, mission, save/load, shutdown, and service-level inventory.
 Current focus is attention, not a separate state.
 
 ## Capability inventory
@@ -520,6 +520,13 @@ the interrupt was delivered. The isolated C++ tests prove disabled capture,
 ordering/return-status fields, exception/timer fields, and the exact
 capacity/overflow behavior.
 
+A successful `Host::OnSaveStateLoaded()` reset now separates post-savestate
+execution from restore-time scheduler traffic. Three different BIOS-backed
+savestate resumes produced ordered traces of 220, 251, and 71 events
+respectively, all with zero overflow; their event mixes differ (`title-real`:
+EE syscalls/exceptions, `pause-menu`: EE syscalls/exceptions/timers,
+`mission1`: EE exceptions/timers).
+
 Gap: capture repeated clean BIOS-backed traces from boot through a stable menu,
 then separate menu, mission, save/load, and shutdown phases. EE timers,
 remaining interrupt delivery, kernel primitives, executable loading, IOP module
@@ -529,7 +536,8 @@ become verified from the current dispatch census alone.
 Evidence: claim C031, [`re/bios.md`](re/bios.md), issue #20, and the
 `NativeBiosTraceTest` production tests. Three repeated surfaceless clean boots
 also captured the same 28-event `clean_boot_to_running` trace with zero
-overflow through the atomic production capture route.
+overflow through the atomic production capture route; three restored-state
+captures were also accepted with zero overflow after the post-restore reset.
 
 ### S026 — AVP:E-specific HLE implementation: blocked
 

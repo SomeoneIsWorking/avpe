@@ -23,7 +23,12 @@ from avpe.launch import (
     build_environment as build_product_environment,
 )
 from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
-from avpe.native_bios_probe import bios_trace_is_verified, capture_bios_trace, write_bios_trace
+from avpe.native_bios_probe import (
+    bios_trace_failure_detail,
+    bios_trace_is_verified,
+    capture_bios_trace,
+    write_bios_trace,
+)
 from avpe.pcsx2_config import (
     ensure_product_config,
     ensure_test_config,
@@ -139,11 +144,28 @@ class ControlTestPolicyTests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "bios-trace.json"
-            write_bios_trace(trace, output, self.status)
+            write_bios_trace(trace, output, self.status, None)
             artifact = json.loads(output.read_text())
 
         self.assertEqual(artifact["phase"], "clean_boot_to_running")
         self.assertEqual(artifact["trace"], trace)
+
+    def test_bios_trace_artifact_names_the_savestate_phase(self) -> None:
+        trace = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "events": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "bios-trace.json"
+            statefile = Path(directory) / "title-real.p2s"
+            write_bios_trace(trace, output, self.status, statefile)
+            artifact = json.loads(output.read_text())
+
+        self.assertEqual(artifact["phase"], "statefile_to_running")
+        self.assertEqual(artifact["statefile"], "title-real.p2s")
 
     def test_bios_trace_capture_uses_atomic_capture_route(self) -> None:
         trace = {
@@ -163,6 +185,21 @@ class ControlTestPolicyTests(unittest.TestCase):
             self.assertEqual(capture_bios_trace(31234), trace)
 
         request.assert_called_once_with(31234, "POST", "/bios/trace/capture", {})
+
+    def test_bios_trace_failure_detail_is_bounded(self) -> None:
+        trace = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 12786,
+            "events": [{"sequence": 1, "kind": "ee_syscall"}],
+        }
+
+        detail = bios_trace_failure_detail(trace)
+
+        self.assertIn("events=1", detail)
+        self.assertIn("overflow=12786", detail)
+        self.assertNotIn("sequence", detail)
 
     def test_json_probe_reporting_rejects_missing_requested_proof(self) -> None:
         self.assertTrue(
