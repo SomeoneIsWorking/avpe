@@ -19,6 +19,7 @@ from avpe.control_test import (
     build_argv,
     build_environment,
     find_bios,
+    report_json_probe,
     status_is_verified,
 )
 from avpe.control_http import read_status, request_bytes, request_json, request_shutdown
@@ -36,6 +37,13 @@ from avpe.native_asset_probe import (
     probe_native_ioman_state_recovery,
     probe_native_movie_reads,
     probe_native_stream_reads,
+    write_asset_byte_trace,
+)
+from avpe.native_bios_probe import (
+    add_arguments as add_bios_arguments,
+    capture_bios_trace_if_requested,
+    report_bios_trace,
+    validate_arguments as validate_bios_arguments,
 )
 from avpe.menu_probe import (
     await_deferred_call,
@@ -635,6 +643,7 @@ def main() -> int:
     )
     parser.add_argument("--load-timing-output", type=Path,
                         help="write --probe-load-timing JSON to this scratch path")
+    add_bios_arguments(parser)
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
     args = parser.parse_args()
@@ -716,6 +725,7 @@ def main() -> int:
         parser.error("--load-timing-target requires --probe-load-timing")
     if args.probe_load_timing and (native_asset_probe_count or args.probe_asset_byte_trace):
         parser.error("--probe-load-timing must run without other asset probes or byte tracing")
+    validate_bios_arguments(args, parser)
     probe_requested = (
         native_input_probe_requested
         or args.probe_native_assets
@@ -728,6 +738,7 @@ def main() -> int:
         or args.probe_native_asset_reset
         or args.probe_asset_byte_trace
         or args.probe_load_timing
+        or args.probe_bios_trace
     )
 
     if not PCSX2.is_file():
@@ -831,6 +842,7 @@ def main() -> int:
     native_asset_reset_proof: dict[str, object] | None = None
     asset_byte_trace: dict[str, object] | None = None
     load_timing: dict[str, object] | None = None
+    bios_trace: dict[str, object] | None = None
     probe_error: str | None = None
     graceful_shutdown = False
     try:
@@ -949,6 +961,12 @@ def main() -> int:
                             )
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
+                if probe_error is None:
+                    bios_trace, bios_error = capture_bios_trace_if_requested(
+                        args.probe_bios_trace, port, probe_error
+                    )
+                    if bios_error is not None:
+                        probe_error = bios_error
                 if args.probe_native_pointer and probe_error is None:
                     try:
                         pointer_proof = probe_native_pointer(port, deadline)
@@ -1115,10 +1133,10 @@ def main() -> int:
                 f"{detail}; see {LOG_DIR}",
                 file=sys.stderr)
             return 1
-        output = args.asset_byte_trace_output or (
-            LOG_DIR.parent / f"asset-byte-trace-{args.probe_asset_byte_trace}.json")
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(asset_byte_trace, indent=2, sort_keys=True) + "\n")
+        output = write_asset_byte_trace(
+            asset_byte_trace, args.probe_asset_byte_trace,
+            args.asset_byte_trace_output, LOG_DIR.parent
+        )
         print(
             f"control-test asset-byte-trace mode={args.probe_asset_byte_trace} "
             f"output={output}",
@@ -1136,46 +1154,19 @@ def main() -> int:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(load_timing, indent=2, sort_keys=True) + "\n")
         print(f"control-test load-timing mode={args.probe_load_timing} output={output}", flush=True)
-    if args.probe_native_pointer:
-        if pointer_proof is None:
-            detail = probe_error or "probe did not run"
-            print(f"FATAL native pointer probe failed: {detail}; see {LOG_DIR}", file=sys.stderr)
+    if args.probe_bios_trace:
+        if not report_bios_trace(bios_trace, args.bios_trace_output, boot_status, LOG_DIR):
             return 1
-        print(f"control-test native-pointer proof={json.dumps(pointer_proof, sort_keys=True)}", flush=True)
-    if args.probe_native_mouse:
-        if mouse_proof is None:
-            detail = probe_error or "probe did not run"
-            print(f"FATAL native mouse probe failed: {detail}; see {LOG_DIR}", file=sys.stderr)
-            return 1
-        print(f"control-test native-mouse proof={json.dumps(mouse_proof, sort_keys=True)}", flush=True)
-    if args.probe_native_menu:
-        if menu_proof is None:
-            detail = probe_error or "probe did not run"
-            print(f"FATAL native menu probe failed: {detail}; see {LOG_DIR}", file=sys.stderr)
-            return 1
-        print(f"control-test native-menu proof={json.dumps(menu_proof, sort_keys=True)}", flush=True)
-    if args.probe_native_menu_activate:
-        if menu_activation_proof is None:
-            detail = probe_error or "probe did not run"
-            print(
-                f"FATAL native menu activation probe failed: {detail}; see {LOG_DIR}",
-                file=sys.stderr)
-            return 1
-        print(
-            "control-test native-menu-activation proof="
-            f"{json.dumps(menu_activation_proof, sort_keys=True)}",
-            flush=True)
-    if args.probe_native_menu_pointer:
-        if menu_pointer_proof is None:
-            detail = probe_error or "probe did not run"
-            print(
-                f"FATAL native menu pointer probe failed: {detail}; see {LOG_DIR}",
-                file=sys.stderr)
-            return 1
-        print(
-            "control-test native-menu-pointer proof="
-            f"{json.dumps(menu_pointer_proof, sort_keys=True)}",
-            flush=True)
+    if not report_json_probe(args.probe_native_pointer, pointer_proof, "native-pointer", probe_error, LOG_DIR):
+        return 1
+    if not report_json_probe(args.probe_native_mouse, mouse_proof, "native-mouse", probe_error, LOG_DIR):
+        return 1
+    if not report_json_probe(args.probe_native_menu, menu_proof, "native-menu", probe_error, LOG_DIR):
+        return 1
+    if not report_json_probe(args.probe_native_menu_activate, menu_activation_proof, "native-menu-activation", probe_error, LOG_DIR):
+        return 1
+    if not report_json_probe(args.probe_native_menu_pointer, menu_pointer_proof, "native-menu-pointer", probe_error, LOG_DIR):
+        return 1
     if args.probe_native_camera:
         if camera_proof is None:
             detail = probe_error or "probe did not run"

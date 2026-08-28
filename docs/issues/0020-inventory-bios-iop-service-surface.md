@@ -26,6 +26,13 @@ state, cycle, and whether the interrupt was delivered. All observations use
 narrow calls at the existing owners, remain observation-only, and are exposed at
 `GET /bios/trace` for control-test diagnostics.
 
+The surfaceless runner now captures the sink atomically at the verified
+`Running` boundary through `POST /bios/trace/capture`. Three repeated clean
+boots produced the same 28-event slice (20 module registrations, 7 IOP
+exceptions, 1 IOP timer event, zero overflow), proving the boot boundary is
+repeatable. The capture is deliberately labelled `clean_boot_to_running`; it
+does not claim to cover later EE or game-service activity.
+
 ## Remaining work
 
 Capture repeated clean traces across boot, menu, mission, save/load, and
