@@ -32,6 +32,7 @@ from avpe.native_asset_probe import (
     probe_native_asset_cache,
     probe_native_assets,
     probe_native_cdvd_state_recovery,
+    probe_native_asset_guest_reset,
     probe_native_ioman_state_recovery,
     probe_native_movie_reads,
     probe_native_stream_reads,
@@ -615,6 +616,8 @@ def main() -> int:
                         help="prove a live native descriptor survives save/load; requires a clean boot and --memory-card-source")
     parser.add_argument("--probe-native-cdvd-state-recovery", action="store_true",
                         help="prove a native CDVD mapping survives save/load; requires a clean boot and --memory-card-source")
+    parser.add_argument("--probe-native-asset-reset", choices=("ioman", "cdvd"),
+                        help="prove native guest state cleanup across a real in-process reset; requires a clean boot and --memory-card-source")
     parser.add_argument("--probe-asset-byte-trace", choices=("oracle", "native"),
                         help="capture bounded optical or native SHA-256 chunks from a clean boot")
     parser.add_argument("--asset-byte-trace-output", type=Path,
@@ -659,6 +662,7 @@ def main() -> int:
         args.probe_native_marine_m1_transition,
         args.probe_native_ioman_state_recovery,
         args.probe_native_cdvd_state_recovery,
+        bool(args.probe_native_asset_reset),
     ))
     if native_asset_probe_count > 1:
         parser.error("choose only one native asset probe")
@@ -688,6 +692,10 @@ def main() -> int:
         parser.error("native asset recovery probes require a clean boot without --statefile")
     if native_recovery_requested and args.memory_card_source is None:
         parser.error("native asset recovery probes require --memory-card-source until native saves replace the card path")
+    if args.probe_native_asset_reset and args.statefile is not None:
+        parser.error("--probe-native-asset-reset requires a clean boot without --statefile")
+    if args.probe_native_asset_reset and args.memory_card_source is None:
+        parser.error("--probe-native-asset-reset requires --memory-card-source until native saves replace the card path")
     if args.probe_asset_byte_trace and args.statefile is not None:
         parser.error("--probe-asset-byte-trace requires a clean boot without --statefile")
     if args.probe_asset_byte_trace and args.memory_card_source is None:
@@ -713,6 +721,7 @@ def main() -> int:
         or args.probe_native_stream_reads
         or args.probe_native_marine_m1_transition
         or native_recovery_requested
+        or args.probe_native_asset_reset
         or args.probe_asset_byte_trace
         or args.probe_load_timing
     )
@@ -739,6 +748,7 @@ def main() -> int:
             or args.probe_native_stream_reads
             or args.probe_native_marine_m1_transition
             or native_recovery_requested
+            or args.probe_native_asset_reset
             or args.probe_asset_byte_trace
             or args.probe_load_timing == "native"):
         try:
@@ -813,6 +823,7 @@ def main() -> int:
     native_stream_reads_proof: dict[str, object] | None = None
     native_marine_m1_proof: dict[str, object] | None = None
     native_asset_recovery_proof: dict[str, object] | None = None
+    native_asset_reset_proof: dict[str, object] | None = None
     asset_byte_trace: dict[str, object] | None = None
     load_timing: dict[str, object] | None = None
     probe_error: str | None = None
@@ -883,6 +894,13 @@ def main() -> int:
                             probe_native_cdvd_state_recovery(
                                 port, deadline, LOG_DIR.parent
                             )
+                        )
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_asset_reset:
+                    try:
+                        native_asset_reset_proof = probe_native_asset_guest_reset(
+                            port, deadline, LOG_DIR.parent, args.probe_native_asset_reset
                         )
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
@@ -1059,6 +1077,20 @@ def main() -> int:
         print(
             "control-test native-asset-state-recovery proof="
             f"{json.dumps(native_asset_recovery_proof, sort_keys=True)}",
+            flush=True,
+        )
+    if args.probe_native_asset_reset:
+        if native_asset_reset_proof is None:
+            detail = probe_error or "probe did not run"
+            print(
+                f"FATAL native {args.probe_native_asset_reset} guest reset probe failed: "
+                f"{detail}; see {LOG_DIR}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            f"control-test native-{args.probe_native_asset_reset}-guest-reset proof="
+            f"{json.dumps(native_asset_reset_proof, sort_keys=True)}",
             flush=True,
         )
     if args.probe_asset_byte_trace:

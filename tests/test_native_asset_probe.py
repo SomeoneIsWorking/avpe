@@ -70,6 +70,55 @@ class NativeAssetProbeTests(unittest.TestCase):
         self.assertEqual(verifier_calls, [trace])
         request.assert_called_once_with(28447, "GET", "/assets/opens")
 
+    def test_guest_reset_requires_new_epoch_and_empty_transient_state(self) -> None:
+        response = {
+            "reset": True,
+            "before": {
+                "guest_reset_epoch": 4,
+                "descriptors": [{"fd": 17}],
+                "cdvd_mappings": [{"path": "MENU01.ZIV"}],
+                "cdvd_completion_active_tokens": 0,
+            },
+            "after": {
+                "guest_reset_epoch": 5,
+                "descriptors": [],
+                "cdvd_mappings": [],
+                "cdvd_completion_active_tokens": 0,
+            },
+            "cache": {
+                "resident_pages": 4,
+                "resident_bytes": 262144,
+                "transient_handles": 0,
+            },
+        }
+        with patch.object(
+            native_asset_probe,
+            "request_json",
+            return_value=(200, response, ""),
+        ) as request:
+            result = native_asset_probe._request_guest_reset(28447)
+
+        self.assertEqual(result, response)
+        request.assert_called_once_with(28447, "POST", "/guest/reset", {})
+
+    def test_guest_reset_rejects_retained_descriptors(self) -> None:
+        response = {
+            "reset": True,
+            "before": {"guest_reset_epoch": 4},
+            "after": {
+                "guest_reset_epoch": 5,
+                "descriptors": [{"fd": 17}],
+                "cdvd_mappings": [],
+                "cdvd_completion_active_tokens": 0,
+            },
+            "cache": {"resident_pages": 0, "resident_bytes": 0, "transient_handles": 0},
+        }
+        with patch.object(
+            native_asset_probe, "request_json", return_value=(200, response, "")
+        ):
+            with self.assertRaisesRegex(RuntimeError, "retained active native state"):
+                native_asset_probe._request_guest_reset(28447)
+
     def test_native_asset_probe_preserves_policy_and_proof_artifact(self) -> None:
         trace = {"enabled": True, "paths": [{"path": "TBD/TBF.TBF"}]}
 

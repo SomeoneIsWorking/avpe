@@ -230,6 +230,28 @@ mapping drift after load, a post-load reopen, original fallback, or missing
 read/completion progress. Per-run states and JSON proofs are ignored under
 `scratch/control-test/`.
 
+## Live native guest reset
+
+`NativeGuestReset` dispatches a real `VMManager::Reset()` on the CPU thread,
+temporarily pausing and then restoring a running VM. The production IOP reset
+path closes descriptors, clears synthetic CDVD mappings and completion tokens,
+and increments the native guest-reset epoch; the admitted store and shared
+cache remain bound.
+
+Two clean surfaceless/null-muted reset probes exercised the boundary with live
+native state. The ioman leg reset with TBF and INTRO.PSS descriptors active and
+resumed INTRO.PSS reads after the epoch advanced. The CDVD leg reset with a
+live MENU01.ZIV mapping and TBF descriptor, observed empty descriptor,
+mapping, and completion collections at the boundary, and resumed native
+MENU01 sector reads with matching completion consumption. Both legs retained
+zero optical fallback, bounded cache state with zero transient handles,
+Running/surfaceless/null-muted status, and byte-identical isolated cards.
+
+The probe rejects a non-advancing epoch, retained transient guest state,
+unbounded cache state, missing post-reset native reads, reopen/fallback, or
+card mutation. Per-run reset states and JSON proofs remain ignored under
+`scratch/control-test/`.
+
 ## Native/ISO byte differential
 
 `NativeAssetByteTrace` is a separate diagnostic owner. In `native` mode it
