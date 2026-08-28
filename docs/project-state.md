@@ -509,15 +509,18 @@ completion, live state-recovery, and guest-reset cleanup seams.
 Observed subset: the BIOS-backed IOP import boundary now emits a bounded,
 sequence-ordered diagnostic census containing each dispatched import's module,
 ordinal, resolved name, four input arguments, return value, and HLE/debug
-selection. The same census records loadcore module registration/release,
-intrman interrupt registration, and sifcmd RPC registration without changing
-dispatch or fallback behavior. The isolated C++ tests prove disabled capture,
-ordering/return-status fields, and the exact capacity/overflow behavior.
+selection. The same census records shared EE `SYSCALL` dispatches with their
+normalized number, BIOS name, and four argument registers, plus loadcore module
+registration/release, intrman interrupt registration, and sifcmd RPC
+registration without changing dispatch or fallback behavior. The isolated C++
+tests prove disabled capture, ordering/return-status fields, and the exact
+capacity/overflow behavior.
 
 Gap: capture repeated clean BIOS-backed traces from boot through a stable menu,
 then separate menu, mission, save/load, and shutdown phases. EE syscalls,
-kernel primitives, executable loading, timers, and interrupt delivery remain
-uninventoried; S025 cannot become verified from the IOP slice alone.
+kernel primitives, executable loading, timers, interrupt delivery, and
+service-level result/negative-path semantics remain incomplete; S025 cannot
+become verified from the current dispatch census alone.
 
 Evidence: claim C031, [`re/bios.md`](re/bios.md), issue #20, and the
 `NativeBiosTraceTest` production tests.
