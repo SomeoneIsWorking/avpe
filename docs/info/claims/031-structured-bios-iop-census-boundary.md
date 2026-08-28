@@ -6,8 +6,8 @@ created: 2026-08-28
 tags: bios,hle,iop,inventory
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotAndDisableJson, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#dispatch, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_start, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp#OnSaveStateLoaded, src/avpe/native_bios_probe.py#bios_trace_is_verified, src/avpe/native_bios_probe.py#run_bios_phase, src/avpe/native_bios_probe.py#run_requested_bios_probe, tools/run_control_test.py#main, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
-reconfirmed: 2026-08-28
-verified_at: 2026-08-28 23:53:00
+reconfirmed: 2026-08-29
+verified_at: 2026-08-29 02:05:00
 ---
 
 ## Claim
@@ -27,8 +27,13 @@ records at the common interpreter owner used by both EE engines after dispatch;
 the exception owners record before their existing state transitions; the EE and
 IOP counter owners record each target/overflow attempt and its delivery
 outcome;
-`IopBios.cpp` records import results after the existing debug/HLE dispatch and
-records registrations at their existing narrow owners. `GET /bios/trace`
+`IopBios.cpp` records recognized import results after the existing debug/HLE
+dispatch and records registrations at their existing narrow owners. Repeated
+recognized import identities are coalesced with a call count; unhandled
+import-looking probes remain on the existing oracle path and are excluded.
+Repeated EE syscall, exception, and timer identities are coalesced with
+occurrence counts for the same bounded-census reason.
+`GET /bios/trace`
 exposes the snapshot for later clean runtime traces.
 
 Three repeated BIOS-backed surfaceless clean boots captured the same 28-event
@@ -117,3 +122,13 @@ registrations, EE/IOP exceptions, and EE timers; they contain no IOP import,
 interrupt-registration, or RPC events in the selected windows. This improves
 inventory accounting but does not close the guest-owned save/load boundary or
 complete the firmware census.
+
+## Re-confirmed 2026-08-29
+
+The Clang-built clean-boot native stream proof passed with the recompiler
+observation hook, retaining 1,290 event identities with zero overflow and 11
+recognized IOP import identities. The trace included `ioman.read` and the
+`cdvdman` read/seek/getError/searchFile services; repeated identities carried
+occurrence counts. The same run completed two native `MENU01.ZIV` sector reads
+with two consumed CDVD completion records. Focused core tests passed 111 tests,
+including repeated import, timer, syscall, and exception coalescing.

@@ -41,6 +41,7 @@ from avpe.native_asset_probe import (
 )
 from avpe.native_bios_probe import (
     add_arguments as add_bios_arguments,
+    prepare_bios_trace_for_native_stream,
     report_bios_trace,
     run_requested_bios_probe,
     validate_arguments as validate_bios_arguments,
@@ -879,6 +880,7 @@ def main() -> int:
                         probe_error = str(error)
                 if args.probe_native_stream_reads:
                     try:
+                        prepare_bios_trace_for_native_stream(port, args.probe_bios_trace)
                         native_stream_reads_proof = probe_native_stream_reads(
                             port, deadline, LOG_DIR.parent
                         )
