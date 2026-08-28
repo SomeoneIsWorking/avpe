@@ -25,7 +25,9 @@ manifest and also rejects restoration of the old `-avpe-host` mode.
 ## Lifecycle
 
 ```text
-src/avpe/launch.py
+src/avpe/cli.py
+  -> src/avpe/build.py (prepare missing product target)
+  -> src/avpe/launch.py
   -> bin/avpe -- GAME
   -> initialize AVPE settings
   -> construct Runtime + HostWindow
@@ -41,9 +43,13 @@ src/avpe/launch.py
   -> VM shutdown exits QApplication
 ```
 
-The product surface is never created by agent verification. The safe product
-capability check is `QT_QPA_PLATFORM=offscreen bin/avpe --test-config`, which
-initializes settings and exits before constructing `Runtime` or `HostWindow`.
+The product surface is never created by agent verification. `./run.sh prepare`
+is the non-launching preparation path; it initializes the tracked submodule and
+builds the `avpe` target when the product binary is absent. It requires the
+project-owned `scratch/deps` Qt/dependency prefix, which is provisioned
+separately by the PCSX2 dependency workflow. The safe product capability check
+is `QT_QPA_PLATFORM=offscreen bin/avpe --test-config`, which initializes
+settings and exits before constructing `Runtime` or `HostWindow`.
 Runtime desktop acceptance remains operator-only through `./run.sh`.
 
 ## Native options and diagnostic UI placement

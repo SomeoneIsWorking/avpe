@@ -11,6 +11,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+from avpe.build import (
+    BuildError,
+    dependency_prefix_complete,
+    dependency_prefix_error,
+    prepare_product,
+)
 from avpe.dependencies import inspect_submodule, provision_submodules
 from avpe.log import log
 from avpe.native_assets import NativeAssetError, provision_native_assets
@@ -48,15 +54,11 @@ def check_tool(name: str, version_arg: str = "--version") -> bool:
 
 
 def check_qt_prefix(deps_dir: Path) -> bool:
-    """Verify the project-owned Qt build inputs from one authoritative prefix."""
-    header = deps_dir / "include" / "QtCore" / "qglobal.h"
-    config = deps_dir / "lib" / "cmake" / "Qt6" / "Qt6Config.cmake"
-    if header.is_file() and config.is_file():
+    """Report whether the project-owned dependency prefix is complete."""
+    if dependency_prefix_complete(deps_dir):
         print(f"pass  self-built Qt/deps prefix: {deps_dir} (headers + CMake config)")
         return True
-    print(f"FAIL  self-built Qt prefix incomplete: header={header.is_file()} "
-          f"cmake_config={config.is_file()} — run the pcsx2 "
-          ".github/workflows/scripts/linux/build-dependencies-qt.sh script")
+    print(f"FAIL  {dependency_prefix_error(deps_dir)}")
     return False
 
 
@@ -124,7 +126,7 @@ def doctor() -> int:
     if binary.exists():
         print(f"pass  built binary: {binary}")
     else:
-        print(f"FAIL  no built AVPE frontend at {binary} — configure+build required before launch")
+        print(f"FAIL  no built AVPE frontend at {binary} — run ./run.sh prepare")
         failures += 1
     if not check_qt_prefix(deps_dir):
         failures += 1
@@ -168,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("doctor", help="preflight checks with actionable refusals")
     sub.add_parser("provision", help="initialize the tracked dependency submodules")
+    sub.add_parser("prepare", help="provision and build the standalone AVPE product")
     sub.add_parser("assets", help="provision and validate the PC-native asset store")
     sub.add_parser("launch", help="boot the user-facing AVPE host")
 
@@ -181,6 +184,11 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         if args.cmd is None:
             log("info", "cli", "no command given -> windowed launch")
+        try:
+            prepare_product(ROOT)
+        except BuildError as error:
+            log("error", "prepare", str(error))
+            return 1
         return launch(chd)
     if args.cmd == "doctor":
         return doctor()
@@ -193,6 +201,14 @@ def main(argv: list[str] | None = None) -> int:
             log("error", "provision", "PCSX2 checkout does not match the tracked gitlink")
             return 1
         log("info", "provision", f"PCSX2 ready at {submodule.checkout_revision[:12]}")
+        return 0
+    if args.cmd == "prepare":
+        try:
+            binary = prepare_product(ROOT)
+        except BuildError as error:
+            log("error", "prepare", str(error))
+            return 1
+        log("info", "prepare", f"AVPE product ready at {binary}")
         return 0
     if args.cmd == "assets":
         chd = load_env().get("AVPE_CHD", "")
