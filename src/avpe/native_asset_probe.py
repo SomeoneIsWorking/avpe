@@ -19,6 +19,10 @@ from avpe.native_asset_cache_probe import await_asset_cache, build_cache_proof
 
 NATIVE_IOMAN_RECOVERY_PATH = "movies/intro.pss"
 NATIVE_CDVD_RECOVERY_PATH = "streams/menu01.ziv"
+NATIVE_RESET_PATHS = {
+    "ioman": NATIVE_IOMAN_RECOVERY_PATH,
+    "cdvd": NATIVE_CDVD_RECOVERY_PATH,
+}
 
 
 def await_asset_trace(
@@ -174,6 +178,33 @@ def _request_state(
         "saved" if operation == "save" else "loaded",
         f"state {operation}",
     )
+
+
+def _request_guest_reset(port: int) -> dict[str, object]:
+    status, response, detail = request_json(port, "POST", "/guest/reset", {})
+    if status != 200 or response is None or response.get("reset") is not True:
+        raise RuntimeError(f"guest reset returned HTTP {status}: {detail}")
+    before = response.get("before")
+    after = response.get("after")
+    cache = response.get("cache")
+    if not isinstance(before, dict) or not isinstance(after, dict) \
+            or not isinstance(cache, dict):
+        raise RuntimeError("guest reset omitted its native state or cache snapshot")
+    before_epoch = int(before.get("guest_reset_epoch", -1))
+    after_epoch = int(after.get("guest_reset_epoch", -1))
+    if after_epoch <= before_epoch:
+        raise RuntimeError(
+            f"guest reset epoch did not advance: {before_epoch} -> {after_epoch}")
+    if after.get("descriptors") != [] or after.get("cdvd_mappings") != []:
+        raise RuntimeError(f"guest reset retained active native state: {after}")
+    if int(after.get("cdvd_completion_active_tokens", -1)) != 0:
+        raise RuntimeError(f"guest reset retained a completion token: {after}")
+    if int(cache.get("transient_handles", -1)) != 0:
+        raise RuntimeError(f"guest reset retained a transient cache handle: {cache}")
+    if int(cache.get("resident_pages", -1)) > 512 \
+            or int(cache.get("resident_bytes", -1)) > 32 * 1024 * 1024:
+        raise RuntimeError(f"guest reset exceeded the bounded cache: {cache}")
+    return response
 
 
 def _descriptor(
@@ -374,6 +405,85 @@ def probe_native_cdvd_state_recovery(
         "status_after_load": status_after_load,
     }
     (output_dir / "native-cdvd-state-recovery-proof.json").write_text(
+        json.dumps(proof, indent=2, sort_keys=True) + "\n"
+    )
+    return proof
+
+
+def probe_native_asset_guest_reset(
+    port: int,
+    deadline: float,
+    output_dir: Path,
+    mode: str,
+) -> dict[str, object]:
+    expected_path = NATIVE_RESET_PATHS[mode]
+    verifier = _active_native_path if mode == "ioman" else _mapped_native_path
+    await_asset_trace(
+        port,
+        deadline,
+        lambda trace: verifier(trace, expected_path),
+        f"live native {expected_path} before guest reset",
+    )
+    state_dir = output_dir / "states"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    saved = _request_state(port, "save", state_dir / f"native-{mode}-reset.p2s")
+    target = _descriptor(saved, expected_path) if mode == "ioman" else _mapping(saved, expected_path)
+    if target is None:
+        raise RuntimeError(f"state save did not capture {expected_path} before guest reset")
+
+    reset = _request_guest_reset(port)
+    before = reset["before"]
+    after = reset["after"]
+    assert isinstance(before, dict)
+    assert isinstance(after, dict)
+    before_target = _descriptor(before, expected_path) if mode == "ioman" else _mapping(before, expected_path)
+    if before_target is None:
+        raise RuntimeError(f"guest reset boundary omitted active {expected_path}")
+
+    baseline_trace = _current_asset_trace(port)
+    baseline_path = _path_observation(baseline_trace, expected_path)
+    if baseline_path is None:
+        raise RuntimeError(f"reset baseline omitted {expected_path}")
+    baseline_completion = _completion(baseline_trace)
+
+    def resumed(candidate: dict[str, object] | None) -> bool:
+        if candidate is None:
+            return False
+        observation = _path_observation(candidate, expected_path)
+        if observation is None \
+                or int(observation.get("native_open_count", 0)) \
+                <= int(baseline_path.get("native_open_count", 0)) \
+                or int(observation.get("read_calls", 0)) \
+                <= int(baseline_path.get("read_calls", 0)) \
+                or int(observation.get("bytes_read", 0)) \
+                <= int(baseline_path.get("bytes_read", 0)) \
+                or int(observation.get("original_fallback_count", -1)) != 0:
+            return False
+        if mode != "cdvd":
+            return True
+        completion = _completion(candidate)
+        if completion is None or baseline_completion is None:
+            return False
+        return (
+            int(completion.get("recorded", 0)) > int(baseline_completion.get("recorded", 0))
+            and int(completion.get("consumed", -1)) == int(completion.get("recorded", -2))
+            and int(completion.get("rejected_records", -1)) == 0
+            and int(completion.get("active_tokens", -1)) == 0
+        )
+
+    resumed_trace = await_asset_trace(
+        port, deadline, resumed, f"native {expected_path} reads after guest reset"
+    )
+    status_after_reset = _runtime_status(port)
+    proof = {
+        "mode": mode,
+        "path": expected_path,
+        "saved_state": saved,
+        "reset": reset,
+        "resumed_trace": resumed_trace,
+        "status_after_reset": status_after_reset,
+    }
+    (output_dir / f"native-{mode}-guest-reset-proof.json").write_text(
         json.dumps(proof, indent=2, sort_keys=True) + "\n"
     )
     return proof

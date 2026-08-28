@@ -475,16 +475,17 @@ remaining issue is the recompiler execution-boundary seam, not an ungrounded
 guest address. Gap: capture exact `CShell::ShellLoadLevel` entry and return
 boundaries; demonstrate zero original fallthrough and zero emulated optical
 wait for supported operations inside that interval; and run three alternating
-clean oracle/native mission-timing pairs. Live guest reset and title-observed
-failure tracing remain separate hardening in issues #15 and #16; neither
-substitutes for this timing proof. Evidence: claims C024 through C028,
+clean oracle/native mission-timing pairs. Title-observed failure tracing
+remains separate hardening in issue #16; it does not substitute for this
+timing proof. Live guest reset cleanup is now verified in issue #15. Evidence:
+claims C024 through C029,
 instruments I014 through I018,
 [`re/disc-io.md`](re/disc-io.md), ignored timing artifact
 `scratch/control-test/load-timing/asset-load-timing-comparison.json`, and ignored
 cache artifact `scratch/control-test/native-asset-cache-proof.json`, and ignored
 transition artifact `scratch/control-test/native-marine-m1-transition-proof.json`.
-Atomic work: issue #12; resolved issues #13 and #14 record the native CDVD
-completion and live state-recovery seams.
+Atomic work: issue #12; resolved issues #13–#15 record the native CDVD
+completion, live state-recovery, and guest-reset cleanup seams.
 
 ### S025 — required firmware service inventory: missing
 

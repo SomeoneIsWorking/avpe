@@ -16,6 +16,7 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | POST `/mem/write` | `{"addr":"0x..","hex":"aabb.."}` | raw writes (vtlb_ramWrite) |
 | POST `/state/save` | `{"path":"/abs/x.p2s"}` | CPU-thread save + flush; success includes the native asset state captured immediately before serialization |
 | POST `/state/load` | `{"path":"/abs/x.p2s"}` | CPU-thread load; success includes the native asset state captured immediately after restoration |
+| POST `/guest/reset` | `{}` | CPU-thread real VM reset; success includes pre/post native state and the bounded cache snapshot |
 | POST `/input/press` | `{"mask":512,"ms":250}` | PadDualshock2::Inputs bits, auto-expire |
 | POST `/input/move-absolute` | `{"x":0.5,"y":0.5}` | normalized coordinates through the game-native absolute-pointer owner |
 | POST `/input/mouse-button` | `{"button":"primary","edge":"press"}` | typed edge through the corresponding original AVP:E mouse handler |
