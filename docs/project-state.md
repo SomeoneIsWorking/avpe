@@ -512,9 +512,11 @@ ordinal, resolved name, four input arguments, return value, and HLE/debug
 selection. The same census records shared EE `SYSCALL` dispatches with their
 normalized number, BIOS name, and four argument registers, plus loadcore module
 registration/release, intrman interrupt registration, and sifcmd RPC
-registration without changing dispatch or fallback behavior. The isolated C++
-tests prove disabled capture, ordering/return-status fields, and the exact
-capacity/overflow behavior.
+registration. EE and IOP exception-entry boundaries also record the domain,
+cause code, pre-entry PC, and branch-delay state without changing dispatch or
+fallback behavior. The isolated C++ tests prove disabled capture,
+ordering/return-status fields, exception fields, and the exact capacity/
+overflow behavior.
 
 Gap: capture repeated clean BIOS-backed traces from boot through a stable menu,
 then separate menu, mission, save/load, and shutdown phases. EE syscalls,

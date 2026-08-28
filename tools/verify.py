@@ -39,6 +39,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/SaveState.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp",
@@ -94,9 +95,10 @@ CORE_SCOPED_SOURCES = {
         (1, 35), (265, 312), (415, 708), (843, 936),
         (992, 1120), (1428, 1498), (1510, 1565), (1600, 1819)),
     ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp": ((1, 18), (910, 923)),
+    ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp": ((1, 18), (96, 99)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (177, 182), (563, 620), (688, 720)),
-    ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp": ((1, 10), (50, 57)),
+    ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp": ((1, 10), (50, 57), (64, 69)),
     ROOT / "thirdparty/pcsx2/pcsx2/SaveState.cpp": (
         (90, 105), (315, 325), (1080, 1130), (1140, 1165), (1175, 1215)),
     ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp": (

@@ -14,6 +14,8 @@ surfaceless control-test mode enables it and exposes its snapshot at
   arguments, return value, and whether an HLE or debug handler was selected;
 - every EE `SYSCALL` dispatch through the shared interpreter implementation,
   with the normalized syscall number, BIOS name, and four argument registers;
+- EE and IOP exception-entry boundaries with domain, cause code, pre-entry PC,
+  and branch-delay state;
 - `RegisterLibraryEntries` and `ReleaseLibraryEntries` module name/version;
 - `RegisterIntrHandler` interrupt number, symbolic name, and handler address;
 - `sceSifRegisterRpc` RPC ID.
