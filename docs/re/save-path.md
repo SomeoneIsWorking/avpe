@@ -70,6 +70,32 @@ through `CProfile::SetGameData` (`CProfile + 0x18` pointer, `+0x1C` size,
 `+0x20` revision). A game save instead writes a 0x20-byte level identifier and
 then a BWJ-compressed `GObject::SaveAll` stream through `CLoadSaveBuffer`.
 
+## Single observed profile record
+
+The ignored user-supplied card `scratch/control-test/source-card.ps2` contains
+one profile record for `BASLUS-20147F991C326`. Its 0x118-byte record followed by
+the 0x20-byte payload was extracted from the card file entry and has record
+SHA-256 `7b53c401b617cfbabe5729f3584303c6fd72b48f19ad47bdf33d48e99a89eb4f`.
+The card SHA-256 is
+`55237edfb8bd977e22ecf84ae2d1a942f8167fd3cbf9798376259342120f2b2b`.
+
+| Offset | Observed value |
+|---:|---|
+| `0x000` | `Extinction 1` |
+| `0x080` | `BASLUS-20147F991C326` |
+| `0x100` | `0xF991C326` |
+| `0x104` | `0x00000000` |
+| `0x108` | `0x1CD9DEE3` |
+| `0x10C` | `0x40AAF870` |
+| `0x110` | `0x00000020` |
+| `0x114` | `0x3A3894EE` |
+
+The payload bytes are
+`11 10 10 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00 80 3F 00 00 80 3F 00 00 80 3F`.
+This grounds one live profile payload and confirms the record's profile-name
+CRC and fixed payload size. It does not resolve the unknown field at `0x104`,
+the timestamp/ID semantics, or any game-save payload.
+
 ## Evidence needed next
 
 - Capture the live `SetGameData` pointer, size, revision, and default payload.

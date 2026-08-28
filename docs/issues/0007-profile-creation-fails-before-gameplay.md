@@ -26,4 +26,13 @@ now accepts `--memory-card-source`, works only on a copied card, and reports
 byte changes. No symptom-only patch has been applied to the legacy memory-card
 path because G003 replaces that path with native saves.
 
+### Finding (2026-08-29)
+
+The available ignored source card contains one valid profile record and its
+fixed 0x20-byte payload. The observed display name is `Extinction 1`, the
+directory is `BASLUS-20147F991C326`, and the record fields are documented in
+[`../re/save-path.md`](../re/save-path.md). This is a live payload/default
+observation, not the deliberately differing pair required to resolve the
+unknown fields; the card contains no grounded pair of differing game saves.
+
 ## Resolution
