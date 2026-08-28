@@ -9,6 +9,7 @@ Subcommands:
   stateload --path scratch/states/x.p2s
   eecall --function 0x00137b30 [--a0 0x... --cycle-budget 3000000]
   moveabsolute --x 0.2 --y 0.2
+  camera move|rotate|zoom --x 1 [--y 0]
   mousebutton primary|secondary press|release
   menuaction up|down|left|right|activate|cancel
   menustate
@@ -108,6 +109,10 @@ def main() -> int:
     p = sub.add_parser("moveabsolute")
     p.add_argument("--x", type=float, required=True, help="normalized horizontal coordinate in 0..1")
     p.add_argument("--y", type=float, required=True, help="normalized vertical coordinate in 0..1")
+    p = sub.add_parser("camera")
+    p.add_argument("action", choices=("move", "rotate", "zoom"))
+    p.add_argument("--x", type=float, required=True)
+    p.add_argument("--y", type=float, default=0.0)
     p = sub.add_parser("mousebutton")
     p.add_argument("button", choices=("primary", "secondary"))
     p.add_argument("edge", choices=("press", "release"))
@@ -183,6 +188,9 @@ def main() -> int:
         print(json.dumps(req("POST", "/ee/call", payload)))
     elif a.cmd == "moveabsolute":
         print(json.dumps(req("POST", "/input/move-absolute", {"x": a.x, "y": a.y})))
+    elif a.cmd == "camera":
+        print(json.dumps(req(
+            "POST", "/input/camera", {"action": a.action, "x": a.x, "y": a.y})))
     elif a.cmd == "mousebutton":
         print(json.dumps(req(
             "POST", "/input/mouse-button", {"button": a.button, "edge": a.edge})))
