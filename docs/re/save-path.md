@@ -3,8 +3,8 @@
 This document records the grounded save boundary for the supported
 `SLUS-20147` executable. It is deliberately incomplete: the high-level profile
 and game-save operations and their outer records are mapped, while the profile
-payload fields and compressed world schema still require deliberately differing
-runtime saves.
+payload fields and compressed world schema still require semantic decoding from
+deliberately differing runtime saves.
 
 ## High-level owner
 
@@ -134,10 +134,44 @@ differential comparison. The `/ee/call` diagnostic endpoint cannot faithfully
 invoke the five-argument `CProfile::SaveGame` ABI because it only stages
 `a0..a3`; normal menu execution is therefore required for game-save captures.
 
+## Two normal game-save records
+
+The BIOS-backed control runner exercised the actual Save Game menu on isolated
+copies of the supplied card. The first run returned to the pause menu after
+writing slot 0. Its card copy has SHA-256
+`36503b39dcfbdcb3ff5ad1c0d6b0f3b305ec93cf6b487d8e08e01e9eb2ff9d38`; the
+slot-0 record at logical offset `0xB800` has record SHA-256
+`ca867e3add58a2307ac63fb7cd34b1cca52d838c26117b89c1612d6a6f4c37bf`, display
+text `Extinction 1`, `Marine 1`, and `2026/08/26 8:36:09`, and path
+`BASLUS-20147F991C326/0.SAV`. Its fields are
+`[0xF991C326, 0, 0x1CD9DEE3, 0xFFFFFFFF, 0x20, 0]`, matching the grounded
+profile identity and payload-size checks.
+
+The second run started from that copy, selected a distinct empty slot through
+the same Save Game menu, and returned to the pause/game flow before clean
+shutdown. Its final card has SHA-256
+`438d481548b465b1507aef0187ffbb0f09aaebd71ed7b6739b44b842048c2bf6`. The
+slot-1 record at logical offset `0x8A000` has record SHA-256
+`b3eb60e3de3449ea76578332bf96b311ad68da56588f7696ab26090110d16d6d`, display
+text `Extinction 1`, `Marine 1`, and `2026/08/26 8:35:59`, and path
+`BASLUS-20147F991C326/1.SAV`. It has the same six identity/compatibility
+fields as slot 0. The slot-0 and slot-1 serialized bodies are not identical:
+after the common outer record and level-name prefix, 154,166 bytes differ;
+their body hashes are respectively
+`d1a5ab95a99c458c387765f3a14cf53804c8b4aaa2a68f3d3bcf0b953d34d3e5` and
+`0ca22a19027d73b3c32aa17347a219e27210e79476bb50f3f450c5923d391235`.
+
+This proves that the normal title-owned path can persist two separate,
+structurally valid numbered save records and that the compressed payload is
+state-dependent. It does not yet identify the decompressed object differences,
+prove a load of either record, or provide the native-save interception.
+
 ## Evidence needed next
 
 - Produce at least two isolated profile records whose settings differ and two
-  isolated game saves whose progress differs.
+  isolated game saves whose progress differs. Two structurally distinct save
+  bodies now exist; their decompressed gameplay meaning still needs to be
+  identified.
 - Compare the records and decompressed streams, including a case that must be
   rejected, to resolve unknown fields and checksums.
 - Capture a normal in-game save completion and identify the narrow guest-call

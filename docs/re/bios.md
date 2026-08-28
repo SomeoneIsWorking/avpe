@@ -75,6 +75,26 @@ runs each produced 7 events (2 EE syscalls and 5 exceptions). Save-load runs
 produced 34 and 31 timer events, so archive restoration still lacks a
 guest-owned completion/quiescence boundary and is not repeatability evidence.
 
+## Inventory analysis
+
+`tools/analyze_bios_traces.py` consumes one or more captured artifact files and
+emits `avpe-bios-inventory-report-v1`. Its summaries preserve the phase and
+statefile labels, count every event kind, group observed EE syscalls and IOP
+imports by identity while retaining distinct return values, and group module,
+interrupt, and RPC registrations. Exception domains/codes/PCs and timer
+delivery/overflow outcomes are reported separately. It calls the same strict
+`bios_trace_is_verified()` policy used by the runner, so an incomplete or
+overflowed capture is rejected rather than summarized.
+
+For the retained evidence set containing two repeated clean boots, one
+title-real resume, two menu captures, and two save-load captures, the analyzer
+reported 7 captures and 335 total events. Runtime observations covered EE
+syscalls, module registration, EE/IOP exceptions, and EE timers. It observed no
+runtime IOP import, interrupt-registration, or SIF-RPC events in those phase
+windows; their presence in production tests is not a substitute for a title
+runtime capture. This is an inventory aid, not a completion boundary and not
+an HLE implementation.
+
 ## Required evidence before S025 can be verified
 
 The census still needs a guest-owned completion boundary for save/load and

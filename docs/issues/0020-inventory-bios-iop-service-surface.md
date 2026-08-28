@@ -56,6 +56,15 @@ returns before a guest-owned completion/quiescence condition has been
 identified. An arbitrary host delay would hide this boundary defect rather
 than establish service semantics.
 
+The retained trace set is now mechanically summarized by
+`tools/analyze_bios_traces.py`, which reuses the runner's strict validator and
+groups only events actually present in each capture. The selected seven
+captures contain 335 events across clean boot, title resume, menu, and
+save-load phases. Their runtime service categories are EE syscalls and module
+registration; IOP import, interrupt-registration, and RPC events are absent
+from these windows even though their encodings remain covered by production
+tests.
+
 ## Remaining work
 
 Define and instrument guest-owned completion boundaries, then capture repeated
