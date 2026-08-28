@@ -259,12 +259,15 @@ meaning of at least two deliberately differing profiles and two game saves,
 observe a load of a produced save, and implement the native interception. Two
 normal Save Game menu runs now produced separate slot-0 and slot-1 records with
 different serialized bodies on isolated card copies. The BWJ decoder reaches
-the fixed prefix and the same opaque marker structure in both records, but does
-not decode object fields. A direct diagnostic call is not a substitute because
-it exceeded the shuttle budget while driving synchronous card services. The
-exact high-level interception mechanism is still narrowed to the `CProfile`
-operation boundary and its `CShell`/save-menu callers, but remains unproven in
-a native implementation.
+the fixed prefix and the same object-header structure in both records: 189
+top-level starts, 1,073 nested starts, 1,262 nested end records, maximum depth
+3, and 67 distinct opaque class IDs with identical histograms. It rejects
+truncated headers and unbalanced object ends through the production parser, but
+does not decode editable fields. A direct diagnostic call is not a substitute
+because it exceeded the shuttle budget while driving synchronous card
+services. The exact high-level interception mechanism is still narrowed to the
+`CProfile` operation boundary and its `CShell`/save-menu callers, but remains
+unproven in a native implementation.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.

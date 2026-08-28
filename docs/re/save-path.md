@@ -193,7 +193,12 @@ stream at decoded offset `0x2028`. `LoadAll` at `0x0011D2A0` compares the two
 time values before proceeding. The parser reports exact marker occurrences,
 not an object count: `0x7FEA419D` marks each top-level object and the
 top-level end record, while `0xBADF00DE` is shared by nested-object headers
-and nested end markers.
+and nested end markers. The `GObject::Save` decompilation at `0x0011DA30`
+grounds each non-terminator record as a 16-byte header: marker, class ID, and
+two opaque words. The parser distinguishes starts from zero-tailed end
+records, counts class IDs, tracks maximum nesting depth, and rejects truncated
+headers or an unbalanced object stack. It does not decode the subsequent
+editable field records or assign gameplay meaning to class IDs.
 
 Running `tools/analyze_save_records.py` through the parser logic on the two
 retained raw-card records produced these observations:
@@ -208,9 +213,12 @@ The level buffers contain the same NUL-terminated ASCII name and a retained
 nonzero suffix byte (`01`) followed by padding; that suffix is not assigned a
 meaning. The identical marker totals and changed game-time/decoded-size values
 show that the decoder reaches the same broad serialization structure while
-preserving state-dependent data. They do not identify class IDs, editable field
-types, or gameplay semantics, and they do not prove that the original game
-loads either produced record.
+preserving state-dependent data. The object-header summary finds 189
+top-level starts, 1,073 nested starts, 1,262 nested end records, maximum depth
+3, and 67 distinct class IDs in each record; the class histogram is identical
+between the two slots despite the body differences. This identifies structure,
+not editable field meanings or gameplay semantics, and does not prove that the
+original game loads either produced record.
 
 ## Evidence needed next
 
@@ -218,8 +226,9 @@ loads either produced record.
   isolated game saves whose progress differs. Two structurally distinct save
   bodies now exist; their decompressed object/class and gameplay meaning still
   needs to be identified.
-- Decode the object headers and editable field records, including a case that
-  must be rejected, to resolve unknown fields and checksums.
+- Decode the editable field records, including a case that must be rejected,
+  to resolve unknown fields and checksums. Object-header structure and
+  truncated-header rejection are now covered by the production parser.
 - Capture a normal in-game save completion and identify the narrow guest-call
   interception mechanism that can route the five `CProfile` operations to
   `AVPE::NativeSaves` while keeping the original game routines available as

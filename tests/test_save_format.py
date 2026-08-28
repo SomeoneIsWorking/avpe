@@ -4,7 +4,9 @@ import unittest
 from avpe.save_format import (
     GAME_TIME_OFFSET,
     GAME_LEVEL_SIZE,
+    OBJECT_NESTED_OR_END_MARKER,
     OBJECT_STREAM_OFFSET,
+    OBJECT_TOP_LEVEL_OR_END_MARKER,
     OUTER_RECORD_SIZE,
     OUTER_FIELDS_OFFSET,
     REPEATED_GAME_TIME_OFFSET,
@@ -46,14 +48,22 @@ class SaveFormatTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<H", decoded.data, 4)[0], 0x0042)
 
     def test_parses_fixed_prefix_and_opaque_object_markers(self) -> None:
-        decoded = bytearray(OBJECT_STREAM_OFFSET + 16)
+        decoded = bytearray(OBJECT_STREAM_OFFSET + 80)
         level = b"M01/background.tbd\0"
         decoded[:GAME_LEVEL_SIZE] = level.ljust(GAME_LEVEL_SIZE, b"\0")
         decoded[len(level)] = 1
         struct.pack_into("<f", decoded, GAME_TIME_OFFSET, 12.5)
         struct.pack_into("<f", decoded, REPEATED_GAME_TIME_OFFSET, 12.5)
-        struct.pack_into("<I", decoded, OBJECT_STREAM_OFFSET, 0x7FEA419D)
-        struct.pack_into("<I", decoded, OBJECT_STREAM_OFFSET + 4, 0xBADF00DE)
+        object_offset = OBJECT_STREAM_OFFSET
+        for words in (
+            (OBJECT_TOP_LEVEL_OR_END_MARKER, 0x1234, 0x20, 0x00000001),
+            (OBJECT_NESTED_OR_END_MARKER, 0x5678, 0x10, 0x00000002),
+            (OBJECT_NESTED_OR_END_MARKER, 0, 0, 0),
+            (OBJECT_NESTED_OR_END_MARKER, 0, 0, 0),
+            (OBJECT_TOP_LEVEL_OR_END_MARKER, 0, 0, 0),
+        ):
+            struct.pack_into("<4I", decoded, object_offset, *words)
+            object_offset += 16
         record = bytearray(OUTER_RECORD_SIZE)
         struct.pack_into(
             "<6I", record, OUTER_FIELDS_OFFSET, 1, 0, 2, 0xFFFFFFFF, 0x20, 0
@@ -74,9 +84,57 @@ class SaveFormatTests(unittest.TestCase):
         )
         self.assertTrue(parsed["stream"]["game_time_bytes_match"])
         self.assertEqual(parsed["stream"]["object_marker_counts"], {
-            "top_level_or_end": 1,
-            "nested_or_end": 1,
+            "top_level_or_end": 2,
+            "nested_or_end": 3,
         })
+        self.assertEqual(
+            parsed["stream"]["object_stream_summary"],
+            {
+                "header_size": 16,
+                "top_level_starts": 1,
+                "top_level_terminators": 1,
+                "nested_starts": 1,
+                "nested_terminators": 2,
+                "class_id_counts": {0x1234: 1, 0x5678: 1},
+                "max_depth": 2,
+                "active_objects": 0,
+                "structure_balanced": True,
+            },
+        )
+
+    def test_rejects_truncated_object_header(self) -> None:
+        decoded = bytearray(OBJECT_STREAM_OFFSET + 4)
+        decoded[:GAME_LEVEL_SIZE] = b"M01/background.tbd\0".ljust(GAME_LEVEL_SIZE, b"\0")
+        struct.pack_into("<f", decoded, GAME_TIME_OFFSET, 1.0)
+        struct.pack_into("<f", decoded, REPEATED_GAME_TIME_OFFSET, 1.0)
+        struct.pack_into("<I", decoded, OBJECT_STREAM_OFFSET, OBJECT_TOP_LEVEL_OR_END_MARKER)
+        record = bytearray(OUTER_RECORD_SIZE)
+        record.extend(
+            encode_literal_words(
+                list(struct.unpack("<" + "H" * (len(decoded) // 2), decoded))
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "object header is truncated"):
+            parse_game_save_record(bytes(record))
+
+    def test_rejects_unbalanced_object_end(self) -> None:
+        decoded = bytearray(OBJECT_STREAM_OFFSET + 16)
+        decoded[:GAME_LEVEL_SIZE] = b"M01/background.tbd\0".ljust(GAME_LEVEL_SIZE, b"\0")
+        struct.pack_into("<f", decoded, GAME_TIME_OFFSET, 1.0)
+        struct.pack_into("<f", decoded, REPEATED_GAME_TIME_OFFSET, 1.0)
+        struct.pack_into(
+            "<4I", decoded, OBJECT_STREAM_OFFSET, OBJECT_NESTED_OR_END_MARKER, 0, 0, 0
+        )
+        record = bytearray(OUTER_RECORD_SIZE)
+        record.extend(
+            encode_literal_words(
+                list(struct.unpack("<" + "H" * (len(decoded) // 2), decoded))
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "closes an empty object stack"):
+            parse_game_save_record(bytes(record))
 
     def test_rejects_invalid_back_reference_and_output_bound(self) -> None:
         invalid = struct.pack("<HHH", 0x07FF, 0x8000, 0x0022)
@@ -86,10 +144,13 @@ class SaveFormatTests(unittest.TestCase):
             decode_bwj(encode_literal_words([1] * 16), 2)
 
     def test_rejects_mismatched_game_time_prefix(self) -> None:
-        decoded = bytearray(OBJECT_STREAM_OFFSET)
+        decoded = bytearray(OBJECT_STREAM_OFFSET + 16)
         decoded[:GAME_LEVEL_SIZE] = b"M01/background.tbd\0".ljust(GAME_LEVEL_SIZE, b"\0")
         struct.pack_into("<f", decoded, GAME_TIME_OFFSET, 1.0)
         struct.pack_into("<f", decoded, REPEATED_GAME_TIME_OFFSET, 2.0)
+        struct.pack_into(
+            "<4I", decoded, OBJECT_STREAM_OFFSET, OBJECT_TOP_LEVEL_OR_END_MARKER, 0, 0, 0
+        )
         record = bytearray(OUTER_RECORD_SIZE)
         record.extend(
             encode_literal_words(

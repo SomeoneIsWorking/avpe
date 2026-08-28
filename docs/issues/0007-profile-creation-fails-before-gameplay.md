@@ -75,7 +75,11 @@ slot 1 decode to 640,724 and 640,836 bytes and each has 190 occurrences of
 `0x7FEA419D` plus 2,335 occurrences of `0xBADF00DE`. These are marker
 occurrences, not object counts: `0x7FEA419D` covers top-level objects and the
 top-level end record, while `0xBADF00DE` is shared by nested headers and end
-markers. The parser does not yet assign class or editable-field
-semantics, and no load round-trip has been claimed.
+markers. The parser now recognizes the grounded 16-byte object headers and
+rejects truncated headers or unbalanced marker structure without assigning
+gameplay meaning. Both records contain 189 top-level objects, 1,073 nested
+objects, 1,262 nested end records, one top-level end record, depth 3, and 67
+distinct class IDs with identical histograms. The class IDs remain opaque, and
+no editable-field semantics or load round-trip has been claimed.
 
 ## Resolution
