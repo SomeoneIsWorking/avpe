@@ -17,6 +17,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 |---|---|---|---|---|
 | Launcher shim | Stable locked-environment entry | `run.sh` | `uv run --frozen avpe` | — |
 | CLI orchestration | User commands, environment discovery, preflight | `src/avpe/cli.py` | `main()` | — |
+| Product preparation | Tracked-submodule readiness, build-tool refusal, CMake configuration, and standalone `avpe` target build | `src/avpe/build.py` | `prepare_product()` | — |
 | Dependency provisioning | PCSX2 gitlink inspection plus recursive submodule initialization; dependency provenance | `src/avpe/dependencies.py`, `.gitmodules`, `deps.toml` | `provision_submodules()` | — |
 | Product launch | Native-store validation, AVPE host argv/environment, product config, process lifetime | `src/avpe/launch.py` | `launch()` | — |
 | Standalone frontend runtime | Product process composition, PCSX2 core thread/lifecycle, and host callbacks | `thirdparty/pcsx2/pcsx2-avpe/Runtime.*`, `EmulationThread.*`, `HostServices.cpp`, `Main.cpp` | `avpe` executable | [presentation](host/presentation.md) |

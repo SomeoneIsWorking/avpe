@@ -200,18 +200,20 @@ method changes, camera motion, minimap behavior, and pointer-mode transitions.
 
 ### S012 — fresh-clone launcher: partial
 
-Observed subset: `./run.sh provision` synchronizes and recursively initializes
-the tracked PCSX2 fork and its nested dependencies, and `doctor` verifies the
-checkout against the superproject gitlink. The project accepts GCC, Clang, or
-AppleClang rather than encoding the agent's Clang verification policy.
+Observed subset: the default launcher and `./run.sh prepare` verify and
+recursively initialize the tracked PCSX2 fork, then configure and build the
+standalone `avpe` target when `scratch/build/bin/avpe` is absent. The project
+accepts GCC, Clang, or AppleClang rather than encoding the agent's Clang
+verification policy.
 
-Evidence: claim C013 and the provisioning tests in
-`tests/test_dependencies.py`.
+Evidence: claim C013, the provisioning tests in `tests/test_dependencies.py`,
+the preparation tests in `tests/test_build.py`, and a successful
+`./run.sh prepare` on the configured checkout.
 
-Gap: the zero-argument path does not yet provision the portable dependency
-prefix or configure/build a missing product binary. A cold checkout therefore
-still cannot reach the windowed product from documented native dependencies,
-`uv`, and user assets without manual build steps.
+Gap: the zero-argument path still refuses when the project-owned
+`scratch/deps` Qt/dependency prefix is absent. A truly cold checkout therefore
+still needs the documented PCSX2 dependency workflow before the AVPE target
+can be configured and built.
 
 ### S013 — playable native-input product: blocked
 
