@@ -19,6 +19,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/LoadTimingPoint.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStateSnapshot.cpp",
@@ -53,6 +54,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/Settings.cpp",
     ROOT / "thirdparty/pcsx2/tests/ctest/core/avpe_native_asset_store_tests.cpp",
     ROOT / "thirdparty/pcsx2/tests/ctest/core/avpe_native_cdvd_completion_tests.cpp",
+    ROOT / "thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp",
 )
 CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/AVPE.h",
@@ -60,6 +62,7 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/LoadTimingPoint.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetStateSnapshot.h",
@@ -88,7 +91,7 @@ CPP_HEADERS = (
 CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp": (
         (1, 35), (265, 312), (415, 708), (843, 936),
-        (992, 1120), (1510, 1565), (1600, 1819)),
+        (992, 1120), (1428, 1498), (1510, 1565), (1600, 1819)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (177, 182), (563, 620), (688, 720)),
     ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp": ((1, 10), (50, 57)),

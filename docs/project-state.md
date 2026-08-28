@@ -45,7 +45,7 @@ Current focus is attention, not a separate state.
 | S022 | User disc content provisions into a validated native asset store | verified | S021 | G001, G005 |
 | S023 | Supported game asset requests use native host storage instead of emulated optical I/O | verified | S021, S022 | G001, G005 |
 | S024 | Native asset I/O preserves behavior and measurably reduces loading time | partial | S023; issue #12 | G005 |
-| S025 | AVP:E's required BIOS, kernel, and IOP service surface is inventoried | missing | S001, S004 | G006 |
+| S025 | AVP:E's required BIOS, kernel, and IOP service surface is inventoried | partial | S001, S004; issue #20 | G006 |
 | S026 | Clean-room AVP:E-specific HLE implements the required platform services | blocked | S025 | G006 |
 | S027 | Supported target boots and runs without retail BIOS bytes | blocked | S026 | G001, G006 |
 | S028 | HLE behavior is differentially verified against the BIOS-backed oracle | blocked | S025, S026 | G006 |
@@ -504,11 +504,23 @@ transition artifact `scratch/control-test/native-marine-m1-transition-proof.json
 Atomic work: issue #12; resolved issues #13–#15 record the native CDVD
 completion, live state-recovery, and guest-reset cleanup seams.
 
-### S025 — required firmware service inventory: missing
+### S025 — required firmware service inventory: partial
 
-Missing capability: trace and catalogue the exact BIOS syscalls, EE kernel
-services, interrupts, timers, executable-loader behavior, and IOP modules used
-by the supported target across boot, menus, missions, saves, and shutdown.
+Observed subset: the BIOS-backed IOP import boundary now emits a bounded,
+sequence-ordered diagnostic census containing each dispatched import's module,
+ordinal, resolved name, four input arguments, return value, and HLE/debug
+selection. The same census records loadcore module registration/release,
+intrman interrupt registration, and sifcmd RPC registration without changing
+dispatch or fallback behavior. The isolated C++ tests prove disabled capture,
+ordering/return-status fields, and the exact capacity/overflow behavior.
+
+Gap: capture repeated clean BIOS-backed traces from boot through a stable menu,
+then separate menu, mission, save/load, and shutdown phases. EE syscalls,
+kernel primitives, executable loading, timers, and interrupt delivery remain
+uninventoried; S025 cannot become verified from the IOP slice alone.
+
+Evidence: claim C031, [`re/bios.md`](re/bios.md), issue #20, and the
+`NativeBiosTraceTest` production tests.
 
 ### S026 — AVP:E-specific HLE implementation: blocked
 
