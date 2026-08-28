@@ -23,4 +23,10 @@ outside this slice.
 ## Resolution
 
 ### Note (2026-08-28)
-Added src/avpe/build.py and ./run.sh prepare. The default launch path now calls the same preparation owner before entering launch; existing product binaries are reused after submodule readiness is checked. Unit tests cover command construction, existing-binary reuse, incomplete-prefix refusal, and Fedora/Debian/macOS installation hints. The remaining S012 gap is provisioning the project-owned Qt/dependency prefix on a fresh checkout.
+Added `src/avpe/build.py` and `./run.sh prepare`. The default launch path now
+calls the same preparation owner before entering launch. Existing product
+binaries are checked through the current CMake target: configured trees rebuild
+incrementally and a missing build tree is configured before rebuilding. Unit
+tests cover command construction, stale-binary prevention, incomplete-prefix
+refusal, and Fedora/Debian/macOS installation hints. The remaining S012 gap is
+provisioning the project-owned Qt/dependency prefix on a fresh checkout.

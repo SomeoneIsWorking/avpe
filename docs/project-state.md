@@ -219,8 +219,10 @@ Evidence: claim C030, resolved issue #19, and
 
 Observed subset: the default launcher and `./run.sh prepare` verify and
 recursively initialize the tracked PCSX2 fork, then configure and build the
-standalone `avpe` target when `scratch/build/bin/avpe` is absent. The launcher
-now has a guarded path to provision the project-owned `scratch/deps`
+current standalone `avpe` target. An existing binary no longer bypasses the
+CMake build: a configured tree is incrementally rebuilt, while a missing build
+tree is configured first. The launcher now has a guarded path to provision the
+project-owned `scratch/deps`
 Qt/dependency prefix through the tracked PCSX2 workflow when it is absent. The
 project accepts GCC, Clang, or AppleClang rather than encoding the agent's
 Clang verification policy.
