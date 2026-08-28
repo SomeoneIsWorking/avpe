@@ -61,7 +61,21 @@ populated `BASLUS-20147F991C326/1.SAV` and returned to the pause/game flow
 before clean shutdown. The two 0x7E400-byte save spans share the same outer
 compatibility fields but their serialized bodies differ in 154,166 bytes.
 This establishes a normal title-owned multi-slot write path and state-dependent
-save content. It does not yet identify the decompressed object differences,
-prove a load round-trip, or isolate the native interception point.
+save content. It does not yet identify the decompressed object/class
+differences, prove a load round-trip, or isolate the native interception point.
+
+### Finding (2026-08-29, BWJ stream)
+
+Ghidra decompilation of `CBWJCompressor` and `GObject::SaveAll` grounded the
+save stream parser in `src/avpe/save_format.py`. Both retained records decode
+with mode `0x07FF`, shift `5`, and length mask `0x1F`; the decoded fixed prefix
+contains `M01/background.tbd`, matching repeated game-time values, an 8 KiB
+handle bitmap, and the object stream at decoded offset `0x2028`. Slot 0 and
+slot 1 decode to 640,724 and 640,836 bytes and each has 190 occurrences of
+`0x7FEA419D` plus 2,335 occurrences of `0xBADF00DE`. These are marker
+occurrences, not object counts: `0x7FEA419D` covers top-level objects and the
+top-level end record, while `0xBADF00DE` is shared by nested headers and end
+markers. The parser does not yet assign class or editable-field
+semantics, and no load round-trip has been claimed.
 
 ## Resolution

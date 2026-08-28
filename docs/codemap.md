@@ -30,6 +30,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native cache proof policy | Bounded-cache snapshot validation and active-cache polling, independent of process orchestration | `src/avpe/native_asset_cache_probe.py` | `cache_snapshot_is_verified()` | [disc-I/O RE contract](re/disc-io.md) |
 | BIOS/IOP trace proof policy | Clean-boot polling, strict bounded/ordered census acceptance, and phase-labelled artifact writing | `src/avpe/native_bios_probe.py` | `bios_trace_is_verified()`, `await_bios_trace()` | [BIOS/IOP contract](re/bios.md) |
 | BIOS/IOP inventory analysis | Deterministic grouping of captured trace events by service and runtime category; no inferred calls | `src/avpe/bios_inventory.py`, `tools/analyze_bios_traces.py` | `summarize_bios_artifact()`, `combine_bios_inventories()` | [BIOS/IOP contract](re/bios.md) |
+| Save-format evidence parser | Grounded BWJ decoding and fixed game-save prefix/marker summaries; no native backend ownership | `src/avpe/save_format.py`, `tools/analyze_save_records.py` | `decode_bwj()`, `parse_game_save_record()` | [save-path RE contract](re/save-path.md) |
 | Project verification | Python behavior, isolation, dependency, and source-structure regressions | `tests/`, `tools/verify.py` | `tools/verify.py` | — |
 | Project logging | Single Python log-level gate | `src/avpe/log.py` | `log()` | — |
 | Raw-sector conversion | Streaming, validated 2352-byte-sector to ISO block conversion | `src/avpe/raw_sector.py`; CLI in `tools/raw2352.py` | `strip_image()` | — |
@@ -77,6 +78,7 @@ src/avpe/                      host-side product orchestration
 ├── native_asset_probe.py       native lifecycle and live save/load proof policy
 ├── native_bios_probe.py        clean-boot BIOS/IOP trace proof policy
 ├── bios_inventory.py           deterministic BIOS/IOP trace summaries
+├── save_format.py              grounded BWJ/save-prefix parser
 ├── asset_byte_compare.py      strict native/ISO chunk comparator
 ├── load_timing.py             strict symmetric timing comparison policy
 └── raw_sector.py              streaming raw-sector converter
@@ -86,6 +88,7 @@ tools/                         project automation and control clients
 ├── compare_native_asset_bytes.py  byte differential and OTHER-answer control
 ├── compare_native_load_timing.py  alternating timing differential and controls
 ├── analyze_bios_traces.py       captured BIOS/IOP inventory report
+├── analyze_save_records.py      extracted game-save record report
 ├── raw2352.py                 disc-sector conversion
 └── ghidra_scripts/            maintainer-only RE extraction
 thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner

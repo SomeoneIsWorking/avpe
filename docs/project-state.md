@@ -249,20 +249,22 @@ StarCraft-informed PC RTS control scheme.
 Observed subset: the `CProfile` create/load/save/delete/list boundary, card
 namespace, multi-stage profile provisioning, 0x118-byte outer record, live
 `SetGameData` pointer/size/revision/slot-count contract, profile payload
-placement, and compressed game-object stream are grounded from the executable
-and a BIOS-backed paused state. The isolated control runner can now work on a
-copied formatted card and report byte-level changes without exposing a window
-or mutating the source.
+placement, BWJ mode/word-token decoding, and the fixed game-save stream prefix
+are grounded from the executable and a BIOS-backed paused state. The isolated
+control runner can now work on a copied formatted card and report byte-level
+changes without exposing a window or mutating the source.
 
-Gap: map unknown record fields and the decompressed gameplay meaning of at
-least two deliberately differing profiles and two game saves, observe a load
-of a produced save, and implement the native interception. Two normal Save
-Game menu runs now produced separate slot-0 and slot-1 records with different
-serialized bodies on isolated card copies. A direct diagnostic call is not a
-substitute because it exceeded the shuttle budget while driving synchronous
-card services. The exact high-level interception mechanism is still narrowed
-to the `CProfile` operation boundary and its `CShell`/save-menu callers, but
-remains unproven in a native implementation.
+Gap: map unknown record fields and the decompressed object/class and gameplay
+meaning of at least two deliberately differing profiles and two game saves,
+observe a load of a produced save, and implement the native interception. Two
+normal Save Game menu runs now produced separate slot-0 and slot-1 records with
+different serialized bodies on isolated card copies. The BWJ decoder reaches
+the fixed prefix and the same opaque marker structure in both records, but does
+not decode object fields. A direct diagnostic call is not a substitute because
+it exceeded the shuttle budget while driving synchronous card services. The
+exact high-level interception mechanism is still narrowed to the `CProfile`
+operation boundary and its `CShell`/save-menu callers, but remains unproven in
+a native implementation.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.

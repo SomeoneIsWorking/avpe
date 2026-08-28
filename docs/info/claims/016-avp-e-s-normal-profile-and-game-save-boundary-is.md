@@ -42,3 +42,15 @@ final two-slot copy hashes to
 This re-confirms the title-owned normal save path and state-dependent body,
 but does not claim decompressed gameplay semantics, load round-trip, or native
 save interception.
+
+## Re-confirmed 2026-08-29 — BWJ wire structure
+
+Ghidra decompilation of `CBWJCompressor` and `GObject::SaveAll` now has a
+tracked Python parser/test seam for the evidence. It decodes both retained
+records with mode
+`0x07FF`, shift `5`, and length mask `0x1F`; both expose the expected level
+prefix, equal repeated game-time values, 8 KiB handle bitmap, and object-stream
+offset `0x2028`. Slot 0 and slot 1 decode to 640,724 and 640,836 bytes with
+identical marker totals (190 `0x7FEA419D` occurrences and 2,335
+`0xBADF00DE` occurrences). This grounds the wire structure only; class IDs,
+field semantics, produced-save load, and native interception remain open.
