@@ -31,6 +31,14 @@ surface ownership.
   `--probe-native-cdvd-state-recovery`. They use clean boot, a copied card,
   shipping `/state/save` and `/state/load`, and ignored state/proof artifacts
   under `scratch/control-test/`; they never reuse `--statefile` input.
+- `--use-native-assets` admits the validated native store without selecting a
+  probe, leaving the control process alive for the requested timebox so a
+  maintainer can exercise new clean-boot routes through `tools/avpe_http.py`.
+- `--probe-native-marine-m1-transition` waits for the clean-boot native stream
+  boundary, stages `M01/background.tbd` through `CShell::SetNextLevel`, and
+  proves the real M1 world endpoint without an input savestate or pad
+  injection. `tools/compare_native_load_timing.py --target mission` composes
+  that route with the exact `ShellLoadLevel` timing sample.
 - Each run reserves an available loopback port and generates a nonce. Success
   requires the child to echo that nonce plus its actual `control-test`,
   `surfaceless`, and `null-muted` runtime state, target serial, and CRC.

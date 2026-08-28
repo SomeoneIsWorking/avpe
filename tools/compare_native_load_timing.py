@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run and compare isolated optical/native AVP:E startup timing samples."""
+"""Run and compare isolated optical/native AVP:E load-timing samples."""
 
 import argparse
 import copy
@@ -9,7 +9,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from avpe.load_timing import compare_load_timing_samples, validate_load_timing_sample
+from avpe.load_timing import (
+    compare_load_timing_samples,
+    compare_mission_load_timing_samples,
+    validate_load_timing_sample,
+    validate_mission_load_timing_sample,
+)
+from avpe.native_mission_probe import validate_marine_m1_evidence
 from avpe.pcsx2_config import timing_config_identity
 
 
@@ -17,6 +23,9 @@ ROOT = Path(__file__).resolve().parent.parent
 RUNNER = ROOT / "tools" / "run_control_test.py"
 DEFAULT_CARD = ROOT / "scratch" / "control-test" / "source-card.ps2"
 DEFAULT_OUTPUT_DIR = ROOT / "scratch" / "control-test" / "load-timing"
+DEFAULT_MISSION_OUTPUT_DIR = (
+    ROOT / "scratch" / "control-test" / "mission-load-timing"
+)
 PCSX2 = ROOT / "scratch" / "build" / "bin" / "pcsx2-qt"
 PCSX2_INI = ROOT / "scratch" / "control-test" / "pcsx2-home" / "PCSX2" / "inis" / "PCSX2.ini"
 NATIVE_MANIFEST = ROOT / "scratch" / "native-assets" / "avpe-native-assets-v1" / "manifest.json"
@@ -49,7 +58,10 @@ def load_json(path: Path) -> dict[str, object]:
     return value
 
 
-def validate_run_envelope(sample: dict[str, object]) -> list[str]:
+def validate_run_envelope(
+    sample: dict[str, object],
+    target: str,
+) -> list[str]:
     errors: list[str] = []
     status = sample.get("control_status")
     if not isinstance(status, dict) or any((
@@ -67,23 +79,49 @@ def validate_run_envelope(sample: dict[str, object]) -> list[str]:
         errors.append("isolated memory-card bytes were not preserved")
     if sample.get("byte_trace_disabled") is not True:
         errors.append("asset byte tracing was enabled during timing")
+    if target == "mission":
+        mode = sample.get("mode")
+        transition = sample.get("mission_transition_proof")
+        if not isinstance(transition, dict) or mode not in ("oracle", "native"):
+            errors.append("mission transition proof is missing or has no valid mode")
+        else:
+            errors.extend(
+                validate_marine_m1_evidence(
+                    transition,
+                    require_native_assets=mode == "native",
+                )
+            )
+        startup_backend = sample.get("startup_backend_timing")
+        try:
+            validate_load_timing_sample(startup_backend, str(mode))
+        except (TypeError, ValueError) as error:
+            errors.append(f"startup backend identity is invalid: {error}")
     return errors
 
 
 def ordinal_negative_control(
     oracle: list[dict[str, object]], native: list[dict[str, object]],
+    *,
+    target: str = "startup",
 ) -> dict[str, object]:
     changed = copy.deepcopy(native)
     end = changed[0]["end"]
     assert isinstance(end, dict) and isinstance(end.get("ordinal"), int)
     end["ordinal"] += 1
-    result = compare_load_timing_samples(oracle, changed)
+    compare = (
+        compare_mission_load_timing_samples
+        if target == "mission"
+        else compare_load_timing_samples
+    )
+    result = compare(oracle, changed)
     rejected = any(error.get("code") == "boundary_ordinal_drift" for error in result["errors"])
     return {"verified_rejection": not result["verified"] and rejected, "result": result}
 
 
 def reduction_negative_control(
     oracle: list[dict[str, object]], native: list[dict[str, object]],
+    *,
+    target: str = "startup",
 ) -> dict[str, object]:
     changed = copy.deepcopy(native)
     for oracle_sample, native_sample in zip(oracle, changed, strict=True):
@@ -96,7 +134,12 @@ def reduction_negative_control(
         value = oracle_delta["ee_cycles"]
         native_delta["ee_cycles"] = value
         native_end["ee_cycle"] = native_start["ee_cycle"] + value
-    result = compare_load_timing_samples(oracle, changed)
+    compare = (
+        compare_mission_load_timing_samples
+        if target == "mission"
+        else compare_load_timing_samples
+    )
+    result = compare(oracle, changed)
     rejected = any(
         error.get("code") == "no_measured_reduction" and error.get("metric") == "ee_cycles"
         for error in result["errors"]
@@ -108,8 +151,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--samples", type=int, default=3)
     parser.add_argument("--seconds", type=float, default=210.0)
+    parser.add_argument(
+        "--target", choices=("startup", "mission"), default="startup"
+    )
     parser.add_argument("--memory-card-source", type=Path, default=DEFAULT_CARD)
-    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
     if args.samples < 3:
         parser.error("--samples must be at least 3")
@@ -130,22 +176,30 @@ def main() -> int:
         print(f"FATAL built control-test binary is missing: {PCSX2}", file=sys.stderr)
         return 2
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = args.output_dir or (
+        DEFAULT_MISSION_OUTPUT_DIR if args.target == "mission" else DEFAULT_OUTPUT_DIR
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
     binary_sha256 = sha256_file(PCSX2)
     samples: dict[str, list[dict[str, object]]] = {"oracle": [], "native": []}
     run_records: list[dict[str, object]] = []
     for pair in range(1, args.samples + 1):
         for mode in ("oracle", "native"):
-            output = args.output_dir / f"pair-{pair:02d}-{mode}.json"
+            output = output_dir / f"pair-{pair:02d}-{mode}.json"
             command = [
                 sys.executable, str(RUNNER), "--seconds", str(args.seconds),
                 "--memory-card-source", str(args.memory_card_source),
                 "--probe-load-timing", mode, "--load-timing-output", str(output),
             ]
+            if args.target == "mission":
+                command += ["--load-timing-target", "mission"]
             print(f"load-timing pair={pair} mode={mode}", flush=True)
             subprocess.run(command, cwd=ROOT, check=True)
             sample = load_json(output)
-            validate_load_timing_sample(sample, mode)
+            if args.target == "mission":
+                validate_mission_load_timing_sample(sample, mode)
+            else:
+                validate_load_timing_sample(sample, mode)
             samples[mode].append(sample)
             run_records.append({
                 "pair": pair,
@@ -153,13 +207,22 @@ def main() -> int:
                 "output": str(output.relative_to(ROOT)),
                 "binary_sha256": sha256_file(PCSX2),
                 "config_identity": timing_config_identity(PCSX2_INI),
-                "envelope_errors": validate_run_envelope(sample),
+                "envelope_errors": validate_run_envelope(sample, args.target),
             })
 
     manifest = load_json(NATIVE_MANIFEST)
-    comparison = compare_load_timing_samples(samples["oracle"], samples["native"])
-    ordinal_control = ordinal_negative_control(samples["oracle"], samples["native"])
-    reduction_control = reduction_negative_control(samples["oracle"], samples["native"])
+    compare = (
+        compare_mission_load_timing_samples
+        if args.target == "mission"
+        else compare_load_timing_samples
+    )
+    comparison = compare(samples["oracle"], samples["native"])
+    ordinal_control = ordinal_negative_control(
+        samples["oracle"], samples["native"], target=args.target
+    )
+    reduction_control = reduction_negative_control(
+        samples["oracle"], samples["native"], target=args.target
+    )
     environment_errors = [
         error
         for record in run_records
@@ -175,7 +238,12 @@ def main() -> int:
         environment_errors.append("repository identity changed between samples")
 
     report = {
-        "schema": "avpe-load-timing-run-v1",
+        "schema": (
+            "avpe-mission-load-timing-run-v1"
+            if args.target == "mission"
+            else "avpe-load-timing-run-v1"
+        ),
+        "target": args.target,
         "verified": bool(
             comparison["verified"]
             and ordinal_control["verified_rejection"]
@@ -198,7 +266,11 @@ def main() -> int:
             "no_reduction": reduction_control,
         },
     }
-    output = args.output_dir / "asset-load-timing-comparison.json"
+    output = output_dir / (
+        "mission-load-timing-comparison.json"
+        if args.target == "mission"
+        else "asset-load-timing-comparison.json"
+    )
     output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     if not report["verified"]:
         print(f"FATAL load-timing comparison rejected; see {output}", file=sys.stderr)

@@ -36,6 +36,16 @@ from avpe.native_asset_probe import (
     probe_native_movie_reads,
     probe_native_stream_reads,
 )
+from avpe.menu_probe import (
+    await_deferred_call,
+    menu_action,
+    menu_state,
+    run_deferred_menu_action,
+)
+from avpe.native_mission_probe import (
+    await_mission_load_timing,
+    probe_marine_m1_transition,
+)
 from avpe.native_assets import (
     NativeAssetError,
     manifest_sha256,
@@ -74,23 +84,6 @@ def mouse_button(
 ) -> tuple[int, dict[str, object] | None, str]:
     return request_json(
         port, "POST", "/input/mouse-button", {"button": button, "edge": edge})
-
-
-def menu_action(
-    port: int,
-    action: str,
-) -> tuple[int, dict[str, object] | None, str]:
-    return request_json(port, "POST", "/input/menu-action", {"action": action})
-
-
-def menu_state(port: int) -> tuple[int, dict[str, object] | None, str]:
-    status, body = request_bytes(port, "GET", "/input/menu")
-    detail = body.decode(errors="replace").strip()
-    try:
-        parsed = json.loads(body)
-    except json.JSONDecodeError:
-        return status, None, detail
-    return status, parsed if isinstance(parsed, dict) else None, detail
 
 
 def menu_pointer_state(port: int) -> tuple[int, dict[str, object] | None, str]:
@@ -315,50 +308,6 @@ def menu_snapshot(port: int, name: str) -> str:
         raise RuntimeError(f"menu snapshot {name} returned HTTP {status}")
     (LOG_DIR.parent / name).write_bytes(bmp)
     return hashlib.sha256(bmp).hexdigest()
-
-
-def await_deferred_call(
-    port: int,
-    deadline: float,
-    call_id: int,
-    description: str,
-) -> dict[str, object]:
-    completion: dict[str, object] | None = None
-    while time.monotonic() < deadline:
-        deferred_status, deferred_body = request_bytes(port, "GET", "/ee/deferred")
-        if deferred_status != 200:
-            raise RuntimeError(f"deferred status returned HTTP {deferred_status}")
-        candidate = json.loads(deferred_body)
-        if not isinstance(candidate, dict) or int(candidate.get("id", 0)) != call_id:
-            raise RuntimeError(f"deferred status did not identify call {call_id}: {candidate}")
-        if candidate.get("state") in ("completed", "failed"):
-            completion = candidate
-            break
-        time.sleep(0.05)
-    if completion is None or completion.get("state") != "completed" \
-            or completion.get("succeeded") is not True \
-            or completion.get("stack_restored") is not True \
-            or completion.get("staging_address") == "0x00000000":
-        raise RuntimeError(
-            f"deferred {description} did not complete safely: {completion}")
-    return completion
-
-
-def run_deferred_menu_action(
-    port: int,
-    deadline: float,
-    action: str,
-) -> tuple[dict[str, object], dict[str, object]]:
-    status, response, detail = menu_action(port, action)
-    if status != 202 or response is None \
-            or response.get("deferred") is not True \
-            or int(response.get("deferred_call_id", 0)) <= 0:
-        raise RuntimeError(
-            f"native menu {action} was not queued through deferred execution: "
-            f"HTTP {status}: {detail}")
-    call_id = int(response["deferred_call_id"])
-    completion = await_deferred_call(port, deadline, call_id, f"menu {action}")
-    return response, completion
 
 
 def move_menu_pointer(
@@ -632,6 +581,11 @@ def main() -> int:
         type=Path,
         help="copy a formatted PS2 card into the isolated profile and report byte changes",
     )
+    parser.add_argument(
+        "--use-native-assets",
+        action="store_true",
+        help="provision and admit the native asset store for an otherwise manual control run",
+    )
     parser.add_argument("--probe-native-pointer", action="store_true",
                         help="prove two native cursor positions; requires --statefile")
     parser.add_argument("--probe-native-mouse", action="store_true",
@@ -652,6 +606,11 @@ def main() -> int:
                         help="prove a complete native EALOGO.PSS lifecycle; requires a clean boot and --memory-card-source")
     parser.add_argument("--probe-native-stream-reads", action="store_true",
                         help="prove native STREAMS sector reads; requires a clean boot and --memory-card-source")
+    parser.add_argument(
+        "--probe-native-marine-m1-transition",
+        action="store_true",
+        help="prove the clean-boot SetNextLevel-to-M1 native loader path; requires --memory-card-source",
+    )
     parser.add_argument("--probe-native-ioman-state-recovery", action="store_true",
                         help="prove a live native descriptor survives save/load; requires a clean boot and --memory-card-source")
     parser.add_argument("--probe-native-cdvd-state-recovery", action="store_true",
@@ -662,6 +621,12 @@ def main() -> int:
                         help="write --probe-asset-byte-trace JSON to this scratch path")
     parser.add_argument("--probe-load-timing", choices=("oracle", "native"),
                         help="capture the grounded startup load interval from a clean boot")
+    parser.add_argument(
+        "--load-timing-target",
+        choices=("startup", "mission"),
+        default="startup",
+        help="select the startup or exact Marine M1 ShellLoadLevel timing boundary",
+    )
     parser.add_argument("--load-timing-output", type=Path,
                         help="write --probe-load-timing JSON to this scratch path")
     parser.add_argument("--http-port", type=int, default=0,
@@ -691,6 +656,7 @@ def main() -> int:
         args.probe_native_asset_cache,
         args.probe_native_movie_reads,
         args.probe_native_stream_reads,
+        args.probe_native_marine_m1_transition,
         args.probe_native_ioman_state_recovery,
         args.probe_native_cdvd_state_recovery,
     ))
@@ -704,6 +670,16 @@ def main() -> int:
         parser.error("--probe-native-stream-reads requires a clean boot without --statefile")
     if args.probe_native_stream_reads and args.memory_card_source is None:
         parser.error("--probe-native-stream-reads requires --memory-card-source until native saves replace the card path")
+    if args.probe_native_marine_m1_transition and args.statefile is not None:
+        parser.error(
+            "--probe-native-marine-m1-transition requires a clean boot without --statefile"
+        )
+    if args.probe_native_marine_m1_transition and args.memory_card_source is None:
+        parser.error(
+            "--probe-native-marine-m1-transition requires --memory-card-source until native saves replace the card path"
+        )
+    if args.probe_native_marine_m1_transition and args.probe_asset_byte_trace:
+        parser.error("--probe-native-marine-m1-transition must run without asset byte tracing")
     native_recovery_requested = (
         args.probe_native_ioman_state_recovery
         or args.probe_native_cdvd_state_recovery
@@ -724,6 +700,8 @@ def main() -> int:
         parser.error("--probe-load-timing requires --memory-card-source until native saves replace the card path")
     if args.load_timing_output is not None and not args.probe_load_timing:
         parser.error("--load-timing-output requires --probe-load-timing")
+    if args.load_timing_target != "startup" and not args.probe_load_timing:
+        parser.error("--load-timing-target requires --probe-load-timing")
     if args.probe_load_timing and (native_asset_probe_count or args.probe_asset_byte_trace):
         parser.error("--probe-load-timing must run without other asset probes or byte tracing")
     probe_requested = (
@@ -733,6 +711,7 @@ def main() -> int:
         or args.probe_native_asset_cache
         or args.probe_native_movie_reads
         or args.probe_native_stream_reads
+        or args.probe_native_marine_m1_transition
         or native_recovery_requested
         or args.probe_asset_byte_trace
         or args.probe_load_timing
@@ -754,9 +733,12 @@ def main() -> int:
 
     native_asset_root: Path | None = None
     native_asset_manifest_sha256: str | None = None
-    if (args.probe_native_asset_reads or args.probe_native_asset_cache
+    if (args.use_native_assets or args.probe_native_asset_reads
+            or args.probe_native_asset_cache
             or args.probe_native_movie_reads
-            or args.probe_native_stream_reads or native_recovery_requested
+            or args.probe_native_stream_reads
+            or args.probe_native_marine_m1_transition
+            or native_recovery_requested
             or args.probe_asset_byte_trace
             or args.probe_load_timing == "native"):
         try:
@@ -796,6 +778,11 @@ def main() -> int:
         native_asset_manifest_sha256=native_asset_manifest_sha256,
         asset_byte_trace_mode=args.probe_asset_byte_trace,
         asset_load_timing_mode=args.probe_load_timing,
+        asset_load_timing_target=(
+            args.load_timing_target
+            if args.probe_load_timing and args.load_timing_target != "startup"
+            else None
+        ),
     )
     stdout = (LOG_DIR / "stdout.log").open("wb")
     try:
@@ -824,6 +811,7 @@ def main() -> int:
     native_asset_cache_proof: dict[str, object] | None = None
     native_movie_reads_proof: dict[str, object] | None = None
     native_stream_reads_proof: dict[str, object] | None = None
+    native_marine_m1_proof: dict[str, object] | None = None
     native_asset_recovery_proof: dict[str, object] | None = None
     asset_byte_trace: dict[str, object] | None = None
     load_timing: dict[str, object] | None = None
@@ -865,6 +853,21 @@ def main() -> int:
                         )
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
+                if args.probe_native_marine_m1_transition:
+                    try:
+                        await_native_stream_reads(
+                            port,
+                            deadline,
+                            "native MENU01 readiness before the M1 transition",
+                        )
+                        native_marine_m1_proof = probe_marine_m1_transition(
+                            port,
+                            deadline,
+                            LOG_DIR.parent,
+                            require_native_assets=True,
+                        )
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
                 if args.probe_native_ioman_state_recovery:
                     try:
                         native_asset_recovery_proof = (
@@ -898,7 +901,29 @@ def main() -> int:
                         probe_error = str(error)
                 if args.probe_load_timing and probe_error is None:
                     try:
-                        load_timing = await_load_timing(port, deadline, args.probe_load_timing)
+                        if args.load_timing_target == "mission":
+                            startup_backend_timing = await_load_timing(
+                                port, deadline, args.probe_load_timing
+                            )
+                            transition = probe_marine_m1_transition(
+                                port,
+                                deadline,
+                                LOG_DIR.parent,
+                                require_native_assets=(
+                                    args.probe_load_timing == "native"
+                                ),
+                            )
+                            load_timing = await_mission_load_timing(
+                                port, deadline, args.probe_load_timing
+                            )
+                            load_timing["mission_transition_proof"] = transition
+                            load_timing["startup_backend_timing"] = (
+                                startup_backend_timing
+                            )
+                        else:
+                            load_timing = await_load_timing(
+                                port, deadline, args.probe_load_timing
+                            )
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_pointer and probe_error is None:
@@ -1010,6 +1035,19 @@ def main() -> int:
             "control-test native-stream-reads proof="
             f"{json.dumps(native_stream_reads_proof, sort_keys=True)}",
             flush=True)
+    if args.probe_native_marine_m1_transition:
+        if native_marine_m1_proof is None:
+            detail = probe_error or "probe did not run"
+            print(
+                f"FATAL native Marine M1 transition probe failed: {detail}; see {LOG_DIR}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            "control-test native-marine-m1-transition proof="
+            f"{json.dumps(native_marine_m1_proof, sort_keys=True)}",
+            flush=True,
+        )
     if native_recovery_requested:
         if native_asset_recovery_proof is None:
             detail = probe_error or "probe did not run"

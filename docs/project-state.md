@@ -12,12 +12,13 @@ means the capability is absent.
 
 ## Current focus
 
-**S024 — loading behavior and performance.** Representative native deliveries
-match the ISO oracle byte-for-byte, and the grounded startup interval now has a
-repeatable native-versus-optical timing differential. Work is proving failure
-equivalence and explicit cold/warm state, exercising native I/O
-recovery across guest reset and save-state load, and grounding a representative
-mission transition. Current focus is attention, not a separate state.
+**S024 — loading behavior and performance.** Native startup bytes, admission,
+bounded caching, timing reduction, stream-completion ownership, and live
+save-state recovery are verified. A clean-boot grounded shell path now names M1
+as the representative mission-transition target; current work is automating it,
+capturing exact `CShell::ShellLoadLevel` entry/return boundaries, and proving
+that its supported asset operations complete through host storage/cache without
+optical waits. Current focus is attention, not a separate state.
 
 ## Capability inventory
 
@@ -457,15 +458,23 @@ post-load Running/surfaceless/null-muted status and valid bounded-cache
 snapshots with zero transient host handles; the CDVD leg exercised the exact
 512-page/32 MiB resident bound and eviction path.
 
-Gap: prove native and oracle missing, short-read, and injected-error results and
-buffer effects; exercise explicit cold/warm cache protocols and live guest
-reset; and ground a representative mission transition. Failures must never
-silently fall back. Evidence: claims C024 and C025, instruments I014
-and I015, [`re/disc-io.md`](re/disc-io.md), ignored timing artifact
+The clean-boot M1 transition trigger is now verified: after native
+`MENU01.ZIV` readiness, `SetNextLevel` staged/restored the exact
+`M01/background.tbd` path and the real loader populated `pThe GAvPWorld`; the
+native leg advanced TBF reads with zero original fallback and retained the
+bounded cache. Gap: capture exact `CShell::ShellLoadLevel` entry and return
+boundaries; demonstrate zero original fallthrough and zero emulated optical
+wait for supported operations inside that interval; and run three alternating
+clean oracle/native mission-timing pairs. Live guest reset and title-observed
+failure tracing remain separate hardening in issues #15 and #16; neither
+substitutes for this timing proof. Evidence: claims C024 through C028,
+instruments I014 through I018,
+[`re/disc-io.md`](re/disc-io.md), ignored timing artifact
 `scratch/control-test/load-timing/asset-load-timing-comparison.json`, and ignored
-cache artifact `scratch/control-test/native-asset-cache-proof.json`, claims C026
-through C028, and instruments I016 through I018. Atomic work: issue #12; resolved issues
-#13 and #14 record the native CDVD completion and live state-recovery seams.
+cache artifact `scratch/control-test/native-asset-cache-proof.json`, and ignored
+transition artifact `scratch/control-test/native-marine-m1-transition-proof.json`.
+Atomic work: issue #12; resolved issues #13 and #14 record the native CDVD
+completion and live state-recovery seams.
 
 ### S025 — required firmware service inventory: missing
 
