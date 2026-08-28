@@ -21,6 +21,7 @@ REPEATED_GAME_TIME_OFFSET = HANDLE_BITMAP_OFFSET + HANDLE_BITMAP_SIZE
 OBJECT_STREAM_OFFSET = REPEATED_GAME_TIME_OFFSET + 4
 OBJECT_TOP_LEVEL_OR_END_MARKER = 0x7FEA419D
 OBJECT_NESTED_OR_END_MARKER = 0xBADF00DE
+OBJECT_HEADER_SIZE = 0x10
 DEFAULT_MAX_DECOMPRESSED_BYTES = GAME_SAVE_SLOT_SIZE * 64
 
 
@@ -152,12 +153,35 @@ def _parse_game_save_stream(data: bytes) -> dict[str, Any]:
         "top_level_or_end": 0,
         "nested_or_end": 0,
     }
+    class_id_counts: dict[int, int] = {}
+    object_summary = {
+        "header_size": OBJECT_HEADER_SIZE,
+        "top_level_starts": 0,
+        "top_level_terminators": 0,
+        "nested_starts": 0,
+        "nested_terminators": 0,
+        "class_id_counts": class_id_counts,
+        "max_depth": 0,
+        "active_objects": 0,
+        "structure_balanced": False,
+    }
     for offset in range(0, len(object_words) - 3, 4):
         marker = struct.unpack_from("<I", object_words, offset)[0]
         if marker == OBJECT_TOP_LEVEL_OR_END_MARKER:
             marker_counts["top_level_or_end"] += 1
+            _observe_object_marker(object_words, offset, marker, object_summary)
         elif marker == OBJECT_NESTED_OR_END_MARKER:
             marker_counts["nested_or_end"] += 1
+            _observe_object_marker(object_words, offset, marker, object_summary)
+
+    object_summary["structure_balanced"] = (
+        object_summary["active_objects"] == 0
+        and object_summary["top_level_terminators"] == 1
+        and object_summary["nested_terminators"]
+        == object_summary["top_level_starts"] + object_summary["nested_starts"]
+    )
+    if not object_summary["structure_balanced"]:
+        raise ValueError("game-save object stream is unbalanced")
 
     return {
         "level": level,
@@ -174,7 +198,40 @@ def _parse_game_save_stream(data: bytes) -> dict[str, Any]:
         ),
         "object_stream_offset": OBJECT_STREAM_OFFSET,
         "object_marker_counts": marker_counts,
+        "object_stream_summary": object_summary,
     }
+
+
+def _observe_object_marker(
+    data: memoryview,
+    offset: int,
+    marker: int,
+    summary: dict[str, Any],
+) -> None:
+    if offset + OBJECT_HEADER_SIZE > len(data):
+        raise ValueError("game-save object header is truncated")
+    words = struct.unpack_from("<4I", data, offset)
+    if words[1:] == (0, 0, 0):
+        if marker == OBJECT_TOP_LEVEL_OR_END_MARKER:
+            summary["top_level_terminators"] += 1
+            if summary["active_objects"] != 0:
+                raise ValueError("game-save object stream terminates inside an object")
+        else:
+            summary["nested_terminators"] += 1
+            if summary["active_objects"] == 0:
+                raise ValueError("game-save object stream closes an empty object stack")
+            summary["active_objects"] -= 1
+        return
+
+    if marker == OBJECT_TOP_LEVEL_OR_END_MARKER:
+        summary["top_level_starts"] += 1
+    else:
+        summary["nested_starts"] += 1
+    class_id = words[1]
+    class_id_counts = summary["class_id_counts"]
+    class_id_counts[class_id] = class_id_counts.get(class_id, 0) + 1
+    summary["active_objects"] += 1
+    summary["max_depth"] = max(summary["max_depth"], summary["active_objects"])
 
 
 def _read_word(data: bytes, offset: int) -> int:
