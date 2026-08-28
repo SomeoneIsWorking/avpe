@@ -21,15 +21,15 @@ and no corresponding EE-kernel or firmware-service inventory.
 interpreter implementation, including their four argument registers and
 post-dispatch signed `v0` result, EE/IOP exception entry, plus IOP imports,
 loadcore module registration and release, interrupt registration, and SIF RPC
-registration. IOP counter target/overflow paths now record the counter state,
-cycle, and whether the interrupt was delivered. All observations use narrow
-calls at the existing owners, remain observation-only, and are exposed at
+registration. EE and IOP counter target/overflow paths now record the counter
+state, cycle, and whether the interrupt was delivered. All observations use
+narrow calls at the existing owners, remain observation-only, and are exposed at
 `GET /bios/trace` for control-test diagnostics.
 
 ## Remaining work
 
 Capture repeated clean traces across boot, menu, mission, save/load, and
-shutdown. Add separate grounded observation seams for EE timers and interrupt
+shutdown. Add a separate grounded observation seam for remaining interrupt
 delivery, kernel primitives, executable loading, and IOP module loads, then
 capture their service results and negative paths before designing the HLE
 implementation. The EE syscall result boundary now exists but still needs

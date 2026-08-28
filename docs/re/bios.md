@@ -17,8 +17,8 @@ surfaceless control-test mode enables it and exposes its snapshot at
   signed `v0` return status captured after dispatch;
 - EE and IOP exception-entry boundaries with domain, cause code, pre-entry PC,
   and branch-delay state;
-- IOP counter target/overflow events with counter index, count, target, IOP
-  cycle, and whether the interrupt was delivered;
+- EE and IOP counter target/overflow events with domain, counter index, count,
+  target, cycle, and whether the interrupt was delivered;
 - `RegisterLibraryEntries` and `ReleaseLibraryEntries` module name/version;
 - `RegisterIntrHandler` interrupt number, symbolic name, and handler address;
 - `sceSifRegisterRpc` RPC ID.

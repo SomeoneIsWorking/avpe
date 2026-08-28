@@ -514,8 +514,8 @@ normalized number, BIOS name, four argument registers, and signed post-
 dispatch `v0` return status, plus loadcore module registration/release,
 intrman interrupt registration, and sifcmd RPC registration. EE and IOP
 exception-entry boundaries also record the domain, cause code, pre-entry PC,
-and branch-delay state without changing dispatch or fallback behavior. IOP
-counter target/overflow paths also record counter state, cycle, and whether
+and branch-delay state without changing dispatch or fallback behavior. EE and
+IOP counter target/overflow paths also record counter state, cycle, and whether
 the interrupt was delivered. The isolated C++ tests prove disabled capture,
 ordering/return-status fields, exception/timer fields, and the exact
 capacity/overflow behavior.
