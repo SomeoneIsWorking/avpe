@@ -113,6 +113,27 @@ The diagnostic EE-call shuttle is not a valid save trigger: calling
 drives the title's memory-card service and must be observed through the normal
 game save path before its completion boundary can be used by a native bridge.
 
+## Normal game save callers
+
+The analyzed callers identify the title-owned path that must be exercised for
+runtime evidence. `GSavePacifyMenu::Process` at `0x00202F40` sets the active
+profile target, optionally creates the profile, and calls the `CShell` forwarder
+with a save name at menu-object offset `0x2C0`, a description at offset
+`0x1B0`, slot `0`, and the current species. `CShell::SaveGame` at
+`0x0016FAE0` forwards those arguments to `CProfile::SaveGame`; on success the
+menu waits three seconds using the title's game timer before returning to its
+parent menu. `GOverwritePacifyMenu::Process` at `0x00202640` follows the same
+save call after removing existing slots, while
+`GEndGameSaveProfileMenu::Process` at `0x002092C0` saves the profile after its
+profile-name and identity checks.
+
+This gives the native bridge a narrow high-level seam: preserve the
+`CProfile` operation's arguments and zero/nonzero result, while keeping the
+menu-owned success/error transitions and the original routines available for
+differential comparison. The `/ee/call` diagnostic endpoint cannot faithfully
+invoke the five-argument `CProfile::SaveGame` ABI because it only stages
+`a0..a3`; normal menu execution is therefore required for game-save captures.
+
 ## Evidence needed next
 
 - Produce at least two isolated profile records whose settings differ and two
