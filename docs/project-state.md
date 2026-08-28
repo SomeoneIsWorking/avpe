@@ -258,7 +258,9 @@ Gap: map unknown record fields and compressed data from at least two deliberatel
 differing profiles and two game saves, and observe a normal in-game save
 completion. A direct diagnostic call is not a substitute because it exceeded
 the shuttle budget while driving synchronous card services. The exact
-high-level interception mechanism remains unproven.
+high-level interception mechanism is now narrowed to the `CProfile` operation
+boundary and its `CShell`/save-menu callers, but remains unproven in a native
+implementation.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.

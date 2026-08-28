@@ -45,4 +45,11 @@ recovered by loading the known state. This is evidence that the save routine
 must be exercised through its normal game path; it is not evidence that the
 card write itself failed.
 
+Targeted caller analysis identified the normal save path through
+`GSavePacifyMenu::Process` (`0x00202F40`) and the overwrite/end-game variants
+at `0x00202640` and `0x002092C0`. The save menu supplies the save name,
+description, slot, and species to the `CShell` forwarder, so a direct four-
+register diagnostic call cannot reproduce the `CProfile::SaveGame` ABI. The
+remaining runtime work is to reach that menu path and capture its card output.
+
 ## Resolution
