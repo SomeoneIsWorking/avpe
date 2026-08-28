@@ -200,6 +200,28 @@ records, counts class IDs, tracks maximum nesting depth, and rejects truncated
 headers or an unbalanced object stack. It does not decode the subsequent
 editable field records or assign gameplay meaning to class IDs.
 
+### Finding (2026-08-29, object field serialization contract)
+
+The same `GObject::Save` decompilation shows that an object body is not a
+self-describing sequence of `(field id, length, value)` records. After the
+16-byte object header and recursively serialized children, the saver walks the
+class descriptor table at the object's type entry (`type + 0x1c`). Each
+descriptor supplies a field offset, serialized size, and field kind. Kinds
+`1`–`5` and `8` write the field bytes directly, using at least four bytes for
+short fields. Kind `6` writes an eight-byte pointer-field description followed
+by a four-byte referenced-object identity; kind `7` writes the same
+description followed by a serialized pointer identity; kind `9` writes an
+array description and one pointer identity per element, rejecting an array
+whose identities do not resolve to the same saved-object index. The loader
+uses the same descriptor table to consume these bodies and resolves class IDs
+through `FindClassTypeEntry` before loading fields.
+
+This grounds the missing parser dependency: class IDs alone are insufficient
+to split or interpret editable fields. A native save writer must first extract
+the supported class descriptor layouts and pointer-identity rules, then prove
+them against deliberately differing real saves. Treating the opaque body as a
+generic tagged record would accept bytes the game loader cannot consume.
+
 Running `tools/analyze_save_records.py` through the parser logic on the two
 retained raw-card records produced these observations:
 
@@ -229,6 +251,9 @@ original game loads either produced record.
 - Decode the editable field records, including a case that must be rejected,
   to resolve unknown fields and checksums. Object-header structure and
   truncated-header rejection are now covered by the production parser.
+- Extract the class descriptor tables used by the 67 observed class IDs so
+  scalar, pointer, and pointer-array field bodies can be split according to
+  the game's loader rather than guessed from payload differences.
 - Capture a normal in-game save completion and identify the narrow guest-call
   interception mechanism that can route the five `CProfile` operations to
   `AVPE::NativeSaves` while keeping the original game routines available as
