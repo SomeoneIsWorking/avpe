@@ -16,6 +16,7 @@ normal save operations. Its direct boundary is compact and title-specific:
 | `0x0012FAA0` | `CProfile::LoadProfile(int)` | Read the selected profile's 0x118-byte record, validate revision and payload size, then read the profile payload. |
 | `0x0012FCE0` | `CProfile::SaveProfile()` | Write the 0x118-byte record followed by the fixed-size profile payload. |
 | `0x0012FF90` | `CProfile::CreateProfile(char const*)` | Create the profile definition and directory, save the profile record, then provision the auxiliary files. |
+| `0x0012F940` | `CProfile::SetGameData(void*, int, uint, uint)` | Store the profile-payload pointer, payload size, game-data revision, and save-slot count in the `CProfile` instance. |
 | `0x00130000` | `CProfile::LoadGame(int)` | Read a save record, attach the decompressor, load the level named in the next 0x20 bytes, then deserialize all game objects. |
 | `0x00130170` | `CProfile::SaveGame(...)` | Save the profile, write a save record and 0x20-byte level name, compress all game objects, pad the slot, then rewrite the finalized record. |
 | `0x001304A0` | `CProfile::BuildProfileList()` | Enumerate `BASLUS-20147*` directories and validate their outer records. |
@@ -96,16 +97,32 @@ This grounds one live profile payload and confirms the record's profile-name
 CRC and fixed payload size. It does not resolve the unknown field at `0x104`,
 the timestamp/ID semantics, or any game-save payload.
 
+## Live `CProfile` data contract
+
+A BIOS-backed pause-menu state provided a second, independent observation of
+the in-memory owner. The singleton slot `0x0036703C` contained the
+`CProfile*` value `0x003B2620`. Its `+0x18` data pointer was `0x003D6A40`,
+`+0x1C` was `0x20`, `+0x20` was `0x1CD9DEE3`, and `+0x24` was `4`. Reading
+`0x003D6A40..0x003D6A5F` produced the same 0x20-byte payload recorded above.
+This confirms the runtime `SetGameData` contract and that the fixed payload is
+game-owned memory, not a card-only reconstruction.
+
+The diagnostic EE-call shuttle is not a valid save trigger: calling
+`CProfile::SaveProfile` directly from the pause-menu state exceeded its
+3,000,000-cycle budget and required a state reload. The routine synchronously
+drives the title's memory-card service and must be observed through the normal
+game save path before its completion boundary can be used by a native bridge.
+
 ## Evidence needed next
 
-- Capture the live `SetGameData` pointer, size, revision, and default payload.
 - Produce at least two isolated profile records whose settings differ and two
   isolated game saves whose progress differs.
 - Compare the records and decompressed streams, including a case that must be
   rejected, to resolve unknown fields and checksums.
-- Identify the narrow guest-call interception mechanism that can route the five
-  `CProfile` operations to `AVPE::NativeSaves` while keeping the original game
-  routines available as the differential oracle.
+- Capture a normal in-game save completion and identify the narrow guest-call
+  interception mechanism that can route the five `CProfile` operations to
+  `AVPE::NativeSaves` while keeping the original game routines available as
+  the differential oracle.
 
 `tools/run_control_test.py --memory-card-source CARD.ps2` copies a formatted
 card into the surfaceless/null-muted test profile, never opens the source for

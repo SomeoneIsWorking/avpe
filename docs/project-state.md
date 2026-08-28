@@ -247,14 +247,18 @@ StarCraft-informed PC RTS control scheme.
 ### S014 — save boundary and schema: partial
 
 Observed subset: the `CProfile` create/load/save/delete/list boundary, card
-namespace, multi-stage profile provisioning, 0x118-byte outer record, profile
-payload placement, and compressed game-object stream are grounded from the
-executable. The isolated control runner can now work on a copied formatted card
-and report byte-level changes without exposing a window or mutating the source.
+namespace, multi-stage profile provisioning, 0x118-byte outer record, live
+`SetGameData` pointer/size/revision/slot-count contract, profile payload
+placement, and compressed game-object stream are grounded from the executable
+and a BIOS-backed paused state. The isolated control runner can now work on a
+copied formatted card and report byte-level changes without exposing a window
+or mutating the source.
 
-Gap: capture the live profile payload contract and map unknown record fields and
-compressed data from at least two deliberately differing profiles and two game
-saves. The exact high-level interception mechanism also remains unproven.
+Gap: map unknown record fields and compressed data from at least two deliberately
+differing profiles and two game saves, and observe a normal in-game save
+completion. A direct diagnostic call is not a substitute because it exceeded
+the shuttle budget while driving synchronous card services. The exact
+high-level interception mechanism remains unproven.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.
