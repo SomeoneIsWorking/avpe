@@ -176,9 +176,10 @@ def main() -> int:
         print(f"FATAL built control-test binary is missing: {PCSX2}", file=sys.stderr)
         return 2
 
-    output_dir = args.output_dir or (
-        DEFAULT_MISSION_OUTPUT_DIR if args.target == "mission" else DEFAULT_OUTPUT_DIR
-    )
+    output_dir = (
+        args.output_dir
+        or (DEFAULT_MISSION_OUTPUT_DIR if args.target == "mission" else DEFAULT_OUTPUT_DIR)
+    ).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     binary_sha256 = sha256_file(PCSX2)
     samples: dict[str, list[dict[str, object]]] = {"oracle": [], "native": []}
