@@ -522,9 +522,9 @@ completion, live state-recovery, and guest-reset cleanup seams.
 ### S025 — required firmware service inventory: partial
 
 Observed subset: the BIOS-backed IOP import boundary now emits a bounded,
-sequence-ordered diagnostic census containing each dispatched import's module,
-ordinal, resolved name, four input arguments, return value, and HLE/debug
-selection. The same census records shared EE `SYSCALL` dispatches with their
+sequence-ordered diagnostic census containing each recognized HLE/debug
+dispatch's module, ordinal, resolved name, first four input arguments, first
+return value, handler selection, and occurrence count. The same census records shared EE `SYSCALL` dispatches with their
 normalized number, BIOS name, four argument registers, and signed post-
 dispatch `v0` return status, plus loadcore module registration/release,
 intrman interrupt registration, and sifcmd RPC registration. EE and IOP
@@ -552,6 +552,11 @@ syscalls and 5 exceptions). Save-load runs produced 34 and 31 timer events,
 so archive restoration still lacks a guest-owned completion/quiescence
 boundary and is not repeatability evidence.
 
+Two fresh `mission1.p2s` statefile-to-running captures further exposed the
+remaining boundary defect: one had 237 events and its immediate repeat had one
+timer event. Both were bounded valid traces, so the result is a negative
+repeatability control rather than mission-service coverage.
+
 `tools/analyze_bios_traces.py` now turns retained captures into a deterministic
 inventory report using the same strict trace validator as the runner. Across
 two repeated clean boots, one title-real resume, two menu captures, and two
@@ -559,6 +564,15 @@ save-load captures it reports 7 captures and 335 events, with runtime evidence
 for EE syscalls, module registration, EE/IOP exceptions, and EE timers. The
 selected set contains no runtime IOP import, interrupt-registration, or RPC
 events; production-test coverage of those event encodings remains separate.
+
+A fresh Clang-built clean-boot native stream probe also captured the BIOS
+census after the verified `Running` boundary. It retained 1,290 bounded event
+identities with zero overflow, including 11 recognized IOP import identities
+(`ioman.read`, `cdvdman.sceCdRead`, `sceCdSeek`, `sceCdGetError`, and
+`sceCdSearchFile` among them) with occurrence counts. The same run completed
+the native `MENU01.ZIV` proof with two sector reads and two consumed CDVD
+completion records. Unknown import-looking probes remain uncounted and on the
+original oracle path.
 
 Gap: define a guest-owned completion boundary before repeating save/load
 captures, add mission and shutdown phase

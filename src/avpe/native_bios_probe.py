@@ -57,6 +57,9 @@ def bios_trace_is_verified(trace: object) -> bool:
                 or not isinstance(event.get("kind"), str) \
                 or event["kind"] not in BIOS_EVENT_KINDS:
             return False
+        calls = event.get("calls", 1)
+        if isinstance(calls, bool) or not isinstance(calls, int) or calls <= 0:
+            return False
     return True
 
 
@@ -90,6 +93,11 @@ def start_bios_trace(port: int) -> None:
         raise RuntimeError(
             f"BIOS trace start returned HTTP {status}: {body.decode(errors='replace').strip()}"
         )
+
+
+def prepare_bios_trace_for_native_stream(port: int, enabled: bool) -> None:
+    if enabled:
+        start_bios_trace(port)
 
 
 def run_bios_phase(

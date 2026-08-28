@@ -93,7 +93,10 @@ def _summarize_services(events: list[dict[str, Any]], kind: str) -> list[dict[st
             identity,
             {key: value for key, value in _identity_fields(event, kind)},
         )
-        entry["calls"] = entry.get("calls", 0) + 1
+        calls = event.get("calls", 1)
+        if isinstance(calls, bool) or not isinstance(calls, int) or calls <= 0:
+            raise ValueError("BIOS service calls must be a positive integer")
+        entry["calls"] = entry.get("calls", 0) + calls
         if kind == "ee_syscall" or kind == "import":
             entry.setdefault("results", set()).add(_required_int(event, "result"))
         if kind == "module":

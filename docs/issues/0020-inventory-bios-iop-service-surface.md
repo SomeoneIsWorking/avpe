@@ -6,7 +6,7 @@ symptom: The AVP:E-specific BIOS/HLE service surface is not yet inventoried
 state_items: S025,S026,S027,S028
 tags: bios,hle,iop,inventory,re
 created: 2026-08-28
-updated: 2026-08-28
+updated: 2026-08-29
 ---
 
 ## Root cause
@@ -19,12 +19,15 @@ and no corresponding EE-kernel or firmware-service inventory.
 
 `NativeBiosTrace` now records EE `SYSCALL` dispatches through the shared
 interpreter implementation, including their four argument registers and
-post-dispatch signed `v0` result, EE/IOP exception entry, plus IOP imports,
+post-dispatch signed `v0` result, EE/IOP exception entry, plus recognized HLE/
+debug IOP imports,
 loadcore module registration and release, interrupt registration, and SIF RPC
 registration. EE and IOP counter target/overflow paths now record the counter
 state, cycle, and whether the interrupt was delivered. All observations use
 narrow calls at the existing owners, remain observation-only, and are exposed at
-`GET /bios/trace` for control-test diagnostics.
+`GET /bios/trace` for control-test diagnostics. Repeated import, syscall,
+exception, and timer identities are coalesced with occurrence counts; unknown
+import-looking probes remain on the original oracle path.
 
 The surfaceless runner now captures the sink atomically at the verified
 `Running` boundary through `POST /bios/trace/capture`. Three repeated clean
@@ -64,6 +67,37 @@ save-load phases. Their runtime service categories are EE syscalls and module
 registration; IOP import, interrupt-registration, and RPC events are absent
 from these windows even though their encodings remain covered by production
 tests.
+
+The observed EE syscall identities in the retained set are
+`RotateThreadReadyQueue` (#43), `sceSifSetDma_isceSifSetDma` (#119),
+`sceSifSetDChain_isceSifSetDChain` (#120), `iSignalSema` (#67), `RFU005` (#5),
+`DeleteSema` (#65), `CreateSema` (#64), and `WaitSema` (#68). The set includes
+both `RotateThreadReadyQueue` results 0 and 1, plus `DeleteSema` result 11;
+other observed returns are zero except for the dynamic `WaitSema` results.
+This is a service-level observed subset, not the complete syscall inventory.
+
+### Finding (2026-08-29, mission-state repeatability control)
+
+Two fresh `mission1.p2s` statefile-to-running captures were both accepted as
+bounded traces, but the first contained 237 events (2 EE syscalls, 84
+exceptions, and 151 timers) and the immediate repeat contained only one timer
+event. This is negative repeatability evidence: the state-restore callback and
+capture route still do not define a guest-owned completion/quiescence boundary.
+The traces must not be combined into a claimed mission-service inventory.
+
+### Finding (2026-08-29, clean stream import census)
+
+The first recompiler change routed every import-looking `addiu` through the
+interpreter dispatcher and produced 54 million dropped trace events during a
+clean stream probe. Static inspection and live snapshots separated the causes:
+unhandled import-looking probes, then hot EE exception/syscall and timer
+repetition. The final narrow implementation keeps the existing recompiler HLE
+and debug path, admits only recognized HLE/debug imports, and coalesces repeated
+identities in the observation sink. A Clang-built clean-boot native stream
+probe then completed with 11 recognized import identities, including
+`ioman.read` and `cdvdman` read/seek/getError/searchFile, 1,290 retained event
+identities, and zero overflow. The native stream proof also recorded two
+completed `MENU01.ZIV` sector reads.
 
 ## Remaining work
 
