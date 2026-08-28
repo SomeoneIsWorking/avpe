@@ -153,3 +153,17 @@ A 90-second clean boot was still inside `INTRO.PSS`, so issuing
 `STREAMS/MENU01.ZIV` readiness, then stages `M01/background.tbd` through the
 grounded `SetNextLevel` ABI and observes the populated M1 world. The proof is
 recorded in `scratch/control-test/native-marine-m1-transition-proof.json`.
+
+### Finding (2026-08-28)
+Ghidra disassembly of the supported ELF grounds `ShellLoadLevel` at
+`0x0016F910`, its `CTbdFile::Load` call at `0x0016FA44`, and the first
+post-load instruction at `0x0016FA4C`; its return instruction is
+`0x0016FAD4`. `MainLoop` calls it at `0x0016F784` and resumes its loop at
+`0x0016F744`. Fresh mission-timing runs armed these grounded addresses and
+captured the exact `M01/background.tbd` entry, but captured no post-load point
+within 240 seconds on either the optical oracle or native leg; an optical
+oracle run was extended to 600 seconds with the same result. The M1 world
+endpoint still appeared and the clean transition proof remained valid. The
+timing callback seam therefore needs a recompiler execution-boundary fix (or
+a title-grounded completion event), not another guessed guest address. No
+mission timing pair is claimed until that boundary is observed on both legs.

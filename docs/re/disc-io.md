@@ -311,6 +311,15 @@ reduction. Cache bounds have separate evidence below. The clean-boot M1
 transition trigger is separately verified, but its exact ShellLoadLevel timing
 and interval-wide optical exclusion remain S024 work.
 
+The M1 timing boundary is grounded but not yet captured: `ShellLoadLevel` is
+`0x0016F910`, its `CTbdFile::Load` call is `0x0016FA44`, the first post-load
+instruction is `0x0016FA4C`, and its `jr ra` is `0x0016FAD4`. `MainLoop`
+calls it at `0x0016F784` and resumes at `0x0016F744`. Clean runs captured the
+exact `M01/background.tbd` entry but no post-load point within 240 seconds on
+either backend; the optical run was also tested to 600 seconds. The world
+endpoint appears, so this is an execution-boundary instrumentation gap rather
+than a new guest-address assumption.
+
 ## Bounded native cache and lifecycle
 
 Both claimed delivery paths now enter `NativeAssets::Read` with an admitted

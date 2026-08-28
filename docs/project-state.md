@@ -462,7 +462,12 @@ The clean-boot M1 transition trigger is now verified: after native
 `MENU01.ZIV` readiness, `SetNextLevel` staged/restored the exact
 `M01/background.tbd` path and the real loader populated `pThe GAvPWorld`; the
 native leg advanced TBF reads with zero original fallback and retained the
-bounded cache. Gap: capture exact `CShell::ShellLoadLevel` entry and return
+bounded cache. Grounded disassembly places the `CTbdFile::Load` return
+continuation at `0x0016FA4C`; clean timing runs captured the exact M1 entry but
+not that post-load point within 240 seconds on either backend, or within 600
+seconds on the optical oracle. The world endpoint still appeared, so the
+remaining issue is the recompiler execution-boundary seam, not an ungrounded
+guest address. Gap: capture exact `CShell::ShellLoadLevel` entry and return
 boundaries; demonstrate zero original fallthrough and zero emulated optical
 wait for supported operations inside that interval; and run three alternating
 clean oracle/native mission-timing pairs. Live guest reset and title-observed
