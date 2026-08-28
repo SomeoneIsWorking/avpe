@@ -64,6 +64,23 @@ This establishes a normal title-owned multi-slot write path and state-dependent
 save content. It does not yet identify the decompressed object/class
 differences, prove a load round-trip, or isolate the native interception point.
 
+### Finding (2026-08-29, object fields are class-descriptor driven)
+
+The `GObject::Save`/`Load` decompilation at `0x0011DA30`/`0x0011D570` closes
+the apparent gap between the 16-byte object header and the opaque body. The
+body is emitted by walking each class's descriptor table, not by writing a
+self-describing field tag. Scalar kinds `1`–`5` and `8` write descriptor-sized
+bytes (rounded to four for short values). Pointer kind `6` writes an 8-byte
+field description and a 4-byte saved-object identity; kind `7` writes the
+description and one pointer identity; kind `9` writes the description and one
+identity per array element, requiring all identities to resolve consistently.
+The loader consumes the same descriptor-defined sequence after resolving the
+class ID through `FindClassTypeEntry`.
+
+Therefore the next save-schema slice is class-descriptor extraction and
+field-difference evidence. A generic record decoder or guessed field tags
+would not preserve the game's loader contract and is explicitly out of scope.
+
 ### Finding (2026-08-29, BWJ stream)
 
 Ghidra decompilation of `CBWJCompressor` and `GObject::SaveAll` grounded the

@@ -269,6 +269,13 @@ services. The exact high-level interception mechanism is still narrowed to the
 `CProfile` operation boundary and its `CShell`/save-menu callers, but remains
 unproven in a native implementation.
 
+The `GObject::Save`/`Load` decompilation additionally establishes that object
+bodies are class-descriptor driven: scalar fields are emitted at descriptor
+widths, while pointer and pointer-array kinds carry saved-object identities.
+The 16-byte object headers are therefore not enough to decode editable fields;
+the 67 observed class IDs require descriptor extraction before a native writer
+can preserve the loader contract.
+
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.
 
