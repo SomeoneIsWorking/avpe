@@ -122,28 +122,8 @@ def _ensure_submodule(root: Path) -> None:
         raise BuildError("PCSX2 checkout does not match the tracked gitlink after provisioning")
 
 
-def prepare_product(root: Path, environment: dict[str, str] | None = None) -> Path:
-    """Provision source dependencies and build the AVPE target when absent."""
-    paths = BuildPaths(root)
-    env = dict(os.environ if environment is None else environment)
-    if paths.product_binary.is_file():
-        _ensure_submodule(root)
-        if not dependency_prefix_complete(paths.dependency_prefix):
-            try:
-                provision_dependency_prefix(root, paths.dependency_prefix, env)
-            except DependencyPrefixError as error:
-                raise BuildError(str(error)) from error
-        return paths.product_binary
-
-    _require_build_tools(env)
-    _ensure_submodule(root)
-    if not dependency_prefix_complete(paths.dependency_prefix):
-        try:
-            provision_dependency_prefix(root, paths.dependency_prefix, env)
-        except DependencyPrefixError as error:
-            raise BuildError(str(error)) from error
-
-    configure = [
+def _configure_command(paths: BuildPaths) -> list[str]:
+    return [
         "cmake",
         "-S",
         str(paths.source_dir),
@@ -157,8 +137,30 @@ def prepare_product(root: Path, environment: dict[str, str] | None = None) -> Pa
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         f"-DPython3_EXECUTABLE={sys.executable}",
     ]
-    _run(configure, root, env)
-    _run(["cmake", "--build", str(paths.build_dir), "--target", "avpe", "--parallel"], root, env)
+
+
+def _build_product(paths: BuildPaths, root: Path, environment: dict[str, str]) -> None:
+    if not (paths.build_dir / "build.ninja").is_file():
+        _run(_configure_command(paths), root, environment)
+    _run(
+        ["cmake", "--build", str(paths.build_dir), "--target", "avpe", "--parallel"],
+        root,
+        environment,
+    )
+
+
+def prepare_product(root: Path, environment: dict[str, str] | None = None) -> Path:
+    """Provision source dependencies and build the current AVPE target."""
+    paths = BuildPaths(root)
+    env = dict(os.environ if environment is None else environment)
+    _require_build_tools(env)
+    _ensure_submodule(root)
+    if not dependency_prefix_complete(paths.dependency_prefix):
+        try:
+            provision_dependency_prefix(root, paths.dependency_prefix, env)
+        except DependencyPrefixError as error:
+            raise BuildError(str(error)) from error
+    _build_product(paths, root, env)
     if not paths.product_binary.is_file():
         raise BuildError(f"build completed without producing {paths.product_binary}")
     return paths.product_binary

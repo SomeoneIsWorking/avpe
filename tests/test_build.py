@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from pathlib import Path
 import sys
@@ -58,7 +59,7 @@ class ProductPreparationTests(unittest.TestCase):
         paths.build_dir = Path("/repo/scratch/build")
         paths.dependency_prefix = Path("/repo/scratch/deps")
         paths.product_binary = Mock()
-        paths.product_binary.is_file.side_effect = [False, True]
+        paths.product_binary.is_file.return_value = True
 
         result = prepare_product(Path("/repo"), {"CXX": "clang++"})
 
@@ -100,15 +101,70 @@ class ProductPreparationTests(unittest.TestCase):
             ],
         )
 
+    @patch("avpe.build._run")
+    @patch("avpe.build._require_build_tools")
     @patch("avpe.build._ensure_submodule")
+    @patch("avpe.build.dependency_prefix_complete", return_value=True)
     @patch("avpe.build.BuildPaths")
-    def test_existing_product_does_not_reconfigure(self, paths_type: Mock, ensure: Mock) -> None:
-        paths_type.return_value.product_binary.is_file.return_value = True
+    def test_existing_product_rebuilds_current_target(
+        self,
+        paths_type: Mock,
+        _prefix_complete: Mock,
+        ensure: Mock,
+        _require_tools: Mock,
+        run: Mock,
+    ) -> None:
+        paths = paths_type.return_value
+        paths.product_binary.is_file.return_value = True
+        paths.dependency_prefix = Path("/repo/scratch/deps")
 
-        result = prepare_product(Path("/repo"), {})
+        with tempfile.TemporaryDirectory() as directory:
+            paths.build_dir = Path(directory)
+            (paths.build_dir / "build.ninja").write_text("# test build tree\n")
+            result = prepare_product(Path("/repo"), {})
 
-        self.assertIs(result, paths_type.return_value.product_binary)
+        self.assertIs(result, paths.product_binary)
         ensure.assert_called_once_with(Path("/repo"))
+        run.assert_called_once_with(
+            [
+                "cmake",
+                "--build",
+                str(paths.build_dir),
+                "--target",
+                "avpe",
+                "--parallel",
+            ],
+            Path("/repo"),
+            {},
+        )
+
+    @patch("avpe.build._run")
+    @patch("avpe.build._require_build_tools")
+    @patch("avpe.build._ensure_submodule")
+    @patch("avpe.build.dependency_prefix_complete", return_value=True)
+    @patch("avpe.build.BuildPaths")
+    def test_existing_product_with_missing_build_tree_configures_before_build(
+        self,
+        paths_type: Mock,
+        _prefix_complete: Mock,
+        ensure: Mock,
+        _require_tools: Mock,
+        run: Mock,
+    ) -> None:
+        paths = paths_type.return_value
+        paths.product_binary.is_file.return_value = True
+        paths.source_dir = Path("/repo/thirdparty/pcsx2")
+        paths.dependency_prefix = Path("/repo/scratch/deps")
+
+        with tempfile.TemporaryDirectory() as directory:
+            paths.build_dir = Path(directory)
+            prepare_product(Path("/repo"), {})
+
+        ensure.assert_called_once_with(Path("/repo"))
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args_list[1][0][0][:5], [
+            "cmake", "--build", str(paths.build_dir), "--target", "avpe"
+        ])
 
     @patch("avpe.build._ensure_submodule")
     @patch("avpe.build.dependency_prefix_complete", return_value=False)
