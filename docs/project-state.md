@@ -298,7 +298,10 @@ Observed subset: the standalone `avpe` executable links the PCSX2 emulation
 core and AVPE-owned runtime, window, surface, settings, and input modules. Its
 target has no PCSX2 `MainWindow`, display widget, game list, debugger, dialogs,
 or settings UI. The default product launcher invokes this executable directly;
-the Clang link and offscreen configuration check pass.
+the Clang link and offscreen configuration check pass. Native surface
+acquisition now rejects an engaged `WindowInfo` whose required display or
+window handle is null, with three no-window C++ tests covering Surfaceless,
+X11/Wayland, Win32, and MacOS validity.
 
 Gap: respecting the user's no-window test constraint means the real desktop
 window has not been launched in this session. Runtime verification still must

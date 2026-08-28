@@ -35,6 +35,16 @@ no visible product test was run because agent tests must remain windowless.
 
 ## Verification
 
+### Note (2026-08-28)
+
+`NativeWindow::GetInfoFor()` now validates the platform-native handles before
+returning an engaged `WindowInfo`. X11 and Wayland require both display and
+window/surface handles; Win32 and MacOS require a window handle; Surfaceless
+remains valid without handles. The pure predicate is covered by three
+no-window C++ tests, and the existing renderer acquisition path still receives
+`std::nullopt` for invalid resources. A real desktop run is still required for
+boot, resize, fullscreen, focus, close, and user-visible failure reporting.
+
 - Operator-only desktop acceptance through `./run.sh` shows exactly the
   AVPE-owned top-level window. Agent verification must never invoke this route.
 - PCSX2's generic main/render/settings UI is absent from the product link graph.

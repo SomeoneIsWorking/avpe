@@ -52,6 +52,11 @@ product binary is absent. The safe product capability check is
 and exits before constructing `Runtime` or `HostWindow`.
 Runtime desktop acceptance remains operator-only through `./run.sh`.
 
+Native window acquisition validates required platform handles before exposing
+an engaged `WindowInfo` to PCSX2's renderer. Invalid X11/Wayland display or
+surface handles and invalid Win32/MacOS window handles fail at the AVPE
+boundary; Surfaceless intentionally carries no native handle.
+
 ## Native options and diagnostic UI placement
 
 Desktop options extend AVP:E's existing menu system through the fork-local
