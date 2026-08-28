@@ -4,6 +4,7 @@ import sys
 from unittest.mock import Mock, call, patch
 
 from avpe.build import BuildError, install_hint, prepare_product
+from avpe.dependency_prefix import DependencyPrefixError
 
 
 class BuildHintTests(unittest.TestCase):
@@ -111,12 +112,17 @@ class ProductPreparationTests(unittest.TestCase):
 
     @patch("avpe.build._ensure_submodule")
     @patch("avpe.build.dependency_prefix_complete", return_value=False)
+    @patch(
+        "avpe.build.provision_dependency_prefix",
+        side_effect=DependencyPrefixError("self-built Qt/deps prefix incomplete"),
+    )
     @patch("avpe.build.shutil.which", return_value="/usr/bin/tool")
     @patch("avpe.build.BuildPaths")
     def test_incomplete_dependency_prefix_refuses_before_cmake(
         self,
         paths_type: Mock,
         _which: Mock,
+        provision_prefix: Mock,
         _prefix_complete: Mock,
         ensure_submodule: Mock,
     ) -> None:
@@ -128,6 +134,7 @@ class ProductPreparationTests(unittest.TestCase):
             prepare_product(Path("/repo"), {})
 
         ensure_submodule.assert_called_once_with(Path("/repo"))
+        provision_prefix.assert_called_once()
 
     @patch("avpe.build.platform.system", return_value="Linux")
     @patch("avpe.build._linux_package_manager", return_value="dnf")

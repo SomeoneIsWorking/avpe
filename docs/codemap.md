@@ -19,6 +19,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | CLI orchestration | User commands, environment discovery, preflight | `src/avpe/cli.py` | `main()` | — |
 | Product preparation | Tracked-submodule readiness, build-tool refusal, CMake configuration, and standalone `avpe` target build | `src/avpe/build.py` | `prepare_product()` | — |
 | Dependency provisioning | PCSX2 gitlink inspection plus recursive submodule initialization; dependency provenance | `src/avpe/dependencies.py`, `.gitmodules`, `deps.toml` | `provision_submodules()` | — |
+| Dependency-prefix provisioning | Selects and invokes the tracked PCSX2 Qt/dependency workflow in `scratch/`, with tool checks and post-build prefix validation | `src/avpe/dependency_prefix.py`, `thirdparty/pcsx2/.github/workflows/scripts/` | `provision_dependency_prefix()` | — |
 | Product launch | Native-store validation, AVPE host argv/environment, product config, process lifetime | `src/avpe/launch.py` | `launch()` | — |
 | Standalone frontend runtime | Product process composition, PCSX2 core thread/lifecycle, and host callbacks | `thirdparty/pcsx2/pcsx2-avpe/Runtime.*`, `EmulationThread.*`, `HostServices.cpp`, `Main.cpp` | `avpe` executable | [presentation](host/presentation.md) |
 | Native host shell | Sole visible top-level window, render-surface lifecycle, resize/fullscreen, focus, product shutdown | `thirdparty/pcsx2/pcsx2-avpe/HostWindow.*`, `RenderSurface.*`, `NativeWindow.*` | `AVPE::HostWindow` | [presentation](host/presentation.md) |
