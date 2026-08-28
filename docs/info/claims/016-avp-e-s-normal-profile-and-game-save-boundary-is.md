@@ -4,9 +4,9 @@ kind: claim
 status: holds
 created: 2026-08-27
 tags: save,profile,re
-depends: docs/re/save-path.md
+depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, tests/test_save_format.py#SaveFormatTests
 reconfirmed: 2026-08-29
-verified_at: 2026-08-29 00:01:59
+verified_at: 2026-08-29 02:48:19
 ---
 
 ## Claim
@@ -54,3 +54,11 @@ offset `0x2028`. Slot 0 and slot 1 decode to 640,724 and 640,836 bytes with
 identical marker totals (190 `0x7FEA419D` occurrences and 2,335
 `0xBADF00DE` occurrences). This grounds the wire structure only; class IDs,
 field semantics, produced-save load, and native interception remain open.
+
+## Re-confirmed 2026-08-29
+
+After parent a764fa0, uv run --frozen python tools/verify.py passed 131 Python tests, 22 native production tests, scoped/full clang-format, and 46 clang-tidy translation units. The production parser now applies the grounded 16-byte GObject::Save header layout, distinguishes zero-tailed end records, counts opaque class IDs, tracks depth, and rejects truncated headers and empty-stack ends. Running tools/analyze_save_records.py on the two retained real slot records found balanced structure in both: 189 top-level starts, 1,073 nested starts, 1,262 nested terminators, one top-level terminator, depth 3, and 67 distinct class IDs with identical histograms; editable field semantics, produced-save load, and native interception remain unproven.
+
+## Re-confirmed 2026-08-29
+
+Re-verified after parent a764fa0: 131 Python tests, 22 native tests, format, and 46-unit Clang-tidy passed. parse_game_save_record applies the grounded 16-byte object-header layout and rejects truncated/empty-stack structures; real slot0/slot1 records both parse balanced with 189 top-level starts, 1,073 nested starts, 1,262 nested terminators, depth 3, and 67 opaque class IDs.

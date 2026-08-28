@@ -4,10 +4,10 @@ kind: claim
 status: holds
 created: 2026-08-28
 tags: bios,hle,iop,inventory
-depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotAndDisableJson, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#dispatch, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_start, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp#OnSaveStateLoaded, src/avpe/native_bios_probe.py#bios_trace_is_verified, src/avpe/native_bios_probe.py#run_bios_phase, src/avpe/native_bios_probe.py#run_requested_bios_probe, tools/run_control_test.py#main, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
+depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotAndDisableJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#CaptureAtGuestBoundaryJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#OnGuestFrameBoundary, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#dispatch, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_start, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_capture_at_guest_boundary, thirdparty/pcsx2/pcsx2/Counters.cpp#VSyncStart, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp#OnSaveStateLoaded, src/avpe/native_bios_probe.py#bios_trace_is_verified, src/avpe/native_bios_probe.py#run_bios_phase, src/avpe/native_bios_probe.py#run_requested_bios_probe, tools/run_control_test.py#main, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-29
-verified_at: 2026-08-29 02:05:00
+verified_at: 2026-08-29 02:48:19
 ---
 
 ## Claim
@@ -132,3 +132,11 @@ recognized IOP import identities. The trace included `ioman.read` and the
 occurrence counts. The same run completed two native `MENU01.ZIV` sector reads
 with two consumed CDVD completion records. Focused core tests passed 111 tests,
 including repeated import, timer, syscall, and exception coalescing.
+
+## Re-confirmed 2026-08-29
+
+After parent a764fa0 and fork 335073a, the full non-windowed verifier passed 131 Python tests, 22 native production tests, scoped/full clang-format, and 46 clang-tidy translation units. The new POST /bios/trace/capture-at-guest-boundary route arms NativeBiosTrace and captures on Counters::VSyncStart on the emulation CPU thread, with a bounded five-second refusal when no boundary arrives. A BIOS-backed surfaceless/null-muted pause-menu run completed through this route with zero overflow; a repeated run also completed with zero overflow but retained a different 21-versus-11 event identity set, so the route removes the HTTP frame-position race without falsely claiming post-restore quiescence.
+
+## Re-confirmed 2026-08-29
+
+Re-verified after parent a764fa0 and fork 335073a: 131 Python tests, 22 native tests, format, and 46-unit Clang-tidy passed. BIOS boundary capture executes at Counters::VSyncStart through NativeBiosTrace::OnGuestFrameBoundary; two pause-menu runs completed with zero overflow, while their differing 21/11 identity sets remain negative repeatability evidence.
