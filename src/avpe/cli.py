@@ -1,4 +1,4 @@
-"""avpe CLI — doctor (preflight), provision, launch.
+"""avpe CLI — doctor (preflight), provision, prepare, launch.
 
 `doctor` performs REAL checks and refuses with actionable output on hard
 blockers. Every negative prints what it looked for and what it found.
@@ -11,12 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from avpe.build import (
-    BuildError,
-    dependency_prefix_complete,
-    dependency_prefix_error,
-    prepare_product,
-)
+from avpe.build import BuildError, prepare_product
+from avpe.dependency_prefix import dependency_prefix_complete, dependency_prefix_error
 from avpe.dependencies import inspect_submodule, provision_submodules
 from avpe.log import log
 from avpe.native_assets import NativeAssetError, provision_native_assets

@@ -44,12 +44,12 @@ src/avpe/cli.py
 ```
 
 The product surface is never created by agent verification. `./run.sh prepare`
-is the non-launching preparation path; it initializes the tracked submodule and
-builds the `avpe` target when the product binary is absent. It requires the
-project-owned `scratch/deps` Qt/dependency prefix, which is provisioned
-separately by the PCSX2 dependency workflow. The safe product capability check
-is `QT_QPA_PLATFORM=offscreen bin/avpe --test-config`, which initializes
-settings and exits before constructing `Runtime` or `HostWindow`.
+is the non-launching preparation path; it initializes the tracked submodule,
+provisions the project-owned `scratch/deps` Qt/dependency prefix through the
+tracked PCSX2 workflow when absent, and builds the `avpe` target when the
+product binary is absent. The safe product capability check is
+`QT_QPA_PLATFORM=offscreen bin/avpe --test-config`, which initializes settings
+and exits before constructing `Runtime` or `HostWindow`.
 Runtime desktop acceptance remains operator-only through `./run.sh`.
 
 ## Native options and diagnostic UI placement

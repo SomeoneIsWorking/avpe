@@ -202,18 +202,21 @@ method changes, camera motion, minimap behavior, and pointer-mode transitions.
 
 Observed subset: the default launcher and `./run.sh prepare` verify and
 recursively initialize the tracked PCSX2 fork, then configure and build the
-standalone `avpe` target when `scratch/build/bin/avpe` is absent. The project
-accepts GCC, Clang, or AppleClang rather than encoding the agent's Clang
-verification policy.
+standalone `avpe` target when `scratch/build/bin/avpe` is absent. The launcher
+now has a guarded path to provision the project-owned `scratch/deps`
+Qt/dependency prefix through the tracked PCSX2 workflow when it is absent. The
+project accepts GCC, Clang, or AppleClang rather than encoding the agent's
+Clang verification policy.
 
 Evidence: claim C013, the provisioning tests in `tests/test_dependencies.py`,
 the preparation tests in `tests/test_build.py`, and a successful
 `./run.sh prepare` on the configured checkout.
 
-Gap: the zero-argument path still refuses when the project-owned
-`scratch/deps` Qt/dependency prefix is absent. A truly cold checkout therefore
-still needs the documented PCSX2 dependency workflow before the AVPE target
-can be configured and built.
+Gap: the automatic dependency-prefix branch has only been exercised through
+the guarded command contract and mocked tests in this session; a full cold
+checkout download and multi-library build remains to be verified on each
+supported host platform. The current configured Linux checkout has a complete
+prefix and the real missing-product rebuild passed.
 
 ### S013 — playable native-input product: blocked
 

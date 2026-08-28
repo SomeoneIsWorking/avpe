@@ -9,6 +9,11 @@ import subprocess
 import sys
 
 from avpe.dependencies import inspect_submodule, provision_submodules
+from avpe.dependency_prefix import (
+    DependencyPrefixError,
+    dependency_prefix_complete,
+    provision_dependency_prefix,
+)
 
 
 @dataclass(frozen=True)
@@ -36,23 +41,6 @@ class BuildError(RuntimeError):
     """A preparation prerequisite or build command failed."""
 
 
-def dependency_prefix_complete(deps_dir: Path) -> bool:
-    return (
-        (deps_dir / "include" / "QtCore" / "qglobal.h").is_file()
-        and (deps_dir / "lib" / "cmake" / "Qt6" / "Qt6Config.cmake").is_file()
-    )
-
-
-def dependency_prefix_error(deps_dir: Path) -> str:
-    header = deps_dir / "include" / "QtCore" / "qglobal.h"
-    config = deps_dir / "lib" / "cmake" / "Qt6" / "Qt6Config.cmake"
-    return (
-        f"self-built Qt/deps prefix incomplete: header={header.is_file()} "
-        f"cmake_config={config.is_file()} — provision {deps_dir} with the "
-        "PCSX2 Qt dependency workflow before building AVPE"
-    )
-
-
 def _linux_package_manager() -> str:
     try:
         values = {}
@@ -71,7 +59,13 @@ def _linux_package_manager() -> str:
 def install_hint(missing: tuple[str, ...], system: str, package_manager: str = "") -> str:
     """Return the exact user-run installation instruction for build tools."""
     if system == "Darwin":
-        return "brew install " + " ".join(missing)
+        commands = []
+        brew_packages = [name for name in missing if name in {"cmake", "ninja"}]
+        if brew_packages:
+            commands.append("brew install " + " ".join(brew_packages))
+        if "c++" in missing:
+            commands.append("xcode-select --install")
+        return " && ".join(commands)
     if system == "Linux":
         manager = package_manager or _linux_package_manager()
         package_names = {
@@ -131,15 +125,23 @@ def _ensure_submodule(root: Path) -> None:
 def prepare_product(root: Path, environment: dict[str, str] | None = None) -> Path:
     """Provision source dependencies and build the AVPE target when absent."""
     paths = BuildPaths(root)
+    env = dict(os.environ if environment is None else environment)
     if paths.product_binary.is_file():
         _ensure_submodule(root)
+        if not dependency_prefix_complete(paths.dependency_prefix):
+            try:
+                provision_dependency_prefix(root, paths.dependency_prefix, env)
+            except DependencyPrefixError as error:
+                raise BuildError(str(error)) from error
         return paths.product_binary
 
-    env = dict(os.environ if environment is None else environment)
     _require_build_tools(env)
     _ensure_submodule(root)
     if not dependency_prefix_complete(paths.dependency_prefix):
-        raise BuildError(dependency_prefix_error(paths.dependency_prefix))
+        try:
+            provision_dependency_prefix(root, paths.dependency_prefix, env)
+        except DependencyPrefixError as error:
+            raise BuildError(str(error)) from error
 
     configure = [
         "cmake",
