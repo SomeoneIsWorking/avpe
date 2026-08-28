@@ -533,13 +533,17 @@ EE syscalls/exceptions, `pause-menu`: EE syscalls/exceptions/timers,
 `mission1`: EE exceptions/timers).
 
 The phase runner can clear and re-enable the sink at a later control boundary.
-A pause-menu `down` action produced a 63-event `statefile_to_menu` trace, and
-an isolated save-then-load sequence produced a 62-event
-`save_load_to_running` trace; both had zero overflow. The menu action completed
-synchronously in this state, which the probe accepts alongside the deferred
-form used by other menu owners.
+A pause-menu `down` action and an isolated save-then-load sequence both
+complete with zero-overflow `statefile_to_menu` and `save_load_to_running`
+traces. The menu action completed synchronously in this state, which the probe
+accepts alongside the deferred form used by other menu owners. Capture now
+runs on the emulation CPU thread: two menu runs each produced 7 events (2 EE
+syscalls and 5 exceptions). Save-load runs produced 34 and 31 timer events,
+so archive restoration still lacks a guest-owned completion/quiescence
+boundary and is not repeatability evidence.
 
-Gap: repeat the menu and save/load captures, add mission and shutdown phase
+Gap: define a guest-owned completion boundary before repeating save/load
+captures, add mission and shutdown phase
 boundaries, and separate archive/service operations from resumed execution.
 EE timers,
 remaining interrupt delivery, kernel primitives, executable loading, IOP module
