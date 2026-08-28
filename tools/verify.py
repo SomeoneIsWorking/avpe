@@ -38,6 +38,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/IopCounters.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp",
@@ -94,6 +95,7 @@ CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp": (
         (1, 35), (265, 312), (415, 708), (843, 936),
         (992, 1120), (1428, 1498), (1510, 1565), (1600, 1819)),
+    ROOT / "thirdparty/pcsx2/pcsx2/IopCounters.cpp": ((1, 16), (207, 240)),
 	ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp": (
 		(1, 18), (910, 925), (1068, 1069), (1205, 1206), (1215, 1215)),
     ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp": ((1, 18), (96, 99)),

@@ -514,15 +514,17 @@ normalized number, BIOS name, four argument registers, and signed post-
 dispatch `v0` return status, plus loadcore module registration/release,
 intrman interrupt registration, and sifcmd RPC registration. EE and IOP
 exception-entry boundaries also record the domain, cause code, pre-entry PC,
-and branch-delay state without changing dispatch or fallback behavior. The
-isolated C++ tests prove disabled capture, ordering/return-status fields,
-exception fields, and the exact capacity/overflow behavior.
+and branch-delay state without changing dispatch or fallback behavior. IOP
+counter target/overflow paths also record counter state, cycle, and whether
+the interrupt was delivered. The isolated C++ tests prove disabled capture,
+ordering/return-status fields, exception/timer fields, and the exact
+capacity/overflow behavior.
 
 Gap: capture repeated clean BIOS-backed traces from boot through a stable menu,
-then separate menu, mission, save/load, and shutdown phases. Kernel primitives,
-executable loading, timers, interrupt delivery, and service-level
-negative-path semantics remain incomplete; S025 cannot become verified from
-the current dispatch census alone.
+then separate menu, mission, save/load, and shutdown phases. EE timers,
+remaining interrupt delivery, kernel primitives, executable loading, IOP module
+loads, and service-level negative-path semantics remain incomplete; S025 cannot
+become verified from the current dispatch census alone.
 
 Evidence: claim C031, [`re/bios.md`](re/bios.md), issue #20, and the
 `NativeBiosTraceTest` production tests.
