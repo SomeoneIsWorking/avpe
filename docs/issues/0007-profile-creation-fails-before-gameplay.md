@@ -6,7 +6,7 @@ symptom: The windowed product reaches profile creation but cannot create a profi
 state_items: S013,S014,S016
 tags: profile,save,memory-card,playability
 created: 2026-08-27
-updated: 2026-08-27
+updated: 2026-08-29
 ---
 
 ## Root cause
@@ -34,5 +34,15 @@ directory is `BASLUS-20147F991C326`, and the record fields are documented in
 [`../re/save-path.md`](../re/save-path.md). This is a live payload/default
 observation, not the deliberately differing pair required to resolve the
 unknown fields; the card contains no grounded pair of differing game saves.
+
+### Finding (2026-08-29, runtime owner)
+
+A BIOS-backed pause-menu state exposed the live `CProfile` instance and its
+`SetGameData` fields: object `0x003B2620`, payload `0x003D6A40`, size `0x20`,
+revision `0x1CD9DEE3`, and four save targets. A direct diagnostic call to
+`CProfile::SaveProfile` exceeded the 3,000,000-cycle shuttle budget and was
+recovered by loading the known state. This is evidence that the save routine
+must be exercised through its normal game path; it is not evidence that the
+card write itself failed.
 
 ## Resolution
