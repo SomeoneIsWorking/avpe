@@ -280,7 +280,10 @@ scalar/pointer wire boundaries. `SaveAll` then invokes class-specific virtual
 `SaveEx` payloads. Live parent-chain evidence maps the 67 observed classes to
 six selected implementations (`GObject`, `GUnit`, `GObjectAI`,
 `GPlayerManager`, `GDropShip`, and `GFOWSaver`), but whole-record decoding still
-requires decoding their variable and conditional payloads.
+requires decoding their variable and conditional payloads. Bounded readers now
+cover the selected payload layouts, while recursive stream integration still
+requires a grounded message-type size lookup and player-manager active-state
+predicate.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.

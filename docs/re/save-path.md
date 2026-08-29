@@ -263,7 +263,12 @@ writes a bounded count followed by a sign-bit bitmap, while
 `GPlayerManager::SaveEx` conditionally writes a fixed header plus four groups
 of counted object/float triples. A whole-record parser must now decode those
 selected payloads, including the variable-count `GObjectAI` message queue,
-before it can claim complete record boundaries.
+before it can claim complete record boundaries. `src/avpe/save_ex.py` now
+provides bounded readers for the selected fixed, bitmap, message-queue, and
+conditional group layouts. The AI reader requires the grounded message-type
+size lookup; the player-manager reader requires the saved object's grounded
+active-state predicate. Neither missing context is guessed from arbitrary
+bytes.
 
 Running `tools/analyze_save_records.py` through the parser logic on the two
 retained raw-card records produced these observations:
@@ -297,7 +302,8 @@ original game loads either produced record.
   covered by production parsers.
 - Decode the selected `SaveEx` payloads for the 67 observed class IDs,
   including the variable-count `GObjectAI` message queue and conditional
-  `GPlayerManager` state, before attempting a whole-record parser.
+  `GPlayerManager` state, and integrate them with the recursive object stream
+  using grounded message-type sizes and the player-manager active predicate.
 - Capture a normal in-game save completion and identify the narrow guest-call
   interception mechanism that can route the five `CProfile` operations to
   `AVPE::NativeSaves` while keeping the original game routines available as

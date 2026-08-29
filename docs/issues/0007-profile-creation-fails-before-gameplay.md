@@ -99,8 +99,12 @@ each object's descriptor body. The live parent chains now select `GObject` for
 serializers for other classes (`GHiveNode`, `GAlienCarrier`, `GChestBurster`,
 `GHugger`, `GDropPod`, and `GAlarm`) that were not selected by these 67 saves.
 Their payloads are not descriptor fields: `GObjectAI` has a variable message
-queue and `GPlayerManager` has conditional counted state. Decode the selected
-payloads before claiming a whole-record reader or native writer.
+queue and `GPlayerManager` has conditional counted state. Bounded readers in
+`src/avpe/save_ex.py` now cover the selected fixed, bitmap, message-queue, and
+conditional group layouts. The AI reader still requires the grounded
+message-type size lookup and the player-manager reader requires its active-state
+predicate; integrate those readers with the recursive object stream before
+claiming a whole-record reader or native writer.
 
 ### Finding (2026-08-29, BWJ stream)
 

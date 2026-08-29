@@ -4,7 +4,7 @@ kind: claim
 status: holds
 created: 2026-08-27
 tags: save,profile,re
-depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, src/avpe/save_descriptor_probe.py#inspect_class_type_database, src/avpe/save_descriptor_probe.py#parse_serialized_descriptor_body, src/avpe/save_descriptor_probe.py#resolve_save_ex_dispatch, tests/test_save_format.py#SaveFormatTests, tests/test_save_descriptor_probe.py#SaveDescriptorProbeTests
+depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, src/avpe/save_descriptor_probe.py#inspect_class_type_database, src/avpe/save_descriptor_probe.py#parse_serialized_descriptor_body, src/avpe/save_descriptor_probe.py#resolve_save_ex_dispatch, src/avpe/save_ex.py#parse_gunit_payload, src/avpe/save_ex.py#parse_gobject_ai_payload, tests/test_save_format.py#SaveFormatTests, tests/test_save_descriptor_probe.py#SaveDescriptorProbeTests, tests/test_save_ex.py#SaveExTests
 reconfirmed: 2026-08-29
 verified_at: 2026-08-29 03:32:10
 ---
@@ -92,6 +92,15 @@ for 9, `GObjectAI` for 6, `GPlayerManager` for 3, `GDropShip` for 1, and
 `GFOWSaver` for 1, with all 67 class IDs resolved. The dispatch mapping and
 cycle/truncation rejection pass the focused tests; selected payload schemas,
 field meanings, produced-save load, and native interception remain unproven.
+
+## Re-confirmed 2026-08-29 — selected SaveEx payload readers
+
+Decompilation of the matching `LoadEx` routines grounds bounded readers for
+the selected fixed, bitmap, message-queue, and conditional group layouts.
+Focused tests reject truncated and inconsistent variable payloads. Recursive
+object-stream integration still requires the message-type size lookup and
+player-manager active predicate; field meanings, produced-save load, and
+native interception remain unproven.
 
 ## Re-confirmed 2026-08-29
 
