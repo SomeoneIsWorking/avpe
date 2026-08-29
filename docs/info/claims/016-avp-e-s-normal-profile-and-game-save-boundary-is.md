@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: save,profile,re
 depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, src/avpe/save_descriptor_probe.py#inspect_class_type_database, src/avpe/save_descriptor_probe.py#parse_serialized_descriptor_body, src/avpe/save_descriptor_probe.py#resolve_save_ex_dispatch, tests/test_save_format.py#SaveFormatTests, tests/test_save_descriptor_probe.py#SaveDescriptorProbeTests
 reconfirmed: 2026-08-29
-verified_at: 2026-08-29 03:20:49
+verified_at: 2026-08-29 03:32:10
 ---
 
 ## Claim
@@ -92,3 +92,7 @@ for 9, `GObjectAI` for 6, `GPlayerManager` for 3, `GDropShip` for 1, and
 `GFOWSaver` for 1, with all 67 class IDs resolved. The dispatch mapping and
 cycle/truncation rejection pass the focused tests; selected payload schemas,
 field meanings, produced-save load, and native interception remain unproven.
+
+## Re-confirmed 2026-08-29
+
+After commit 71c56be, the live parent-chain probe selected GObject for 47, GUnit for 9, GObjectAI for 6, GPlayerManager for 3, GDropShip for 1, and GFOWSaver for 1 of the 67 observed class IDs; 140 Python tests and the full non-windowed verifier pass, while selected SaveEx payload decoding, field meanings, load round-trip, and native interception remain open.
