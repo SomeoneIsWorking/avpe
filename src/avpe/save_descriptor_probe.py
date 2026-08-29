@@ -27,6 +27,7 @@ EDITABLE_DESCRIPTOR_OBJECT_OFFSET = 0x08
 MAX_CLASS_TYPE_ENTRIES = 4096
 MAX_DESCRIPTOR_ENTRIES = 1024
 MAX_CLASS_NAME_BYTES = 128
+MAX_PARENT_CHAIN_DEPTH = 64
 
 GuestMemoryReader = Callable[[int, int], bytes]
 
@@ -41,6 +42,13 @@ class EditableDescriptor:
 
 
 @dataclass(frozen=True)
+class ClassTypeIdentity:
+    address: int
+    class_id: int
+    name: str
+
+
+@dataclass(frozen=True)
 class ClassTypeEntry:
     address: int
     class_id: int
@@ -49,6 +57,31 @@ class ClassTypeEntry:
     flags: int
     descriptor_address: int
     descriptors: tuple[EditableDescriptor, ...]
+    parent_chain: tuple[ClassTypeIdentity, ...]
+
+
+@dataclass(frozen=True)
+class SaveExDispatch:
+    """The most-derived grounded SaveEx implementation for one class."""
+
+    implementation: str
+    address: int
+
+
+SAVE_EX_IMPLEMENTATION_ADDRESSES = {
+    "GObject": 0x001070A0,
+    "GFOWSaver": 0x00110450,
+    "GHiveNode": 0x0019FFC0,
+    "GAlienCarrier": 0x001A8850,
+    "GUnit": 0x001C0C80,
+    "GChestBurster": 0x001DD8E0,
+    "GDropShip": 0x001DF840,
+    "GHugger": 0x001F1DC0,
+    "GPlayerManager": 0x001F5E40,
+    "GObjectAI": 0x00223090,
+    "GDropPod": 0x0023EF40,
+    "GAlarm": 0x00248A30,
+}
 
 
 @dataclass(frozen=True)
@@ -107,6 +140,15 @@ def inspect_class_type_database(
             found.add(entry.class_id)
 
     missing = sorted(requested - found) if requested is not None else []
+    serialized_entries = []
+    for entry in sorted(entries, key=lambda e: e.class_id):
+        serialized = asdict(entry)
+        serialized["save_ex"] = asdict(
+            resolve_save_ex_dispatch(
+                entry.name, tuple(parent.name for parent in entry.parent_chain)
+            )
+        )
+        serialized_entries.append(serialized)
     return {
         "schema": "avpe-save-descriptor-inventory-v1",
         "database_address": database_address,
@@ -115,8 +157,20 @@ def inspect_class_type_database(
         "capacity": capacity,
         "requested_class_ids": sorted(requested) if requested is not None else None,
         "missing_class_ids": missing,
-        "entries": [asdict(entry) for entry in sorted(entries, key=lambda e: e.class_id)],
+        "entries": serialized_entries,
     }
+
+
+def resolve_save_ex_dispatch(
+    class_name: str, parent_names: Iterable[str]
+) -> SaveExDispatch:
+    """Resolve virtual SaveEx using a live class's grounded parent chain."""
+
+    for name in (class_name, *parent_names):
+        address = SAVE_EX_IMPLEMENTATION_ADDRESSES.get(name)
+        if address is not None:
+            return SaveExDispatch(name, address)
+    return SaveExDispatch("GObject", SAVE_EX_IMPLEMENTATION_ADDRESSES["GObject"])
 
 
 def parse_serialized_descriptor_body(
@@ -188,6 +242,7 @@ def _parse_entry(read: GuestMemoryReader, address: int) -> ClassTypeEntry:
         raise ValueError(f"class type 0x{class_id:08x} has a null metadata pointer")
     name = _read_string(read, name_address)
     descriptors = _parse_descriptors(read, descriptor_address)
+    parent_chain = _parse_parent_chain(read, _u32(raw, CLASS_TYPE_PARENT_POINTER_OFFSET))
     return ClassTypeEntry(
         address=address,
         class_id=class_id,
@@ -196,7 +251,35 @@ def _parse_entry(read: GuestMemoryReader, address: int) -> ClassTypeEntry:
         flags=_u32(raw, CLASS_TYPE_FLAGS_OFFSET),
         descriptor_address=descriptor_address,
         descriptors=descriptors,
+        parent_chain=parent_chain,
     )
+
+
+def _parse_parent_chain(
+    read: GuestMemoryReader, address: int
+) -> tuple[ClassTypeIdentity, ...]:
+    chain: list[ClassTypeIdentity] = []
+    seen: set[int] = set()
+    while address:
+        if address in seen:
+            raise ValueError(f"class type parent chain cycles at 0x{address:08x}")
+        if len(chain) >= MAX_PARENT_CHAIN_DEPTH:
+            raise ValueError("class type parent chain exceeds its bound")
+        seen.add(address)
+        raw = read(address, CLASS_TYPE_ENTRY_SIZE)
+        class_id = _u32(raw, CLASS_TYPE_ID_OFFSET)
+        name_address = _u32(raw, CLASS_TYPE_NAME_POINTER_OFFSET)
+        if name_address == 0:
+            raise ValueError(f"class type 0x{class_id:08x} has a null parent name")
+        chain.append(
+            ClassTypeIdentity(
+                address=address,
+                class_id=class_id,
+                name=_read_string(read, name_address),
+            )
+        )
+        address = _u32(raw, CLASS_TYPE_PARENT_POINTER_OFFSET)
+    return tuple(chain)
 
 
 def _parse_descriptors(

@@ -77,7 +77,7 @@ identity per array element, requiring all identities to resolve consistently.
 The loader consumes the same descriptor-defined sequence after resolving the
 class ID through `FindClassTypeEntry`.
 
-Therefore the next save-schema slice is class-descriptor extraction and
+The next save-schema slice is class-specific payload decoding and
 field-difference evidence. A generic record decoder or guessed field tags
 would not preserve the game's loader contract and is explicitly out of scope.
 
@@ -93,13 +93,14 @@ wire descriptions, extracts saved-object identities, and reports the exact
 byte boundary before a class-specific `SaveEx` payload.
 
 The remaining schema blocker is real: `SaveAll` invokes virtual `SaveEx` after
-each object's descriptor body. The binary has grounded extra serializers for
-`GFOWSaver`, `GHiveNode`, `GAlienCarrier`, `GUnit`, `GChestBurster`, `GDropShip`,
-`GHugger`, `GPlayerManager`, `GObjectAI`, `GDropPod`, and `GAlarm`, including
-variable-count and inherited payloads. The descriptor inventory does not tell
-which override is selected for each live class, and treating those bytes as
-the next object header would misparse valid saves. Map that dispatch chain and
-decode its payloads before claiming a whole-record reader or native writer.
+each object's descriptor body. The live parent chains now select `GObject` for
+47 observed classes, `GUnit` for 9, `GObjectAI` for 6, `GPlayerManager` for 3,
+`GDropShip` for 1, and `GFOWSaver` for 1. The binary also contains grounded
+serializers for other classes (`GHiveNode`, `GAlienCarrier`, `GChestBurster`,
+`GHugger`, `GDropPod`, and `GAlarm`) that were not selected by these 67 saves.
+Their payloads are not descriptor fields: `GObjectAI` has a variable message
+queue and `GPlayerManager` has conditional counted state. Decode the selected
+payloads before claiming a whole-record reader or native writer.
 
 ### Finding (2026-08-29, BWJ stream)
 
