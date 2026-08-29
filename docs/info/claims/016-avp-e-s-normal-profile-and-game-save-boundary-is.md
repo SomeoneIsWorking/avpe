@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: save,profile,re
 depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, src/avpe/save_descriptor_probe.py#inspect_class_type_database, src/avpe/save_descriptor_probe.py#parse_serialized_descriptor_body, src/avpe/save_descriptor_probe.py#resolve_save_ex_dispatch, src/avpe/save_ex.py#parse_gunit_payload, src/avpe/save_ex.py#parse_gobject_ai_payload, src/avpe/save_message_types.py#parse_message_type_database, src/avpe/save_message_types.py#fixed_message_size, tests/test_save_format.py#SaveFormatTests, tests/test_save_descriptor_probe.py#SaveDescriptorProbeTests, tests/test_save_ex.py#SaveExTests, tests/test_save_message_types.py#SaveMessageTypeTests
 reconfirmed: 2026-08-29
-verified_at: 2026-08-29 03:39:20
+verified_at: 2026-08-29 03:52:15
 ---
 
 ## Claim
@@ -129,3 +129,7 @@ Focused tests cover fixed, dynamic, unregistered, truncated, and inconsistent
 payloads. Recursive object-stream integration still requires the
 player-manager active-state predicate; field meanings, produced-save load, and
 native interception remain unproven.
+
+## Re-confirmed 2026-08-29
+
+2026-08-29: b976a21 adds bounded SaveEx readers and the live 256-slot CMessage table parser, including the 0x67 dynamic-size fallback at message offset +0x0c; focused save tests (23) and the full verifier (148 Python, 22 native, format, 46 Clang-tidy) pass. Recursive stream integration and the GPlayerManager active predicate remain explicitly open.
