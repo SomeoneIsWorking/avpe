@@ -95,6 +95,17 @@ the `save_load_to_running` slice after the successful load callback reset. It
 proves the control boundary and resumed service traffic; it does not claim to
 observe archive serialization internals or shutdown after the process exits.
 
+The runner also exposes `--probe-bios-phase mission`, which requires a clean
+boot and a copied memory card. It first waits for the existing native
+`MENU01.ZIV` readiness boundary, then arms a one-shot observer through the
+shared EE instrumentation path around the grounded `CShell::ShellLoadLevel`
+entry at `0x0016F910` and first post-load point at `0x0016FA4C`. The capture
+records both guest cycle domains, frame, ordinal, and host time, rejects
+duplicates or wrong ordering, and refuses after five seconds when the return
+point is absent. The mission trace is accepted only when its exact PCs are
+present, the sequence error count is zero, and both guest cycle domains
+advance. This is a production seam, not yet runtime completion evidence.
+
 Three repeated captures currently produce the same 28-event slice: 20 module
 registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero
 overflow. This is repeatability evidence for the boot boundary only; EE

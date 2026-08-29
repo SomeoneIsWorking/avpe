@@ -24,10 +24,16 @@ from avpe.launch import (
 )
 from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
 from avpe.native_bios_probe import (
+    MISSION_TRACE_ENTRY_PC,
+    MISSION_TRACE_RETURN_PC,
     bios_trace_failure_detail,
     bios_trace_is_verified,
     capture_bios_trace,
+    capture_bios_mission_boundary,
+    mission_boundary_is_verified,
+    start_bios_mission_phase,
     start_bios_trace,
+    timing_environment_for_phase,
     write_bios_trace,
 )
 from avpe.pcsx2_config import (
@@ -135,6 +141,46 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertFalse(bios_trace_is_verified(trace))
         self.assertFalse(bios_trace_is_verified(overflowed))
 
+    def test_accepts_complete_grounded_mission_boundary(self) -> None:
+        trace = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "events": [{"sequence": 1, "kind": "rpc"}],
+            "mission_boundary": {
+                "entry_pc": MISSION_TRACE_ENTRY_PC,
+                "return_pc": MISSION_TRACE_RETURN_PC,
+                "complete": True,
+                "sequence_errors": 0,
+                "entry": {"pc": MISSION_TRACE_ENTRY_PC},
+                "return": {"pc": MISSION_TRACE_RETURN_PC},
+            },
+        }
+
+        self.assertTrue(mission_boundary_is_verified(trace))
+
+    def test_rejects_incomplete_or_wrong_mission_boundary(self) -> None:
+        trace = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "events": [{"sequence": 1, "kind": "rpc"}],
+            "mission_boundary": {
+                "entry_pc": MISSION_TRACE_ENTRY_PC,
+                "return_pc": MISSION_TRACE_RETURN_PC,
+                "complete": False,
+                "sequence_errors": 0,
+                "entry": {"pc": MISSION_TRACE_ENTRY_PC},
+                "return": {"pc": MISSION_TRACE_RETURN_PC},
+            },
+        }
+
+        self.assertFalse(mission_boundary_is_verified(trace))
+        trace["mission_boundary"]["return_pc"] = 0
+        self.assertFalse(mission_boundary_is_verified(trace))
+
     def test_bios_trace_artifact_names_the_clean_boot_phase(self) -> None:
         trace = {
             "schema": "avpe-bios-trace-v1",
@@ -237,6 +283,36 @@ class ControlTestPolicyTests(unittest.TestCase):
 
         request.assert_called_once_with(31234, "POST", "/bios/trace/start", {})
 
+    def test_bios_mission_phase_uses_grounded_boundary_routes(self) -> None:
+        with patch(
+            "avpe.native_bios_probe.request_bytes",
+            side_effect=[
+                (200, b'{"started":true}'),
+                (200, json.dumps({
+                    "schema": "avpe-bios-trace-v1",
+                    "enabled": True,
+                    "capacity": 4096,
+                    "overflow": 0,
+                    "events": [{"sequence": 1, "kind": "rpc"}],
+                    "mission_boundary": {
+                        "entry_pc": MISSION_TRACE_ENTRY_PC,
+                        "return_pc": MISSION_TRACE_RETURN_PC,
+                        "complete": True,
+                        "sequence_errors": 0,
+                        "entry": {"pc": MISSION_TRACE_ENTRY_PC},
+                        "return": {"pc": MISSION_TRACE_RETURN_PC},
+                    },
+                }).encode()),
+            ],
+        ) as request:
+            start_bios_mission_phase(31234)
+            self.assertIn("mission_boundary", capture_bios_mission_boundary(31234))
+
+        self.assertEqual(request.call_args_list[0].args[:3],
+                         (31234, "POST", "/bios/trace/start-mission"))
+        self.assertEqual(request.call_args_list[1].args[:3],
+                         (31234, "POST", "/bios/trace/capture-mission"))
+
     def test_bios_trace_failure_detail_is_bounded(self) -> None:
         trace = {
             "schema": "avpe-bios-trace-v1",
@@ -271,6 +347,21 @@ class ControlTestPolicyTests(unittest.TestCase):
 
         self.assertEqual(env["AVPE_LOAD_TIMING"], "native")
         self.assertEqual(env["AVPE_LOAD_TIMING_TARGET"], "mission")
+
+    def test_mission_bios_probe_can_preinstrument_grounded_boundary(self) -> None:
+        env = build_environment(
+            {}, 1234, "nonce", asset_load_timing_mode="oracle",
+            asset_load_timing_target="mission",
+        )
+
+        self.assertEqual(env["AVPE_LOAD_TIMING"], "oracle")
+        self.assertEqual(env["AVPE_LOAD_TIMING_TARGET"], "mission")
+
+    def test_nonmission_bios_phase_preserves_explicit_timing_policy(self) -> None:
+        self.assertEqual(
+            timing_environment_for_phase("save-load", "native", "startup"),
+            ("native", None),
+        )
 
     def test_native_asset_root_requires_admission_token(self) -> None:
         with self.assertRaisesRegex(ValueError, "manifest admission token"):
