@@ -48,17 +48,6 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
             parser.error("--probe-bios-phase mission cannot combine with --probe-load-timing")
 
 
-def timing_environment_for_phase(
-    phase: str | None, requested_mode: str | None, requested_target: str
-) -> tuple[str | None, str | None]:
-    if phase == "mission":
-        return requested_mode or "oracle", "mission"
-    return (
-        requested_mode,
-        requested_target if requested_mode and requested_target != "startup" else None,
-    )
-
-
 def bios_trace_is_verified(trace: object) -> bool:
     """Accept one complete, bounded, ordered trace from a clean control boot."""
     if not isinstance(trace, dict) \
@@ -90,10 +79,20 @@ def bios_trace_failure_detail(trace: object) -> str:
         return f"response is not an object ({type(trace).__name__})"
     events = trace.get("events")
     event_count = len(events) if isinstance(events, list) else "invalid"
-    return (
+    detail = (
         f"schema={trace.get('schema')!r} enabled={trace.get('enabled')!r} "
         f"events={event_count} overflow={trace.get('overflow')!r}"
     )
+    boundary = trace.get("mission_boundary")
+    if isinstance(boundary, dict):
+        detail += (
+            f" mission_complete={boundary.get('complete')!r}"
+            f" mission_entry={boundary.get('entry') is not None}"
+            f" mission_return={boundary.get('return') is not None}"
+            f" mission_load_return={boundary.get('load_return') is not None}"
+            f" mission_sequence_errors={boundary.get('sequence_errors')!r}"
+        )
+    return detail
 
 
 def mission_boundary_is_verified(trace: object) -> bool:
@@ -149,9 +148,21 @@ def start_bios_mission_phase(port: int) -> None:
 
 
 def capture_bios_mission_boundary(port: int) -> dict[str, object]:
-    status, body = request_bytes(port, "POST", "/bios/trace/capture-mission", {}, timeout=7.0)
+    status, body = request_bytes(port, "POST", "/bios/trace/capture-mission", {}, timeout=122.0)
     if status != 200:
-        raise RuntimeError(f"BIOS mission trace capture returned HTTP {status}")
+        try:
+            diagnostic = json.loads(body)
+        except json.JSONDecodeError:
+            diagnostic = None
+        debug_status, debug, debug_detail = request_json(port, "GET", "/debug", {})
+        if debug_status == 200 and debug is not None:
+            debug_suffix = f" debug={debug}"
+        else:
+            debug_suffix = f" debug_unavailable={debug_detail}"
+        raise RuntimeError(
+            f"BIOS mission trace capture returned HTTP {status}: "
+            f"{bios_trace_failure_detail(diagnostic)}{debug_suffix}"
+        )
     trace = json.loads(body)
     if not mission_boundary_is_verified(trace):
         raise RuntimeError(

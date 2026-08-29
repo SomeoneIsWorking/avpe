@@ -597,11 +597,15 @@ original oracle path.
 
 The mission BIOS phase now waits for native `MENU01.ZIV` readiness and arms a
 one-shot shared-EE observer around `CShell::ShellLoadLevel` entry `0x0016F910`
-and first post-load point `0x0016FA4C`. It records both guest clocks, frame,
-ordinal, and host time, and has a bounded refusal for a missing return. A
-180-second clean-boot run reached the readiness and M1 trigger but returned
-HTTP 504 because the post-load point was not observed within five seconds;
-there is no accepted mission-boundary runtime evidence yet.
+and first post-load point `0x0016FA4C` on the emulation CPU thread. It records
+both guest clocks, frame, ordinal, and host time, and has a bounded refusal for
+a missing return. A fresh 30-second guest-return wait reached the readiness,
+M1 trigger, and grounded entry, but expired with the EE at `0x002CE88C`
+(`__pack_d`) and no return. The earlier five-second window was too short for
+this guest operation; a later 120-second attempt did not reach the verified
+`Running` status and is discarded as runtime evidence. Cache invalidation did
+not change the 30-second result. There is no accepted mission-boundary runtime
+evidence yet.
 
 Gap: use the new grounded mission boundary once its return is observed, define
 a guest-owned completion boundary before repeating save/load captures, add
@@ -623,8 +627,9 @@ Static candidate evidence now complements the runtime census: the bounded
 user-supplied target ELF, 158 BIOS wrapper definitions, 458 direct wrapper
 callsites, 8 direct syscall instructions, and 63 candidate syscall numbers.
 This does not prove execution, indirect dispatch, or service results. The next
-runtime slice is the grounded `CShell::ShellLoadLevel` return at `0x0016FA4C`,
-not the existing frame-boundary marker.
+runtime slice remains the grounded `CShell::ShellLoadLevel` return at
+`0x0016FA4C`, not the existing frame-boundary marker; the early world pointer is
+not a substitute for it.
 
 ### S026 — AVP:E-specific HLE implementation: blocked
 

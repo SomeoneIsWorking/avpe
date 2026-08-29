@@ -97,14 +97,18 @@ observe archive serialization internals or shutdown after the process exits.
 
 The runner also exposes `--probe-bios-phase mission`, which requires a clean
 boot and a copied memory card. It first waits for the existing native
-`MENU01.ZIV` readiness boundary, then arms a one-shot observer through the
-shared EE instrumentation path around the grounded `CShell::ShellLoadLevel`
+`MENU01.ZIV` readiness boundary, then arms a one-shot observer on the
+emulation CPU thread through the shared EE instrumentation path around the
+grounded `CShell::ShellLoadLevel`
 entry at `0x0016F910` and first post-load point at `0x0016FA4C`. The capture
 records both guest cycle domains, frame, ordinal, and host time, rejects
-duplicates or wrong ordering, and refuses after five seconds when the return
-point is absent. The mission trace is accepted only when its exact PCs are
-present, the sequence error count is zero, and both guest cycle domains
-advance. This is a production seam, not yet runtime completion evidence.
+duplicates or wrong ordering, and waits up to 120 seconds for the guest
+return. The mission trace is accepted only when its exact PCs are present, the
+sequence error count is zero, and both guest cycle domains advance. The
+`GAvPWorld` pointer is only an early progress marker: a 30-second run reached
+it and the grounded entry but still had the EE at `0x002CE88C` (`__pack_d`)
+with no return. This is a production seam, not yet runtime completion
+evidence.
 
 Three repeated captures currently produce the same 28-event slice: 20 module
 registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero

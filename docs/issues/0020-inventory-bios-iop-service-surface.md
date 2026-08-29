@@ -6,7 +6,7 @@ symptom: The AVP:E-specific BIOS/HLE service surface is not yet inventoried
 state_items: S025,S026,S027,S028
 tags: bios,hle,iop,inventory,re
 created: 2026-08-28
-updated: 2026-08-29
+updated: 2026-08-30
 ---
 
 ## Root cause
@@ -132,10 +132,25 @@ mission capture returned HTTP 504 because the grounded return was not observed
 within its five-second deadline. The seam is therefore exercised but no
 mission boundary or service-level runtime claim is accepted.
 
+### Finding (2026-08-30, world endpoint is not loader completion)
+
+The mission probe's `GAvPWorld != 0` check is an early progress marker, not the
+completion of `CShell::ShellLoadLevel`: the observer had already captured the
+grounded entry when the endpoint became non-null, and the title was still
+executing at `0x002CE88C` (`__pack_d`) when a bounded 30-second wait expired.
+The prior five-second wait was therefore a host-time assumption about a guest
+operation and could not establish the return boundary. The route now arms on
+the emulation CPU thread and waits up to 120 seconds for the exact guest return;
+the 120-second attempt that did not reach the verified `Running` status is
+discarded as invalid runtime evidence. Cache invalidation did not change the
+result and is not part of the route.
+
 ## Remaining work
 
 Use the new grounded `CShell::ShellLoadLevel` boundary at `0x0016FA4C` to
-capture repeated clean traces once the return is observed, then cover boot,
+determine why the native M1 load has not returned after its early world
+endpoint, then capture repeated clean traces once the return is observed. Next
+cover boot,
 menu, mission, save, load, and
 shutdown. Add a separate grounded observation seam for remaining interrupt
 delivery, kernel primitives, executable loading, and IOP module loads, then
