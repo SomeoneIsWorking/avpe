@@ -101,10 +101,20 @@ serializers for other classes (`GHiveNode`, `GAlienCarrier`, `GChestBurster`,
 Their payloads are not descriptor fields: `GObjectAI` has a variable message
 queue and `GPlayerManager` has conditional counted state. Bounded readers in
 `src/avpe/save_ex.py` now cover the selected fixed, bitmap, message-queue, and
-conditional group layouts. The AI reader still requires the grounded
-message-type size lookup and the player-manager reader requires its active-state
-predicate; integrate those readers with the recursive object stream before
-claiming a whole-record reader or native writer.
+conditional group layouts. The AI reader now consumes the grounded message-type
+table, including its dynamic-size fallback; the player-manager reader still
+requires its active-state predicate. Integrate those readers with the recursive
+object stream before claiming a whole-record reader or native writer.
+
+### Finding (2026-08-29, message type table)
+
+The live `MessageTypeDatabase` at `0x003B10C0` is a fixed 256-slot table whose
+entries store creator address, size, and name pointer. The lookup uses only the
+message type's low byte. The live probe found 92 registered slots and one
+dynamic-size slot (`0x67`, `0xffffffff`); the latter follows `CMessage::GetSize`
+by reading the message instance's 16-bit size at offset `+0x0c`. The pure
+decoder now resolves fixed sizes, applies that dynamic fallback, and rejects
+unregistered types by name rather than silently treating them as fixed records.
 
 ### Finding (2026-08-29, BWJ stream)
 
