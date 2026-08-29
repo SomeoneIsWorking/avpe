@@ -119,11 +119,24 @@ observations and cannot see indirect or data-driven dispatch; it therefore
 narrows the next runtime inventory but does not establish service execution or
 results.
 
+### Finding (2026-08-29, grounded mission boundary seam)
+
+The BIOS phase runner now waits for the existing native `MENU01.ZIV`
+readiness boundary, arms a one-shot observer through the shared EE execution
+instrumentation, and pairs `CShell::ShellLoadLevel` entry `0x0016F910` with
+the first post-load point `0x0016FA4C`. It records the two guest clocks,
+frame, ordinal, and host time, rejects wrong ordering or duplicate points, and
+returns a bounded refusal when the return is absent. A 180-second Clang-built
+clean-boot run reached native `MENU01` readiness and the M1 trigger, but the
+mission capture returned HTTP 504 because the grounded return was not observed
+within its five-second deadline. The seam is therefore exercised but no
+mission boundary or service-level runtime claim is accepted.
+
 ## Remaining work
 
-Use the grounded `CShell::ShellLoadLevel` return boundary at `0x0016FA4C` for
-mission-phase capture rather than a frame marker, then capture repeated
-clean traces across boot, menu, mission, save, load, and
+Use the new grounded `CShell::ShellLoadLevel` boundary at `0x0016FA4C` to
+capture repeated clean traces once the return is observed, then cover boot,
+menu, mission, save, load, and
 shutdown. Add a separate grounded observation seam for remaining interrupt
 delivery, kernel primitives, executable loading, and IOP module loads, then
 capture their service results and negative paths before designing the HLE

@@ -7,11 +7,15 @@ from pathlib import Path
 
 from avpe.control_http import request_bytes, request_json
 from avpe.menu_probe import await_deferred_call, menu_action
+from avpe.native_asset_probe import await_native_stream_reads
+from avpe.native_mission_probe import probe_marine_m1_transition
 
 BIOS_TRACE_SCHEMA = "avpe-bios-trace-v1"
 BIOS_EVENT_KINDS = frozenset(
     {"ee_syscall", "exception", "import", "interrupt", "module", "rpc", "timer"}
 )
+MISSION_TRACE_ENTRY_PC = 0x0016F910
+MISSION_TRACE_RETURN_PC = 0x0016FA4C
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -19,8 +23,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="capture the bounded BIOS/IOP census from boot or a savestate")
     parser.add_argument(
         "--probe-bios-phase",
-        choices=("menu", "save-load"),
-        help="capture a bounded BIOS/IOP phase after a menu action or save/load; requires --statefile",
+        choices=("menu", "save-load", "mission"),
+        help="capture a bounded BIOS/IOP phase after a menu action, save/load, or clean-boot mission load",
     )
     parser.add_argument("--bios-trace-output", type=Path,
                         help="write --probe-bios-trace JSON to this scratch path")
@@ -35,6 +39,24 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
         parser.error("choose either --probe-bios-trace or --probe-bios-phase")
     if args.probe_bios_phase in ("menu", "save-load") and args.statefile is None:
         parser.error("--probe-bios-phase requires --statefile")
+    if args.probe_bios_phase == "mission":
+        if args.statefile is not None:
+            parser.error("--probe-bios-phase mission requires a clean boot without --statefile")
+        if getattr(args, "memory_card_source", None) is None:
+            parser.error("--probe-bios-phase mission requires --memory-card-source")
+        if getattr(args, "probe_load_timing", None):
+            parser.error("--probe-bios-phase mission cannot combine with --probe-load-timing")
+
+
+def timing_environment_for_phase(
+    phase: str | None, requested_mode: str | None, requested_target: str
+) -> tuple[str | None, str | None]:
+    if phase == "mission":
+        return requested_mode or "oracle", "mission"
+    return (
+        requested_mode,
+        requested_target if requested_mode and requested_target != "startup" else None,
+    )
 
 
 def bios_trace_is_verified(trace: object) -> bool:
@@ -74,6 +96,27 @@ def bios_trace_failure_detail(trace: object) -> str:
     )
 
 
+def mission_boundary_is_verified(trace: object) -> bool:
+    if not bios_trace_is_verified(trace):
+        return False
+    assert isinstance(trace, dict)
+    boundary = trace.get("mission_boundary")
+    if not isinstance(boundary, dict) \
+            or boundary.get("complete") is not True \
+            or boundary.get("sequence_errors") != 0 \
+            or boundary.get("entry_pc") != MISSION_TRACE_ENTRY_PC \
+            or boundary.get("return_pc") != MISSION_TRACE_RETURN_PC:
+        return False
+    entry = boundary.get("entry")
+    returned = boundary.get("return")
+    return bool(
+        isinstance(entry, dict)
+        and isinstance(returned, dict)
+        and entry.get("pc") == MISSION_TRACE_ENTRY_PC
+        and returned.get("pc") == MISSION_TRACE_RETURN_PC
+    )
+
+
 def capture_bios_trace(port: int, at_guest_boundary: bool = True) -> dict[str, object]:
     route = "/bios/trace/capture-at-guest-boundary" if at_guest_boundary else "/bios/trace/capture"
     status, body = request_bytes(port, "POST", route, {}, timeout=7.0)
@@ -96,6 +139,29 @@ def start_bios_trace(port: int) -> None:
         )
 
 
+def start_bios_mission_phase(port: int) -> None:
+    status, body = request_bytes(port, "POST", "/bios/trace/start-mission", {})
+    if status != 200:
+        raise RuntimeError(
+            "BIOS mission trace start returned HTTP "
+            f"{status}: {body.decode(errors='replace').strip()}"
+        )
+
+
+def capture_bios_mission_boundary(port: int) -> dict[str, object]:
+    status, body = request_bytes(port, "POST", "/bios/trace/capture-mission", {}, timeout=7.0)
+    if status != 200:
+        raise RuntimeError(f"BIOS mission trace capture returned HTTP {status}")
+    trace = json.loads(body)
+    if not mission_boundary_is_verified(trace):
+        raise RuntimeError(
+            "complete grounded mission boundary was not observed: "
+            f"{bios_trace_failure_detail(trace)}"
+        )
+    assert isinstance(trace, dict)
+    return trace
+
+
 def prepare_bios_trace_for_native_stream(port: int, enabled: bool) -> None:
     if enabled:
         start_bios_trace(port)
@@ -105,9 +171,20 @@ def run_bios_phase(
     port: int,
     deadline: float,
     phase: str,
-    statefile: Path,
+    statefile: Path | None,
     state_path: Path,
 ) -> tuple[dict[str, object], str, str]:
+    if phase == "mission":
+        await_native_stream_reads(
+            port, deadline, "native MENU01 readiness before the BIOS mission boundary"
+        )
+        start_bios_mission_phase(port)
+        transition = probe_marine_m1_transition(
+            port, deadline, state_path.parent, require_native_assets=True
+        )
+        trace = capture_bios_mission_boundary(port)
+        trace["mission_transition_proof"] = transition
+        return trace, "clean_boot_to_mission", "shell_set_next_level"
     if phase == "menu":
         start_bios_trace(port)
         status, response, detail = menu_action(port, "down")

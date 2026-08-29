@@ -44,6 +44,7 @@ from avpe.native_bios_probe import (
     prepare_bios_trace_for_native_stream,
     report_bios_trace,
     run_requested_bios_probe,
+    timing_environment_for_phase,
     validate_arguments as validate_bios_arguments,
 )
 from avpe.menu_probe import (
@@ -763,7 +764,7 @@ def main() -> int:
             or args.probe_native_asset_cache
             or args.probe_native_movie_reads
             or args.probe_native_stream_reads
-            or args.probe_native_marine_m1_transition
+            or args.probe_native_marine_m1_transition or args.probe_bios_phase == "mission"
             or native_recovery_requested
             or args.probe_native_asset_reset
             or args.probe_asset_byte_trace
@@ -797,6 +798,9 @@ def main() -> int:
         return 2
     nonce = secrets.token_hex(16)
     argv = build_argv(PCSX2, DATA_DIR, LOG_DIR / "emulog.txt", chd, args.statefile)
+    timing_mode, timing_target = timing_environment_for_phase(
+        args.probe_bios_phase, args.probe_load_timing, args.load_timing_target
+    )
     env = build_environment(
         os.environ,
         port,
@@ -804,12 +808,8 @@ def main() -> int:
         native_asset_root=native_asset_root,
         native_asset_manifest_sha256=native_asset_manifest_sha256,
         asset_byte_trace_mode=args.probe_asset_byte_trace,
-        asset_load_timing_mode=args.probe_load_timing,
-        asset_load_timing_target=(
-            args.load_timing_target
-            if args.probe_load_timing and args.load_timing_target != "startup"
-            else None
-        ),
+        asset_load_timing_mode=timing_mode,
+        asset_load_timing_target=timing_target,
     )
     stdout = (LOG_DIR / "stdout.log").open("wb")
     try:

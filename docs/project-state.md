@@ -13,8 +13,10 @@ means the capability is absent.
 ## Current focus
 
 **S025 — required firmware service inventory.** The bounded BIOS census now has
-repeatable clean-boot and post-savestate phase evidence; the remaining work is
-the complete menu, mission, save/load, shutdown, and service-level inventory.
+repeatable clean-boot and post-savestate phase evidence, and a grounded
+mission entry/return observer. The remaining work is runtime completion of
+that observer plus the complete menu, mission, save/load, shutdown, and
+service-level inventory.
 Current focus is attention, not a separate state.
 
 ## Capability inventory
@@ -593,9 +595,18 @@ the native `MENU01.ZIV` proof with two sector reads and two consumed CDVD
 completion records. Unknown import-looking probes remain uncounted and on the
 original oracle path.
 
-Gap: define a guest-owned completion boundary before repeating save/load
-captures, add mission and shutdown phase
-boundaries, and separate archive/service operations from resumed execution.
+The mission BIOS phase now waits for native `MENU01.ZIV` readiness and arms a
+one-shot shared-EE observer around `CShell::ShellLoadLevel` entry `0x0016F910`
+and first post-load point `0x0016FA4C`. It records both guest clocks, frame,
+ordinal, and host time, and has a bounded refusal for a missing return. A
+180-second clean-boot run reached the readiness and M1 trigger but returned
+HTTP 504 because the post-load point was not observed within five seconds;
+there is no accepted mission-boundary runtime evidence yet.
+
+Gap: use the new grounded mission boundary once its return is observed, define
+a guest-owned completion boundary before repeating save/load captures, add
+shutdown phase boundaries, and separate archive/service operations from
+resumed execution.
 EE timers,
 remaining interrupt delivery, kernel primitives, executable loading, IOP module
 loads, and service-level negative-path semantics remain incomplete; S025 cannot

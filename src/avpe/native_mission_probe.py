@@ -40,9 +40,9 @@ def probe_marine_m1_transition(
     require_native_assets: bool = False,
 ) -> dict[str, object]:
     """Trigger the real MainLoop loader without depending on the menu-input seam."""
-    shell = _read_u32(port, SHELL_SINGLETON_ADDRESS)
-    if shell <= 0:
-        raise RuntimeError("CShell singleton is unavailable")
+    shell = _await_nonzero_u32(
+        port, SHELL_SINGLETON_ADDRESS, deadline, "CShell singleton"
+    )
     world_before = _read_u32(port, AVP_WORLD_ADDRESS)
     if world_before != 0:
         raise RuntimeError("pThe GAvPWorld was populated before the M1 trigger")
@@ -172,6 +172,18 @@ def _await_m1_endpoint(port: int, deadline: float) -> dict[str, object]:
     raise RuntimeError(
         f"Marine M1 briefing/gameplay endpoint was not observed: {_pointer(last)}"
     )
+
+
+def _await_nonzero_u32(
+    port: int, address: int, deadline: float, description: str
+) -> int:
+    last = 0
+    while time.monotonic() < deadline:
+        last = _read_u32(port, address)
+        if last != 0:
+            return last
+        time.sleep(0.05)
+    raise RuntimeError(f"{description} was not observed: {_pointer(last)}")
 
 
 def _read_bytes(port: int, address: int, length: int) -> bytes:
