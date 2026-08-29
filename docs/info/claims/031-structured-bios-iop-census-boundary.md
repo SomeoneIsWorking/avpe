@@ -7,7 +7,7 @@ tags: bios,hle,iop,inventory
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotAndDisableJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#CaptureAtGuestBoundaryJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#OnGuestFrameBoundary, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#StartMissionBoundary, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#CaptureMissionBoundaryJson, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#dispatch, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_start, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_capture_at_guest_boundary, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_start_mission, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_capture_mission, thirdparty/pcsx2/pcsx2/Counters.cpp#VSyncStart, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp#OnSaveStateLoaded, src/avpe/native_bios_probe.py#bios_trace_is_verified, src/avpe/native_bios_probe.py#mission_boundary_is_verified, src/avpe/native_bios_probe.py#run_bios_phase, src/avpe/native_bios_probe.py#run_requested_bios_probe, src/avpe/native_bios_probe.py#timing_environment_for_phase, tools/run_control_test.py#main, thirdparty/pcsx2/pcsx2/AVPE/NativeMissionLoadTiming.cpp#ObserveEeExecution, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-29
-verified_at: 2026-08-29 04:30:12
+verified_at: 2026-08-29 04:35:44
 ---
 
 ## Claim
@@ -144,3 +144,7 @@ Re-verified after parent a764fa0 and fork 335073a: 131 Python tests, 22 native t
 ## Re-confirmed 2026-08-29
 
 The full Clang verifier passed 154 Python tests, 22 native production tests, clang-format, and 46 clang-tidy translation units. Focused NativeBiosTrace tests passed exact grounded mission entry/return pairing and bounded missing-return timeout. A 180-second Clang-built clean-boot run reached native MENU01 readiness and the grounded M1 trigger but returned HTTP 504 because ShellLoadLevel return 0x0016FA4C was not observed within five seconds; this negative result does not claim mission completion or service-level coverage.
+
+## Re-confirmed 2026-08-29
+
+Post-landing verification passed 155 Python tests, 22 native production tests, clang-format, and 46 clang-tidy translation units with the grounded mission seam at parent 9fe73d4 and nested fork 36890d5. Focused NativeBiosTrace tests cover exact entry/return pairing and bounded missing-return refusal. The clean-boot mission attempt reached native MENU01 readiness and the M1 trigger but returned HTTP 504 because ShellLoadLevel return 0x0016FA4C was not observed within five seconds; this negative runtime result does not claim mission completion or service-level coverage.
