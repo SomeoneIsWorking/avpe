@@ -6,6 +6,7 @@ from avpe.save_descriptor_probe import (
     descriptor_wire_size,
     inspect_class_type_database,
     parse_serialized_descriptor_body,
+    resolve_save_ex_dispatch,
 )
 
 
@@ -25,6 +26,24 @@ class GuestMemory:
 
 
 class SaveDescriptorProbeTests(unittest.TestCase):
+    def test_resolves_inherited_and_overridden_save_ex(self) -> None:
+        self.assertEqual(
+            resolve_save_ex_dispatch("GMarineInfantry", ("GMarine", "GUnit")),
+            resolve_save_ex_dispatch("GUnit", ()),
+        )
+        self.assertEqual(
+            resolve_save_ex_dispatch("GDropShip", ("GVehicle", "GUnit")).implementation,
+            "GDropShip",
+        )
+        self.assertEqual(
+            resolve_save_ex_dispatch("GAlienPlayerManager", ("GPlayerManager",)).implementation,
+            "GPlayerManager",
+        )
+        self.assertEqual(
+            resolve_save_ex_dispatch("GAdultAlienAI", ("GUnitAI", "GObjectAI")).implementation,
+            "GObjectAI",
+        )
+
     def test_splits_scalar_pointer_and_pointer_array_wire_fields(self) -> None:
         descriptors = (
             EditableDescriptor(0x11, 2, 1, 0, 0),
@@ -79,6 +98,8 @@ class SaveDescriptorProbeTests(unittest.TestCase):
         )
         memory.add(name_a, b"FirstClass\0".ljust(128, b"\0"))
         memory.add(name_b, b"SecondClass\0".ljust(128, b"\0"))
+        memory.add(0x3010, struct.pack("<8I", 0xABCDEF01, 0x4020, 0, 0, 0, 0, 0, 0))
+        memory.add(0x4020, b"ParentClass\0".ljust(128, b"\0"))
         memory.add(
             desc_a,
             struct.pack("<I H B B I", 7, 4, 3, 1, 0x28)
@@ -99,8 +120,10 @@ class SaveDescriptorProbeTests(unittest.TestCase):
         entry = inventory["entries"][0]
         self.assertEqual(entry["name"], "SecondClass")
         self.assertEqual(entry["parent_address"], 0x3010)
+        self.assertEqual(entry["parent_chain"][0]["name"], "ParentClass")
         self.assertEqual(entry["descriptors"][1]["kind"], 7)
         self.assertEqual(entry["descriptors"][1]["flags"], 0x11)
+        self.assertEqual(entry["save_ex"]["implementation"], "GObject")
 
     def test_reports_requested_class_ids_missing_from_live_database(self) -> None:
         memory = GuestMemory()
@@ -120,3 +143,17 @@ class SaveDescriptorProbeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "invalid bounded array"):
             inspect_class_type_database(memory.read, database_address=0x1000)
+
+    def test_rejects_cyclic_parent_chain(self) -> None:
+        memory = GuestMemory()
+        memory.add(0x1000, struct.pack("<3I", 0x2000, 1, 1))
+        memory.add(0x2000, struct.pack("<I", 0x3000))
+        memory.add(
+            0x3000,
+            struct.pack("<8I", 1, 0x4000, 0, 0x3000, 0, 0, 0, 0x5000),
+        )
+        memory.add(0x4000, b"Class\0".ljust(128, b"\0"))
+        memory.add(0x5000, struct.pack("<III", 0, 0x01030004, 0))
+
+        with self.assertRaisesRegex(ValueError, "parent chain cycles"):
+            inspect_class_type_database(memory.read, {1}, 0x1000)

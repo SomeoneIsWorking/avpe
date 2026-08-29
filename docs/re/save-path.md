@@ -254,13 +254,16 @@ The supported binary contains additional implementations at
 `0x001DF840` (`GDropShip`), `0x001F1DC0` (`GHugger`), `0x001F5E40`
 (`GPlayerManager`), `0x00223090` (`GObjectAI`), `0x0023EF40` (`GDropPod`),
 and `0x00248A30` (`GAlarm`); the base `GObject` implementation is at
-`0x001070A0`. These payloads are not descriptor fields. For example,
-`GFOWSaver::SaveEx` writes a bounded count followed by a sign-bit bitmap, and
+`0x001070A0`. These payloads are not descriptor fields. The live parent-chain
+probe selected `GObject` for 47 observed classes, `GUnit` for 9,
+`GObjectAI` for 6, `GPlayerManager` for 3, `GDropShip` for 1, and `GFOWSaver`
+for 1, with no missing class IDs. This maps the virtual dispatch boundary for
+the observed records. The payload schemas remain separate: `GFOWSaver::SaveEx`
+writes a bounded count followed by a sign-bit bitmap, while
 `GPlayerManager::SaveEx` conditionally writes a fixed header plus four groups
-of counted object/float triples. Until the virtual dispatch chain is mapped
-to every observed class and these payloads are decoded, a whole-record parser
-must stop at the descriptor boundary rather than guess where the next object
-starts.
+of counted object/float triples. A whole-record parser must now decode those
+selected payloads, including the variable-count `GObjectAI` message queue,
+before it can claim complete record boundaries.
 
 Running `tools/analyze_save_records.py` through the parser logic on the two
 retained raw-card records produced these observations:
@@ -292,8 +295,9 @@ original game loads either produced record.
   that must be rejected, to resolve unknown fields and checksums. Object-header
   structure, descriptor wire splitting, and malformed-input rejection are now
   covered by production parsers.
-- Map the virtual `SaveEx` inheritance/dispatch chain for the 67 observed class
-  IDs and decode each extra payload before attempting a whole-record parser.
+- Decode the selected `SaveEx` payloads for the 67 observed class IDs,
+  including the variable-count `GObjectAI` message queue and conditional
+  `GPlayerManager` state, before attempting a whole-record parser.
 - Capture a normal in-game save completion and identify the narrow guest-call
   interception mechanism that can route the five `CProfile` operations to
   `AVPE::NativeSaves` while keeping the original game routines available as
