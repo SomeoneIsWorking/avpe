@@ -108,9 +108,21 @@ probe then completed with 11 recognized import identities, including
 identities, and zero overflow. The native stream proof also recorded two
 completed `MENU01.ZIV` sector reads.
 
+### Finding (2026-08-29, static EE syscall candidates)
+
+`tools/analyze_ee_syscalls.py` now scans executable PT_LOAD code from the
+user-supplied ELF without tracking the asset. On `SLUS_201.47` it found one
+executable segment, 158 embedded BIOS wrapper definitions, 458 direct wrapper
+callsites, and 8 direct syscall instructions, covering 63 statically decoded
+syscall numbers. The scanner keeps static candidates separate from runtime
+observations and cannot see indirect or data-driven dispatch; it therefore
+narrows the next runtime inventory but does not establish service execution or
+results.
+
 ## Remaining work
 
-Define and instrument guest-owned completion boundaries, then capture repeated
+Use the grounded `CShell::ShellLoadLevel` return boundary at `0x0016FA4C` for
+mission-phase capture rather than a frame marker, then capture repeated
 clean traces across boot, menu, mission, save, load, and
 shutdown. Add a separate grounded observation seam for remaining interrupt
 delivery, kernel primitives, executable loading, and IOP module loads, then
