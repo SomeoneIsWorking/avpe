@@ -4,9 +4,9 @@ kind: claim
 status: holds
 created: 2026-08-27
 tags: save,profile,re
-depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, tests/test_save_format.py#SaveFormatTests
+depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, src/avpe/save_descriptor_probe.py#inspect_class_type_database, src/avpe/save_descriptor_probe.py#parse_serialized_descriptor_body, tests/test_save_format.py#SaveFormatTests, tests/test_save_descriptor_probe.py#SaveDescriptorProbeTests
 reconfirmed: 2026-08-29
-verified_at: 2026-08-29 02:58:00
+verified_at: 2026-08-29 03:20:11
 ---
 
 ## Claim
@@ -66,3 +66,17 @@ Re-verified after parent a764fa0: 131 Python tests, 22 native tests, format, and
 ## Re-confirmed 2026-08-29
 
 Re-verified after parent cee8c85: the grounded Save/Load decompilation identifies class-descriptor-driven scalar, pointer, and pointer-array bodies; the production parser still passes all six save-format tests and real slot0/slot1 records remain balanced with 189 top-level starts, 1,073 nested starts, 1,262 nested terminators, depth 3, and 67 opaque class IDs. Editable field meanings, produced-save load, and native interception remain unproven.
+
+## Re-confirmed 2026-08-29 — live descriptor inventory
+
+The BIOS-backed descriptor probe resolved all 67 class IDs present in both
+retained records to live type entries and 6,304 descriptor fields. The
+descriptor-body splitter passes focused positive and malformed-input tests,
+but deliberately stops before each class's virtual `SaveEx` payload. The
+descriptor inventory and wire boundary are therefore grounded; gameplay field
+meanings, complete extra-payload decoding, produced-save load, and native
+interception remain unproven.
+
+## Re-confirmed 2026-08-29
+
+Live BIOS-backed descriptor extraction resolved all 67 class IDs from both retained saves to 6,304 descriptor fields; descriptor-body splitter tests and full verifier pass, while virtual SaveEx payload mapping, field meanings, load round-trip, and native interception remain open.

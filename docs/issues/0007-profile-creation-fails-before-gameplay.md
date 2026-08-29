@@ -81,6 +81,26 @@ Therefore the next save-schema slice is class-descriptor extraction and
 field-difference evidence. A generic record decoder or guessed field tags
 would not preserve the game's loader contract and is explicitly out of scope.
 
+### Finding (2026-08-29, live class descriptors and extra payloads)
+
+The BIOS-backed paused state exposes the title's class-type database at
+`0x003B10B0`: 831 live entries with capacity 832. The bounded descriptor probe
+resolved every one of the 67 class IDs present in both retained game saves,
+covering 6,304 descriptor fields. It also confirmed the descriptor sentinel is
+the first zero field-ID word, even when the sentinel's trailing bytes are
+nonzero. The reusable splitter now validates scalar widths and pointer-field
+wire descriptions, extracts saved-object identities, and reports the exact
+byte boundary before a class-specific `SaveEx` payload.
+
+The remaining schema blocker is real: `SaveAll` invokes virtual `SaveEx` after
+each object's descriptor body. The binary has grounded extra serializers for
+`GFOWSaver`, `GHiveNode`, `GAlienCarrier`, `GUnit`, `GChestBurster`, `GDropShip`,
+`GHugger`, `GPlayerManager`, `GObjectAI`, `GDropPod`, and `GAlarm`, including
+variable-count and inherited payloads. The descriptor inventory does not tell
+which override is selected for each live class, and treating those bytes as
+the next object header would misparse valid saves. Map that dispatch chain and
+decode its payloads before claiming a whole-record reader or native writer.
+
 ### Finding (2026-08-29, BWJ stream)
 
 Ghidra decompilation of `CBWJCompressor` and `GObject::SaveAll` grounded the

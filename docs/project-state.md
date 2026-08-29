@@ -274,7 +274,11 @@ bodies are class-descriptor driven: scalar fields are emitted at descriptor
 widths, while pointer and pointer-array kinds carry saved-object identities.
 The 16-byte object headers are therefore not enough to decode editable fields;
 the 67 observed class IDs require descriptor extraction before a native writer
-can preserve the loader contract.
+can preserve the loader contract. A BIOS-backed live probe now resolves all 67
+IDs to 6,304 descriptor fields and the production splitter validates their
+scalar/pointer wire boundaries. `SaveAll` then invokes class-specific virtual
+`SaveEx` payloads, so whole-record decoding still requires mapping that dispatch
+chain and its variable payloads.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.

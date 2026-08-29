@@ -222,6 +222,46 @@ the supported class descriptor layouts and pointer-identity rules, then prove
 them against deliberately differing real saves. Treating the opaque body as a
 generic tagged record would accept bytes the game loader cannot consume.
 
+### Finding (2026-08-29, live descriptor inventory and SaveEx boundary)
+
+The live AVP:E class-type database at `0x003B10B0` has an array of 831 entries
+(capacity 832). Its entries are 0x20 bytes; the class ID is at offset 0, the
+name pointer at +4, the parent type pointer at +0x0c, and the editable
+descriptor pointer at +0x1c. Each descriptor is 0x0c bytes: field ID, a
+16-bit size, kind, flags, and object offset. The descriptor table terminates
+when its first field-ID word is zero; the remaining eight sentinel bytes are
+not required to be zero. `src/avpe/save_descriptor_probe.py` and
+`tools/inspect_save_descriptors.py` implement bounded extraction and exact
+descriptor-body splitting.
+
+Against the class IDs found in both retained game saves, the live probe
+resolved all 67 IDs and 6,304 descriptor fields. The observed kind totals were
+319 kind-1, 2,275 kind-2, 1,709 kind-3, 72 kind-4, 99 kind-5, 59 kind-6,
+1,475 kind-7, 233 kind-8, and 63 kind-9 fields. This is an inventory of the
+loader's wire schema, not a gameplay interpretation of field IDs.
+
+The descriptor-body splitter follows `GObject::Save`: scalar kinds use
+`max(size, 4)` bytes; kinds 6 and 7 use an eight-byte field description plus
+one four-byte identity; kind 9 uses the description plus one identity for each
+four-byte array element. It validates pointer field IDs and sizes and returns
+the consumed boundary while leaving any following virtual `SaveEx` payload
+unconsumed.
+
+`SaveAll` invokes each saved object's virtual `SaveEx` after `GObject::Save`.
+The supported binary contains additional implementations at
+`0x00110450` (`GFOWSaver`), `0x0019FFC0` (`GHiveNode`), `0x001A8850`
+(`GAlienCarrier`), `0x001C0C80` (`GUnit`), `0x001DD8E0` (`GChestBurster`),
+`0x001DF840` (`GDropShip`), `0x001F1DC0` (`GHugger`), `0x001F5E40`
+(`GPlayerManager`), `0x00223090` (`GObjectAI`), `0x0023EF40` (`GDropPod`),
+and `0x00248A30` (`GAlarm`); the base `GObject` implementation is at
+`0x001070A0`. These payloads are not descriptor fields. For example,
+`GFOWSaver::SaveEx` writes a bounded count followed by a sign-bit bitmap, and
+`GPlayerManager::SaveEx` conditionally writes a fixed header plus four groups
+of counted object/float triples. Until the virtual dispatch chain is mapped
+to every observed class and these payloads are decoded, a whole-record parser
+must stop at the descriptor boundary rather than guess where the next object
+starts.
+
 Running `tools/analyze_save_records.py` through the parser logic on the two
 retained raw-card records produced these observations:
 
@@ -248,12 +288,12 @@ original game loads either produced record.
   isolated game saves whose progress differs. Two structurally distinct save
   bodies now exist; their decompressed object/class and gameplay meaning still
   needs to be identified.
-- Decode the editable field records, including a case that must be rejected,
-  to resolve unknown fields and checksums. Object-header structure and
-  truncated-header rejection are now covered by the production parser.
-- Extract the class descriptor tables used by the 67 observed class IDs so
-  scalar, pointer, and pointer-array field bodies can be split according to
-  the game's loader rather than guessed from payload differences.
+- Decode editable field values with paired setting changes, including a case
+  that must be rejected, to resolve unknown fields and checksums. Object-header
+  structure, descriptor wire splitting, and malformed-input rejection are now
+  covered by production parsers.
+- Map the virtual `SaveEx` inheritance/dispatch chain for the 67 observed class
+  IDs and decode each extra payload before attempting a whole-record parser.
 - Capture a normal in-game save completion and identify the narrow guest-call
   interception mechanism that can route the five `CProfile` operations to
   `AVPE::NativeSaves` while keeping the original game routines available as
