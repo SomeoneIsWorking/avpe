@@ -6,9 +6,11 @@ from avpe.save_ex import (
     parse_gdrop_ship_payload,
     parse_gfow_saver_payload,
     parse_gobject_ai_payload,
+    parse_gobject_ai_payload_from_database,
     parse_gplayer_manager_payload,
     parse_gunit_payload,
 )
+from avpe.save_message_types import MessageTypeEntry
 
 
 class SaveExTests(unittest.TestCase):
@@ -38,6 +40,19 @@ class SaveExTests(unittest.TestCase):
 
         self.assertEqual([message.type_id for message in parsed.messages], [0x10, 0x20])
         self.assertEqual([message.raw for message in parsed.messages], [b"abcd", b"xy"])
+        self.assertEqual(parsed.consumed_bytes, len(data))
+
+    def test_reads_dynamic_object_ai_message_from_database_size_field(self) -> None:
+        entries: list[MessageTypeEntry | None] = [None] * 256
+        entries[0x67] = MessageTypeEntry(0x67, 0x1234, 0xFFFFFFFF, 0)
+        message = bytearray(16)
+        struct.pack_into("<H", message, 0x0C, len(message))
+        data = struct.pack("<II", 1, 0x67) + message
+
+        parsed = parse_gobject_ai_payload_from_database(data, tuple(entries))
+
+        self.assertEqual(parsed.messages[0].type_id, 0x67)
+        self.assertEqual(parsed.messages[0].raw, bytes(message))
         self.assertEqual(parsed.consumed_bytes, len(data))
 
     def test_reads_active_player_manager_groups_and_skips_inactive(self) -> None:

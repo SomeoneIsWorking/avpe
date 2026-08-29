@@ -270,6 +270,18 @@ size lookup; the player-manager reader requires the saved object's grounded
 active-state predicate. Neither missing context is guessed from arbitrary
 bytes.
 
+The `GObjectAI` message queue uses the fixed 256-slot
+`MessageTypeDatabase` at `0x003B10C0`. `CMessage::Find` selects a slot by the
+low eight bits of the message type; `Add` stores a creator address at entry
+offset 0, a size at +4, and a name pointer at +8. A live BIOS-backed read found
+92 registered slots and one dynamic-size slot (slot `0x67`, size `0xffffffff`),
+with the remaining slots empty. `src/avpe/save_message_types.py` preserves
+empty slots, and resolves registered fixed sizes by the title's low-byte lookup.
+The AI payload reader in `src/avpe/save_ex.py` also implements the grounded
+dynamic fallback by reading the message instance's own 16-bit size field at
+offset +0x0c; it rejects unregistered types and truncation rather than
+guessing a size.
+
 Running `tools/analyze_save_records.py` through the parser logic on the two
 retained raw-card records produced these observations:
 
@@ -300,10 +312,11 @@ original game loads either produced record.
   that must be rejected, to resolve unknown fields and checksums. Object-header
   structure, descriptor wire splitting, and malformed-input rejection are now
   covered by production parsers.
-- Decode the selected `SaveEx` payloads for the 67 observed class IDs,
-  including the variable-count `GObjectAI` message queue and conditional
-  `GPlayerManager` state, and integrate them with the recursive object stream
-  using grounded message-type sizes and the player-manager active predicate.
+- Integrate the bounded selected `SaveEx` readers with the recursive object
+  stream, including the variable-count `GObjectAI` message queue and
+  conditional `GPlayerManager` state. The fixed-size table and dynamic
+  message-size fallback are decoded; the remaining external input is the
+  grounded player-manager active predicate.
 - Capture a normal in-game save completion and identify the narrow guest-call
   interception mechanism that can route the five `CProfile` operations to
   `AVPE::NativeSaves` while keeping the original game routines available as

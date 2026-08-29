@@ -6,6 +6,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import struct
 
+from avpe.save_message_types import (
+    MESSAGE_DYNAMIC_SIZE,
+    MessageTypeEntry,
+    MESSAGE_TYPE_ENTRY_COUNT,
+)
 
 PLAYER_MANAGER_FIXED_BYTES = 0x474 + 0x10
 
@@ -86,6 +91,34 @@ def parse_gfow_saver_payload(
 def parse_gobject_ai_payload(data: bytes, message_size: MessageSize) -> GObjectAISaveEx:
     """Read GObjectAI's count, message types, and type-sized message bytes."""
 
+    return _parse_gobject_ai_payload(data, lambda type_id, _: message_size(type_id))
+
+
+def parse_gobject_ai_payload_from_database(
+    data: bytes, entries: tuple[MessageTypeEntry | None, ...]
+) -> GObjectAISaveEx:
+    """Read GObjectAI messages using the title's fixed/dynamic size table."""
+
+    if len(entries) != MESSAGE_TYPE_ENTRY_COUNT:
+        raise ValueError("message type database has the wrong slot count")
+
+    def size_for_message(type_id: int, offset: int) -> int:
+        entry = entries[type_id & 0xFF]
+        if entry is None:
+            raise ValueError(f"message type 0x{type_id:08x} is not registered")
+        if entry.size != MESSAGE_DYNAMIC_SIZE:
+            return entry.size
+        _require_range(data, offset, 0x0E, "dynamic message size")
+        return struct.unpack_from("<H", data, offset + 0x0C)[0]
+
+    return _parse_gobject_ai_payload(data, size_for_message)
+
+
+def _parse_gobject_ai_payload(
+    data: bytes, message_size: Callable[[int, int], int]
+) -> GObjectAISaveEx:
+    """Shared bounded loop for callback- and table-backed message sizes."""
+
     _require_bytes(data, 4, "GObjectAI SaveEx count")
     count = struct.unpack_from("<I", data)[0]
     offset = 4
@@ -96,7 +129,7 @@ def parse_gobject_ai_payload(data: bytes, message_size: MessageSize) -> GObjectA
         _require_range(data, offset, 4, "GObjectAI SaveEx message type")
         type_id = struct.unpack_from("<I", data, offset)[0]
         offset += 4
-        size = message_size(type_id)
+        size = message_size(type_id, offset)
         if not isinstance(size, int) or isinstance(size, bool) or size < 0:
             raise ValueError(f"message type 0x{type_id:08x} has an invalid size")
         _require_range(data, offset, size, "GObjectAI SaveEx message")
