@@ -6,7 +6,7 @@ created: 2026-08-27
 tags: save,profile,re
 depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, src/avpe/save_descriptor_probe.py#inspect_class_type_database, src/avpe/save_descriptor_probe.py#parse_serialized_descriptor_body, tests/test_save_format.py#SaveFormatTests, tests/test_save_descriptor_probe.py#SaveDescriptorProbeTests
 reconfirmed: 2026-08-29
-verified_at: 2026-08-29 03:20:11
+verified_at: 2026-08-29 03:20:49
 ---
 
 ## Claim
@@ -80,3 +80,7 @@ interception remain unproven.
 ## Re-confirmed 2026-08-29
 
 Live BIOS-backed descriptor extraction resolved all 67 class IDs from both retained saves to 6,304 descriptor fields; descriptor-body splitter tests and full verifier pass, while virtual SaveEx payload mapping, field meanings, load round-trip, and native interception remain open.
+
+## Re-confirmed 2026-08-29
+
+After commit 3bab698, the live BIOS-backed descriptor extraction still resolves all 67 class IDs from both retained saves to 6,304 descriptor fields; the focused descriptor tests and full verifier pass, while virtual SaveEx payload mapping, field meanings, load round-trip, and native interception remain open.
