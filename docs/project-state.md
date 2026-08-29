@@ -607,6 +607,14 @@ also captured the same 28-event `clean_boot_to_running` trace with zero
 overflow through the atomic production capture route; three restored-state
 captures were also accepted with zero overflow after the post-restore reset.
 
+Static candidate evidence now complements the runtime census: the bounded
+`tools/analyze_ee_syscalls.py` scanner found one executable segment in the
+user-supplied target ELF, 158 BIOS wrapper definitions, 458 direct wrapper
+callsites, 8 direct syscall instructions, and 63 candidate syscall numbers.
+This does not prove execution, indirect dispatch, or service results. The next
+runtime slice is the grounded `CShell::ShellLoadLevel` return at `0x0016FA4C`,
+not the existing frame-boundary marker.
+
 ### S026 — AVP:E-specific HLE implementation: blocked
 
 Blocker: S025. Verification requires project-owned clean-room implementations

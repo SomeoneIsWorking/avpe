@@ -34,6 +34,27 @@ Both the interpreter and dynarec route the EE `SYSCALL` opcode through the
 same implementation, so
 the syscall observation is not engine-specific.
 
+## Static EE syscall candidates
+
+`tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
+user-supplied ELF32 little-endian MIPS executable. It recognizes the target's
+four-instruction BIOS wrapper shape (`v1` immediate, `syscall`, `jr ra`,
+`nop`), records direct `jal` calls to those wrappers, and reports direct
+`syscall` instructions separately. It never treats a wrapper definition or a
+static callsite as proof that the service ran; indirect calls, data-driven
+dispatch, and runtime results remain outside this static scan.
+
+Running it on the ignored user-supplied `scratch/iso/elf/SLUS_201.47` found one
+executable segment (`0x00100000`, `0x266d00` bytes), 158 wrapper definitions,
+458 direct wrapper callsites, and 8 direct syscall instructions. The union of
+the statically decoded call numbers is 63 candidates:
+`0x07`, `0x08`, `0x0D`, `0x0E`, `0x10`–`0x17`, `0x1A`–`0x1D`, `0x20`–`0x25`,
+`0x29`, `0x2B`, `0x2F`, `0x30`, `0x32`–`0x34`, `0x37`, `0x38`, `0x3C`–`0x3E`,
+`0x40`–`0x45`, `0x4A`, `0x4B`, `0x54`, `0x56`, `0x5A`, `0x5B`, `0x64`,
+`0x6B`, `0x6F`–`0x71`, `0x73`, `0x74`, `0x76`–`0x7A`, `0x7C`, `0x7F`,
+`0x82`, `0x83`, and `0xFC`. This is a candidate inventory only; the bounded
+runtime census remains the evidence for execution and service results.
+
 ## Boot and savestate captures
 
 `tools/run_control_test.py --probe-bios-trace` starts a fresh BIOS-backed,
