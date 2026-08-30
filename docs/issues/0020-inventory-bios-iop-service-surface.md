@@ -156,9 +156,12 @@ entry, and the early world endpoint, then returned HTTP 504 after 120 seconds
 with no ShellLoadLevel return and no loader error. During that interval it
 observed 124 ReadChunk starts, all 124 completions, and 124 callbacks to
 `GMissionGoalsMenu::LoadHackCallback` at `0x00204AC0`, with zero invalid stack
-reads. The timeout sampled `__floatdisf` in that callback path. This proves
-sustained archive progress rather than a stuck chunk; it still does not
-establish a completed mission service slice.
+reads. A repeated payload-accounting run measured 4,029,554 bytes across the
+same 124 completed chunks; the largest was 868,004 bytes, the last was 228
+bytes, and none crossed the 1 MiB slice boundary. The timeout sampled the
+same floating-point runtime beneath the callback. This proves sustained
+small-record archive progress rather than a stuck chunk, one giant transfer,
+or a retry loop; it still does not establish a completed mission service slice.
 
 ## Remaining work
 

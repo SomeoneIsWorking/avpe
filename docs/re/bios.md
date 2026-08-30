@@ -114,8 +114,11 @@ ReadChunk progress points are classified separately from the two boundary
 PCs; production-order tests prevent progress PCs from becoming false returns.
 A valid 120-second native run recorded no loader error, 124 ReadChunk starts
 and completions, and 124 callbacks to `GMissionGoalsMenu::LoadHackCallback`
-at `0x00204AC0`, while `0x0016FA4C` remained absent. This is sustained loader
-progress and negative completion evidence, not mission-service coverage.
+at `0x00204AC0`, while `0x0016FA4C` remained absent. A repeated capture
+accounted 4,029,554 payload bytes, with an 868,004-byte maximum, a 228-byte
+last chunk, and no chunk requiring multiple 1 MiB slices. This is sustained
+small-record loader progress and negative completion evidence, not
+mission-service coverage.
 
 Three repeated captures currently produce the same 28-event slice: 20 module
 registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero
