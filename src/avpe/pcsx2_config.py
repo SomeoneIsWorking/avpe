@@ -96,6 +96,7 @@ def ensure_test_config(
         "Backend": "Null",
         "OutputMuted": "True",
     })
+    sections.setdefault("EmuCore/CPU/Recompiler", {})["EnableEE"] = "true"
     sections.setdefault("EmuCore/GS", {})["Renderer"] = "13"
     sections.setdefault("MemoryCards", {}).update({
         "Slot1_Enable": "true" if memory_card_filename else "false",

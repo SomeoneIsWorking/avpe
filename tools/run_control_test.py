@@ -849,6 +849,11 @@ def main() -> int:
         while proc.poll() is None and time.monotonic() < deadline:
             status = read_status(port)
             if status_is_verified(status, nonce):
+                if boot_status is None:
+                    print(
+                        f"control-test verified status={json.dumps(status, sort_keys=True)}",
+                        flush=True,
+                    )
                 boot_status = status
                 if args.probe_native_assets or args.probe_native_asset_reads:
                     try:
@@ -1039,7 +1044,6 @@ def main() -> int:
     if boot_status is None:
         print(f"FATAL {EXPECTED_SERIAL} never reached Running state; see {LOG_DIR}", file=sys.stderr)
         return 1
-    print(f"control-test verified status={json.dumps(boot_status, sort_keys=True)}", flush=True)
     if args.probe_native_assets or args.probe_native_asset_reads:
         if native_assets_proof is None:
             detail = probe_error or "probe did not run"

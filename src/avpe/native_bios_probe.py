@@ -89,7 +89,8 @@ def bios_trace_failure_detail(trace: object) -> str:
             f" mission_complete={boundary.get('complete')!r}"
             f" mission_entry={boundary.get('entry') is not None}"
             f" mission_return={boundary.get('return') is not None}"
-            f" mission_load_return={boundary.get('load_return') is not None}"
+            f" mission_load_error={boundary.get('load_error')!r}"
+            f" mission_load_progress={boundary.get('load_progress')!r}"
             f" mission_sequence_errors={boundary.get('sequence_errors')!r}"
         )
     return detail

@@ -333,14 +333,19 @@ reduction. Cache bounds have separate evidence below. The clean-boot M1
 transition trigger is separately verified, but its exact ShellLoadLevel timing
 and interval-wide optical exclusion remain S024 work.
 
-The M1 timing boundary is grounded but not yet captured: `ShellLoadLevel` is
+The M1 timing boundary is grounded but its return is not yet captured:
+`ShellLoadLevel` is
 `0x0016F910`, its `CTbdFile::Load` call is `0x0016FA44`, the first post-load
 instruction is `0x0016FA4C`, and its `jr ra` is `0x0016FAD4`. `MainLoop`
 calls it at `0x0016F784` and resumes at `0x0016F744`. Clean runs captured the
 exact `M01/background.tbd` entry but no post-load point within 240 seconds on
 either backend; the optical run was also tested to 600 seconds. The world
-endpoint appears, so this is an execution-boundary instrumentation gap rather
-than a new guest-address assumption.
+endpoint appears. The execution seam now also observes grounded TBF progress:
+a valid native 120-second capture completed all 124 observed ReadChunk calls,
+ran 124 `GMissionGoalsMenu::LoadHackCallback` calls, and saw no
+`CTbdFile::Error`, but still did not reach the post-load point. The remaining
+gap is the title's continued archive/load work, not an ungrounded address, a
+stuck ReadChunk, or permission to enlarge the timeout until it passes.
 
 ## Bounded native cache and lifecycle
 

@@ -106,9 +106,16 @@ duplicates or wrong ordering, and waits up to 120 seconds for the guest
 return. The mission trace is accepted only when its exact PCs are present, the
 sequence error count is zero, and both guest cycle domains advance. The
 `GAvPWorld` pointer is only an early progress marker: a 30-second run reached
-it and the grounded entry but still had the EE at `0x002CE88C` (`__pack_d`)
-with no return. This is a production seam, not yet runtime completion
-evidence.
+it and the grounded entry but still had the EE at `0x002CE88C` (`litodp`)
+with no return. Static RE places that bounded conversion under the TBF loading
+callbacks, not in a stuck formatting routine. The isolated runner now forces
+the EE recompiler required by this observer. Its exact loader-error and
+ReadChunk progress points are classified separately from the two boundary
+PCs; production-order tests prevent progress PCs from becoming false returns.
+A valid 120-second native run recorded no loader error, 124 ReadChunk starts
+and completions, and 124 callbacks to `GMissionGoalsMenu::LoadHackCallback`
+at `0x00204AC0`, while `0x0016FA4C` remained absent. This is sustained loader
+progress and negative completion evidence, not mission-service coverage.
 
 Three repeated captures currently produce the same 28-event slice: 20 module
 registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero
