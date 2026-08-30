@@ -8,7 +8,7 @@ from typing import Any
 from avpe.native_bios_probe import bios_trace_is_verified
 
 
-INVENTORY_SCHEMA = "avpe-bios-inventory-v1"
+INVENTORY_SCHEMA = "avpe-bios-inventory-v2"
 _SERVICE_KINDS = ("ee_syscall", "import", "module", "interrupt", "rpc")
 
 
@@ -98,7 +98,16 @@ def _summarize_services(events: list[dict[str, Any]], kind: str) -> list[dict[st
             raise ValueError("BIOS service calls must be a positive integer")
         entry["calls"] = entry.get("calls", 0) + calls
         if kind == "ee_syscall" or kind == "import":
-            entry.setdefault("results", set()).add(_required_int(event, "result"))
+            outcome = _required_string(event, "outcome")
+            entry.setdefault("outcomes", Counter())[outcome] += calls
+            entry.setdefault("results", set())
+            result_valid = _required_bool(event, "result_valid")
+            result_calls_key = (
+                "observed_result_calls" if result_valid else "unobserved_result_calls"
+            )
+            entry[result_calls_key] = entry.get(result_calls_key, 0) + calls
+            if result_valid:
+                entry["results"].add(_required_int(event, "result"))
         if kind == "module":
             entry.setdefault("operations", set()).add(_required_string(event, "operation"))
         if kind == "interrupt":
@@ -109,6 +118,10 @@ def _summarize_services(events: list[dict[str, Any]], kind: str) -> list[dict[st
         for key in ("results", "operations", "handlers"):
             if key in entry:
                 entry[key] = sorted(entry[key])
+        if "outcomes" in entry:
+            entry["outcomes"] = dict(sorted(entry["outcomes"].items()))
+            entry.setdefault("observed_result_calls", 0)
+            entry.setdefault("unobserved_result_calls", 0)
         result.append(entry)
     return sorted(
         result,
@@ -133,8 +146,8 @@ def _identity_fields(event: dict[str, Any], kind: str) -> list[tuple[str, Any]]:
             ("library", _required_string(event, "library")),
             ("ordinal", _required_int(event, "ordinal")),
             ("function", _required_string(event, "function")),
-            ("hle", _required_bool(event, "hle")),
-            ("debug", _required_bool(event, "debug")),
+            ("hle_available", _required_bool(event, "hle_available")),
+            ("debug_available", _required_bool(event, "debug_available")),
         ]
     if kind == "module":
         return [

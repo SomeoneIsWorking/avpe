@@ -11,6 +11,9 @@ from typing import Any
 from avpe.bios_inventory import combine_bios_inventories, summarize_bios_artifact
 
 
+REPORT_SCHEMA = "avpe-bios-inventory-report-v2"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -28,7 +31,7 @@ def main() -> int:
     except (OSError, json.JSONDecodeError, ValueError) as error:
         parser.error(str(error))
     report: dict[str, Any] = {
-        "schema": "avpe-bios-inventory-report-v1",
+        "schema": REPORT_SCHEMA,
         "aggregate": combine_bios_inventories(inventories),
         "captures": inventories,
     }

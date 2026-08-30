@@ -25,6 +25,7 @@ from avpe.launch import (
 )
 from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
 from avpe.native_bios_probe import (
+    BIOS_TRACE_SCHEMA,
     BiosMissionCaptureError,
     MISSION_TRACE_ENTRY_PC,
     MISSION_TRACE_RETURN_PC,
@@ -45,6 +46,37 @@ from avpe.pcsx2_config import (
     timing_config_identity,
 )
 from avpe.native_asset_cache_probe import cache_snapshot_is_verified
+
+
+def make_bios_import_event(sequence: int) -> dict[str, object]:
+    return {
+        "sequence": sequence,
+        "kind": "import",
+        "library": "ioman",
+        "ordinal": 6,
+        "function": "read",
+        "first_arguments": [1, 2, 3, 4],
+        "outcome": "hle",
+        "result_valid": True,
+        "result": 0,
+        "hle_available": True,
+        "debug_available": False,
+        "calls": 1,
+    }
+
+
+def make_bios_syscall_event(sequence: int) -> dict[str, object]:
+    return {
+        "sequence": sequence,
+        "kind": "ee_syscall",
+        "number": 100,
+        "name": "FlushCache",
+        "first_arguments": [0, 0, 0, 0],
+        "outcome": "direct",
+        "result_valid": True,
+        "result": 0,
+        "calls": 1,
+    }
 
 
 class ControlTestPolicyTests(unittest.TestCase):
@@ -117,26 +149,55 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_accepts_ordered_bounded_bios_trace(self) -> None:
         trace = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
             "events": [
-                {"sequence": 1, "kind": "import"},
+                make_bios_import_event(1),
             ],
         }
 
         self.assertTrue(bios_trace_is_verified(trace))
 
-    def test_rejects_unordered_or_overflowed_bios_trace(self) -> None:
-        trace = {
+    def test_rejects_legacy_or_ungrounded_bios_service_results(self) -> None:
+        legacy = {
             "schema": "avpe-bios-trace-v1",
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "events": [make_bios_import_event(1)],
+        }
+        ungrounded = {
+            **legacy,
+            "schema": BIOS_TRACE_SCHEMA,
+            "events": [{
+                **make_bios_import_event(1),
+                "outcome": "oracle",
+                "result_valid": False,
+            }],
+        }
+        mismatched = {
+            **ungrounded,
+            "events": [{
+                **make_bios_syscall_event(1),
+                "outcome": "bios",
+            }],
+        }
+
+        self.assertFalse(bios_trace_is_verified(legacy))
+        self.assertFalse(bios_trace_is_verified(ungrounded))
+        self.assertFalse(bios_trace_is_verified(mismatched))
+
+    def test_rejects_unordered_or_overflowed_bios_trace(self) -> None:
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
             "events": [
-                {"sequence": 2, "kind": "import"},
-                {"sequence": 1, "kind": "ee_syscall"},
+                make_bios_import_event(2),
+                make_bios_syscall_event(1),
             ],
         }
         overflowed = {**trace, "overflow": 1}
@@ -146,7 +207,7 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_accepts_complete_grounded_mission_boundary(self) -> None:
         trace = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
@@ -165,7 +226,7 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_rejects_incomplete_or_wrong_mission_boundary(self) -> None:
         trace = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
@@ -186,7 +247,7 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_bios_trace_artifact_names_the_clean_boot_phase(self) -> None:
         trace = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
@@ -202,7 +263,7 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_bios_trace_artifact_names_the_savestate_phase(self) -> None:
         trace = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
@@ -219,7 +280,7 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_bios_trace_artifact_records_explicit_phase_operation(self) -> None:
         trace = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
@@ -242,13 +303,13 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_bios_trace_capture_uses_atomic_capture_route(self) -> None:
         trace = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
             "events": [
-                {"sequence": 1, "kind": "import"},
-                {"sequence": 2, "kind": "ee_syscall"},
+                make_bios_import_event(1),
+                make_bios_syscall_event(2),
             ],
         }
         with patch(
@@ -263,11 +324,11 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_bios_trace_capture_can_use_immediate_diagnostic_route(self) -> None:
         trace = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
-            "events": [{"sequence": 1, "kind": "import"}],
+            "events": [make_bios_import_event(1)],
         }
         with patch(
             "avpe.native_bios_probe.request_bytes",
@@ -292,7 +353,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             side_effect=[
                 (200, b'{"started":true}'),
                 (200, json.dumps({
-                    "schema": "avpe-bios-trace-v1",
+                    "schema": BIOS_TRACE_SCHEMA,
                     "enabled": True,
                     "capacity": 4096,
                     "overflow": 0,
@@ -319,7 +380,7 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_bios_mission_timeout_writes_diagnostic_and_still_fails(self) -> None:
         diagnostic = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": False,
             "capacity": 4096,
             "overflow": 0,
@@ -397,7 +458,7 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_bios_trace_failure_detail_is_bounded(self) -> None:
         trace = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
             "capacity": 4096,
             "overflow": 12786,
@@ -412,7 +473,7 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_bios_trace_failure_detail_reports_mission_boundary(self) -> None:
         detail = bios_trace_failure_detail({
-            "schema": "avpe-bios-trace-v1",
+            "schema": BIOS_TRACE_SCHEMA,
             "enabled": False,
             "capacity": 4096,
             "overflow": 0,

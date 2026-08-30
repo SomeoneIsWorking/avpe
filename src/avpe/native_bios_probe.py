@@ -10,7 +10,7 @@ from avpe.menu_probe import await_deferred_call, menu_action
 from avpe.native_asset_probe import await_native_stream_reads
 from avpe.native_mission_probe import probe_marine_m1_transition
 
-BIOS_TRACE_SCHEMA = "avpe-bios-trace-v1"
+BIOS_TRACE_SCHEMA = "avpe-bios-trace-v2"
 BIOS_EVENT_KINDS = frozenset(
     {"ee_syscall", "exception", "import", "interrupt", "module", "rpc", "timer"}
 )
@@ -77,7 +77,46 @@ def bios_trace_is_verified(trace: object) -> bool:
         calls = event.get("calls", 1)
         if isinstance(calls, bool) or not isinstance(calls, int) or calls <= 0:
             return False
+        if event["kind"] in {"ee_syscall", "import"} \
+                and not _service_event_is_verified(event):
+            return False
     return True
+
+
+def _service_event_is_verified(event: dict[str, object]) -> bool:
+    arguments = event.get("first_arguments")
+    outcome = event.get("outcome")
+    result_valid = event.get("result_valid")
+    if not isinstance(arguments, list) or len(arguments) != 4 \
+            or any(not _is_u32(argument) for argument in arguments) \
+            or not isinstance(outcome, str) \
+            or not isinstance(result_valid, bool):
+        return False
+    if result_valid:
+        result = event.get("result")
+        if isinstance(result, bool) or not isinstance(result, int) \
+                or not -(1 << 31) <= result < (1 << 31):
+            return False
+    elif "result" in event:
+        return False
+
+    if event["kind"] == "ee_syscall":
+        return outcome in {"bios", "direct"} and result_valid == (outcome == "direct")
+
+    hle_available = event.get("hle_available")
+    debug_available = event.get("debug_available")
+    return bool(
+        isinstance(hle_available, bool)
+        and isinstance(debug_available, bool)
+        and (hle_available or debug_available)
+        and outcome in {"hle", "oracle"}
+        and result_valid == (outcome == "hle")
+        and (outcome != "hle" or hle_available)
+    )
+
+
+def _is_u32(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and 0 <= value < (1 << 32)
 
 
 def bios_trace_failure_detail(trace: object) -> str:

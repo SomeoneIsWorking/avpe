@@ -15,7 +15,7 @@ def make_artifact() -> dict[str, object]:
         "operation": "menu_down",
         "statefile": "pause-menu.p2s",
         "trace": {
-            "schema": "avpe-bios-trace-v1",
+            "schema": "avpe-bios-trace-v2",
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
@@ -25,7 +25,9 @@ def make_artifact() -> dict[str, object]:
                     "kind": "ee_syscall",
                     "number": 100,
                     "name": "FlushCache",
-                    "arguments": [0, 1, 2, 3],
+                    "first_arguments": [0, 1, 2, 3],
+                    "outcome": "direct",
+                    "result_valid": True,
                     "result": 0,
                 },
                 {
@@ -34,10 +36,12 @@ def make_artifact() -> dict[str, object]:
                     "library": "ioman",
                     "ordinal": 6,
                     "function": "open",
-                    "arguments": [0, 1, 2, 3],
+                    "first_arguments": [0, 1, 2, 3],
+                    "outcome": "hle",
+                    "result_valid": True,
                     "result": 3,
-                    "hle": True,
-                    "debug": False,
+                    "hle_available": True,
+                    "debug_available": False,
                 },
                 {
                     "sequence": 3,
@@ -88,6 +92,15 @@ class BiosInventoryTests(unittest.TestCase):
         self.assertEqual(summary["event_counts"]["exception"], 1)
         self.assertEqual(summary["services"]["ee_syscall"][0]["name"], "FlushCache")
         self.assertEqual(summary["services"]["import"][0]["function"], "open")
+        self.assertEqual(
+            summary["services"]["ee_syscall"][0]["outcomes"], {"direct": 1}
+        )
+        self.assertEqual(
+            summary["services"]["ee_syscall"][0]["observed_result_calls"], 1
+        )
+        self.assertEqual(
+            summary["services"]["ee_syscall"][0]["unobserved_result_calls"], 0
+        )
         self.assertEqual(summary["services"]["module"][0]["operations"], ["register"])
         self.assertEqual(summary["exceptions"]["pcs"], {"4096": 1})
         self.assertEqual(summary["timers"]["delivered"], {"false": 1})
@@ -105,6 +118,27 @@ class BiosInventoryTests(unittest.TestCase):
         syscall = summary["services"]["ee_syscall"][0]
         self.assertEqual(syscall["calls"], 2)
         self.assertEqual(syscall["results"], [-1, 0])
+
+    def test_counts_oracle_results_as_unobserved_without_inventing_values(self) -> None:
+        artifact = make_artifact()
+        syscall = artifact["trace"]["events"][0]
+        syscall["outcome"] = "bios"
+        syscall["result_valid"] = False
+        del syscall["result"]
+        imported = artifact["trace"]["events"][1]
+        imported["outcome"] = "oracle"
+        imported["result_valid"] = False
+        del imported["result"]
+
+        summary = summarize_bios_artifact(artifact)
+
+        syscall_summary = summary["services"]["ee_syscall"][0]
+        import_summary = summary["services"]["import"][0]
+        self.assertEqual(syscall_summary["results"], [])
+        self.assertEqual(syscall_summary["observed_result_calls"], 0)
+        self.assertEqual(syscall_summary["unobserved_result_calls"], 1)
+        self.assertEqual(import_summary["outcomes"], {"oracle": 1})
+        self.assertEqual(import_summary["unobserved_result_calls"], 1)
 
     def test_rejects_invalid_trace_and_empty_combination(self) -> None:
         invalid = make_artifact()
