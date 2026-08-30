@@ -44,11 +44,14 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Control client | HTTP operations for state, memory, input, and snapshots | `tools/avpe_http.py` | `main()` | [control-channel contract](re/control-channel.md) |
 | Control server | Loopback routes and VM/CPU-thread dispatch | `thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp/.h` | `AVPE::Start()` | [control-channel contract](re/control-channel.md) |
 | EE-call execution | Guest-call queue, context, return-PC stop, budget, and result handling | `thirdparty/pcsx2/pcsx2/AVPE/EECallShuttle.cpp/.h` | `AVPE::EECallShuttle` | [input-path contract](re/input-path.md) |
+| EE execution observation composition | One narrow interpreter/recompiler dispatch point for AVPE mission timing, BIOS tracing, and demand-driven title yield observers | `thirdparty/pcsx2/pcsx2/AVPE/NativeEeExecutionHooks.cpp/.h`; narrow calls in both EE engines | `AVPE::NativeEeExecutionHooks::Observe()` | [BIOS/IOP contract](re/bios.md) |
+| Mission-modal host yield | Demand-driven host CPU message pumping only at the exact AVP:E mission-goals load loop while an EE-call transaction is pending | `thirdparty/pcsx2/pcsx2/AVPE/NativeHostYield.cpp/.h`; frontend pump in `pcsx2-avpe/EmulationThread.*` and `HostServices.cpp` | `AVPE::NativeHostYield::Observe()` | [BIOS/IOP contract](re/bios.md) |
 | Shared pointer motion | Normalized-coordinate validation, resolution lookup, bounded guest staging, and absolute game-pointer movement | `thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.cpp/.h` | `AVPE::NativePointerMotion::MoveAbsolute()` | [input-path contract](re/input-path.md) |
 | Shared native input staging | Little-endian encoding of AVP:E's eight-byte float-pair `CInputData` prefix | `thirdparty/pcsx2/pcsx2/AVPE/NativeInputData.cpp/.h` | `AVPE::NativeInputData::EncodeFloatPair()` | [input-path contract](re/input-path.md) |
 | Native gameplay input | Live gameplay-pointer validation, selector policy, selection edges, and contextual commands | `thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp/.h` | `AVPE::NativeInput::MoveAbsolute()` | [input-path contract](re/input-path.md) |
 | Native camera input | Original camera move/rotate/zoom calls, minimap pointer integration, and before/after state capture | `thirdparty/pcsx2/pcsx2/AVPE/NativeCameraInput.cpp/.h` | `AVPE::NativeCameraInput::Apply()` | [input-path contract](re/input-path.md) |
-| Native menu input | Active menu and menu-capable pointer discovery, focus navigation, hit-testing, and activation/cancel actions | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp/.h` | `AVPE::NativeMenuInput` | [input-path contract](re/input-path.md) |
+| Native menu input | Callback-registry menu discovery, synchronous mission-goals modal/Exit discovery, exact focus, hit-testing, and activation/cancel actions | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp/.h` | `AVPE::NativeMenuInput` | [input-path contract](re/input-path.md) |
+| Native menu control route | Diagnostic HTTP parsing, failure/status mapping, and JSON presentation for typed menu state/actions | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuRoute.cpp/.h` | `AVPE::NativeMenuRoute::HandleAction()`, `HandleState()` | [control-channel contract](re/control-channel.md) |
 | Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: a `NativeSaves` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | target: `AVPE::NativeSaves` | target: save-path RE contract |
 | Native asset I/O | AVP:E title gating, path normalization, store/cache lifecycle composition, and FSSOUND cdvdman sector mapping over admitted records | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssets.*`; narrow ioman/cdvdman hooks in `IopBios.cpp` | `AVPE::NativeAssets::ResolveIomanOpen()`, `ResolveCdvdSearch()` | [disc-I/O RE contract](re/disc-io.md) |
 | Native asset byte cache | Immutable 64 KiB pages, exact 512-page/32 MiB true-LRU bound, coalesced transient host reads, and generation invalidation shared by ioman and cdvdman | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.*` | `AVPE::NativeAssetCache::ReadAt()` | [disc-I/O RE contract](re/disc-io.md) |
@@ -58,7 +61,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native guest reset evidence | CPU-thread reset boundary, production guest-reset epoch, cleanup attestation, and post-reset native-read proof policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeGuestReset.*`, `R3000A.cpp`, `NativeAssetStateSnapshot.*`, `src/avpe/native_asset_probe.py` | `AVPE::NativeGuestReset::Handle()`, `AVPE::NativeAssets::RecordGuestReset()`, `probe_native_asset_guest_reset()` | [disc-I/O RE contract](re/disc-io.md) |
 | Native asset byte differential | Bounded canonical-chunk assembly, PCSX2 ISO-reader oracle capture, strict source-separated comparison, and mismatch controls | `thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.*`, `src/avpe/asset_byte_compare.py`, `tools/compare_native_asset_bytes.py` | `AVPE::NativeAssetByteTrace::CaptureIsoOracle()`, `compare_asset_byte_traces()` | [disc-I/O RE contract](re/disc-io.md) |
 | Native load timing differential | Grounded guest/host boundary capture, actual-backend identity, strict symmetric sample validation, alternating-run orchestration, and drift/reduction controls | `thirdparty/pcsx2/pcsx2/AVPE/NativeLoadTiming.*`, `src/avpe/load_timing.py`, `tools/compare_native_load_timing.py` | `AVPE::NativeLoadTiming::SnapshotJson()`, `compare_load_timing_samples()` | [disc-I/O RE contract](re/disc-io.md) |
-| BIOS/IOP observation census | Bounded sequence-ordered observation of IOP imports, module registration, interrupt registration, SIF RPCs, and grounded mission entry/return, loader-error, ReadChunk timing, and nested post-read `LoadCore` phase points; no service behavior ownership | `thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.*`, `NativeMissionLoadTiming.*`, narrow calls in `IopBios.cpp` | `AVPE::NativeBiosTrace::SnapshotJson()`, `CaptureMissionBoundaryJson()` | [BIOS/IOP contract](re/bios.md) |
+| BIOS/IOP observation census | Bounded sequence-ordered observation of IOP imports, registrations, grounded mission entry/return, loader/chunk timing, nested `LoadCore` phases, indirect initializers, and object factories; no service behavior ownership | `thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.*`, `NativeMissionLoadTiming.*`, narrow calls in `IopBios.cpp` | `AVPE::NativeBiosTrace::SnapshotJson()`, `CaptureMissionBoundaryJson()` | [BIOS/IOP contract](re/bios.md) |
 | AVP:E-specific HLE BIOS | Required firmware-service inventory, clean-room EE kernel/BIOS behavior, IOP/module services, and BIOS-free boot policy | target: a dedicated `HLE` submodule under `thirdparty/pcsx2/pcsx2/AVPE/`; narrow hooks at existing BIOS/IOP service owners | target: `AVPE::HLE` | target: HLE-BIOS RE contract |
 | Native options integration | AVP:E menu extension and game-facing bindings to host display/graphics settings | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeOptions.*`; narrow settings interface in `thirdparty/pcsx2/pcsx2-avpe/` | target: `AVPE::NativeOptions` | target: native-options contract |
 | Diagnostic UI | RmlUi developer-only diagnostics and inspection surfaces | target: a `DebugUI` module under `thirdparty/pcsx2/pcsx2-avpe/` | target: `AVPE::DebugUI` | target: debug-UI contract |
@@ -106,8 +109,11 @@ thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── NativeAssetStateSnapshot.* atomic diagnostic view of frozen native I/O state
 ├── NativeLoadTiming.*         grounded native/optical loading-time evidence
 ├── NativeBiosTrace.*          bounded BIOS/IOP census and grounded mission load progress/boundary capture
+├── NativeEeExecutionHooks.*   shared EE observer composition point
+├── NativeHostYield.*          exact mission-modal host CPU transaction yield
 ├── NativeInput.*              gameplay pointer and button semantics
-├── NativeMenuInput.*          active-menu discovery and typed menu actions
+├── NativeMenuInput.*          callback/menu-modal discovery and typed menu actions
+├── NativeMenuRoute.*          native-menu diagnostic HTTP adapter
 └── NativePointerMotion.*      shared absolute pointer movement mechanics
 thirdparty/pcsx2/pcsx2-avpe/    standalone product frontend
 ├── Main.cpp                    process composition and product CLI
@@ -126,6 +132,9 @@ docs/issues/                   atomic work and investigation points
 
 - Guest function invocation and EE register/PC lifetime belong in the dedicated
   fork-local `EECallShuttle` module, not the HTTP route implementation.
+- EE instruction observation composition belongs in `NativeEeExecutionHooks`;
+  exact title wait-loop host pumping belongs in `NativeHostYield`. Neither owns
+  guest menu semantics or grows the interpreter/recompiler entry points.
 - Gameplay keyboard/mouse semantics belong in fork-local `NativeInput`; menu
   discovery and actions belong in peer `NativeMenuInput`. Shared absolute
   pointer mechanics belong in `NativePointerMotion`; both semantic owners use

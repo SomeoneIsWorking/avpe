@@ -4,7 +4,7 @@ kind: claim
 status: holds
 created: 2026-08-28
 tags: bios,hle,iop,inventory
-depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#ObserveMissionPostReadProgress
+depends: thirdparty/pcsx2/pcsx2/AVPE/NativeEeExecutionHooks.cpp#Observe, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#ObserveMissionTypeInitializer, src/avpe/native_mission_probe.py#mission_transition_is_verified
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-30
 verified_at: 2026-08-30 04:37:52
@@ -45,6 +45,15 @@ entry, no return/error, zero boundary errors, and zero timing errors were
 preserved in the structured timeout artifact. This falsifies the prior
 count/timeout throughput interpretation; it does not establish mission
 completion.
+
+The observer now also keeps bounded stack-paired indirect-initializer and
+object-factory frames. A completed clean native mission capture identified
+`CPresetFillData` and `GExitMissionGoalsButton::Create`, then reached the exact
+`ShellLoadLevel` continuation after the title's synchronous mission-goals modal
+was activated through its game-native Exit action. The capture completed all
+24 post-read rounds, paired 2,638 initializer calls/returns and 942 factory
+calls/returns, and retained zero sequence errors. This grounds a mission phase
+boundary; it does not infer unobserved service calls.
 
 Three repeated BIOS-backed surfaceless clean boots captured the same 28-event
 boot-to-`Running` slice with zero overflow through the atomic capture route.
@@ -194,3 +203,21 @@ Full Clang verifier passed 156 Python/structure tests, 22 native production-path
 ## Re-confirmed 2026-08-30
 
 Full Clang verifier passed 156 Python/structure tests, 22 native production tests, clang-format, and 46 clang-tidy units. Sixteen focused NativeBiosTrace tests cover repeated and nested LoadCore rounds plus skipped-stage rejection. A valid clean mission timeout preserved 22 rounds through FixupHandles, 21 InitTypes completions/returns, next expected init_types_complete, depth zero, and zero sequence errors.
+
+## Re-confirmed 2026-08-30
+
+Stack-aware production observation identified the final initializer and factory,
+and a clean surfaceless/null-muted mission run reached the exact grounded
+return. It completed 134/134 observed chunks, all 24 post-read rounds,
+2,638/2,638 initializer calls/returns, and 942/942 factory calls/returns with
+zero sequence errors. The title modal's exact Exit object was focused and
+activated synchronously with stack restoration before the singleton cleared.
+
+## Re-confirmed 2026-08-30
+
+The combined Clang gate passed 159 Python/structure tests, 22 standard native
+production tests, scoped/full clang-format, and all 49 clang-tidy translation
+units. The focused production suites separately passed 19 NativeBiosTrace, one
+NativeHostYield, and one NativeMenuInput test. `AVPE.cpp` route growth was
+resolved by extracting `NativeMenuRoute`; the normal verifier now includes all
+three new translation units and headers.

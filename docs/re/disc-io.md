@@ -333,30 +333,26 @@ reduction. Cache bounds have separate evidence below. The clean-boot M1
 transition trigger is separately verified, but its exact ShellLoadLevel timing
 and interval-wide optical exclusion remain S024 work.
 
-The M1 timing boundary is grounded but its return is not yet captured:
-`ShellLoadLevel` is
-`0x0016F910`, its `CTbdFile::Load` call is `0x0016FA44`, the first post-load
-instruction is `0x0016FA4C`, and its `jr ra` is `0x0016FAD4`. `MainLoop`
-calls it at `0x0016F784` and resumes at `0x0016F744`. Clean runs captured the
-exact `M01/background.tbd` entry but no post-load point within 240 seconds on
-either backend; the optical run was also tested to 600 seconds. The world
-endpoint appears. The execution seam now also observes grounded TBF progress:
-a valid native 120-second capture completed all 124 observed ReadChunk calls,
-ran 124 `GMissionGoalsMenu::LoadHackCallback` calls, and saw no
-`CTbdFile::Error`, but still did not reach the post-load point. A repeat
-accounted 4,029,554 payload bytes across those 124 chunks, with an 868,004-byte
-maximum, a 228-byte last chunk, and no multi-slice chunks. The remaining
-gap is after the completed archive reads, not an ungrounded address, a stuck
-`ReadChunk`, or permission to enlarge the timeout until it passes. A bounded
-timing refinement measured the 124 calls as one 1.164733261 s/67-frame burst:
-0.435780112 s in chunk bodies and 0.728953149 s in 123 inter-chunk gaps. The
-callback accounted for only 0.022820176 s and payload/read/decompression for
-0.388417553 s. The apparent 124-chunks-per-120-seconds rate was a count/timeout
-conflation; the next candidate is `CTbdFile::LoadCore` EOF finalization.
-That finalization is now partitioned: 22 rounds completed through
-`FixupHandles`, while 21 completed `InitTypes` and returned. Nested-round
-tracking ended cleanly at outer `InitTypes`; its indirect call at `0x0017467C`
-is title-owned object initialization, beyond the native storage boundary.
+The M1 timing boundary is grounded: `ShellLoadLevel` is `0x0016F910`, its
+`CTbdFile::Load` call is `0x0016FA44`, the first post-load instruction is
+`0x0016FA4C`, and its `jr ra` is `0x0016FAD4`. `MainLoop` calls it at
+`0x0016F784` and resumes at `0x0016F744`. Early clean runs did not reach the
+continuation, but the execution observer proved that all 124 payload
+`ReadChunk` calls completed in one 1.164733261 s/67-frame burst with 4,029,554
+bytes and no loader error. Stack-paired post-read observation localized the wait
+to the outer `InitTypes`, then identified `CPresetFillData` and its active
+`GExitMissionGoalsButton::Create` factory.
+
+The factory's constructor enters `GMissionGoalsMenu::LoadHackCallback`, a
+synchronous title modal that polls `GInputDevice` directly before callback
+registration. The native probe now waits for and validates the exact Exit
+object, focuses it through the title virtual, and invokes
+`GMenu::Input(Activate)` synchronously. A valid native run then reached
+`0x0016FA4C` with 134/134 observed chunks, all 24 post-read rounds,
+2,638/2,638 initializer calls/returns, 942/942 factory calls/returns, and zero
+sequence errors. The old missing return was therefore title-modal behavior,
+not native-storage latency. S024 still requires interval-wide optical exclusion,
+the matching completed oracle boundary, and three alternating timing pairs.
 
 ## Bounded native cache and lifecycle
 

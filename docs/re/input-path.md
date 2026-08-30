@@ -138,6 +138,20 @@ and restored the call while leaving the source menu active. That title-state
 transition is not deterministic evidence. All completed deferred calls
 attested exact nonzero stack restoration.
 
+The mission-goals load menu is a separate synchronous source. Its singleton is
+`0x00367C04` and exact menu vtable is `0x00342570`; while loading, it polls
+`GInputDevice` in `GMissionGoalsMenu::LoadHackCallback` before registering the
+ordinary callbacks above. `NativeMenuInput` traverses the bounded menu tree and
+admits only the unique Exit object with vtable `0x00342370` and CRC
+`0xCBC4D4CF`. It invokes that object's exact Focus virtual at `0x00120B70`,
+verifies the resulting focus handle resolves back to the same object, and calls
+`GMenu::Input(Activate)` synchronously. This call is deliberately not deferred:
+the request originates reentrantly while the host-yield observer is at the
+modal's loop PC `0x002052C8`, so original guest execution can otherwise revisit
+the deferred return PC and falsely report completion. A clean mission run
+cleared the singleton and reached the grounded load continuation with exact
+stack restoration.
+
 ## Menu pointer hit-testing and activation
 
 `GfsPointer::MenuCheck` at `0x0012e490` asks virtual `GetMenuItem` and changes
@@ -177,10 +191,13 @@ restoration.
   restores the interrupted EE/FPU/VU0 context and exact stack bytes, then lets
   the outer scheduler service deferred events. Recursively entering PCSX2's
   recompiler would overwrite its global dispatch jump buffer.
-- Non-returning menu transitions use the shuttle's deferred mode. It reserves a
+- Non-returning callback-registry menu transitions use the shuttle's deferred
+  mode. It reserves a
   guest o32 caller frame, clears the saved return-PC recompiler word, exits the
   current EE block, and completes from the normal interpreter/recompiler
   boundary after AVP:E returns. This keeps IOP, CDVD, timers, and VSync live.
+  The synchronous mission-goals load modal is the explicit grounded exception
+  described above.
 - `NativeInput::ApplyButtonEdge` owns typed primary/secondary press state,
   rejects duplicate or unmatched edges, and invokes the original handler for
   each edge. Savestate load resets the host-held edge state.
