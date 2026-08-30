@@ -7,7 +7,7 @@ tags: bios,hle,iop,inventory
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#ObserveMissionLoadProgress
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-30
-verified_at: 2026-08-30 03:08:45
+verified_at: 2026-08-30 03:25:46
 ---
 
 ## Claim
@@ -172,3 +172,7 @@ completion or service-level runtime claim is made from those runs.
 ## Re-confirmed 2026-08-30
 
 Full Clang verifier passed 154 Python tests, 22 native production-path tests, clang-format, and 46 clang-tidy translation units. Fourteen focused NativeBiosTrace tests include production-order rejection of progress PCs as false mission returns plus success, timeout, loader-error, and ReadChunk-progress outcomes. A valid surfaceless/native mission run reached verified Running and exact ShellLoadLevel entry, then reported no return/error with 124 ReadChunk starts, 124 completions, 124 callbacks to 0x00204AC0, and zero invalid stack reads.
+
+## Re-confirmed 2026-08-30
+
+Full Clang verifier again passed 154 Python tests, 22 native production-path tests, clang-format, and 46 clang-tidy translation units after payload accounting. Fourteen focused NativeBiosTrace tests include a 2.5 MiB multi-slice OTHER answer. A valid surfaceless/native mission run reached verified Running and exact entry, then reported no return/error; 124/124 completed chunks carried 4,029,554 bytes, maximum 868,004, final 228, zero multi-slice chunks, and 124 callbacks to 0x00204AC0.

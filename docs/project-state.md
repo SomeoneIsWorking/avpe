@@ -15,7 +15,8 @@ means the capability is absent.
 **S025 — required firmware service inventory.** The bounded BIOS census now has
 repeatable clean-boot and post-savestate phase evidence, and a grounded
 mission entry/return and archive-progress observer. A valid mission run proved
-124 completed TBF chunks and no loader error without reaching the return. The
+124 completed TBF chunks carrying 4,029,554 bytes and no loader error without
+reaching the return. The
 remaining work is the completed mission boundary plus the complete menu,
 save/load, shutdown, and service-level inventory.
 Current focus is attention, not a separate state.
@@ -528,7 +529,9 @@ seconds on the optical oracle. The world endpoint still appeared. The
 recompiler seam now captures exact boundary and TBF progress PCs: a valid
 native run completed 124 of 124 observed ReadChunk calls through
 `GMissionGoalsMenu::LoadHackCallback` without a loader error, but did not reach
-the post-load point within 120 seconds. Gap: capture the exact
+the post-load point within 120 seconds. A repeat measured 4,029,554 payload
+bytes, an 868,004-byte maximum chunk, a 228-byte final chunk, and no multi-slice
+chunks. Gap: capture the exact
 `CShell::ShellLoadLevel` return boundary; demonstrate zero original fallthrough and zero emulated optical
 wait for supported operations inside that interval; and run three alternating
 clean oracle/native mission-timing pairs. Title-observed failure tracing
@@ -609,8 +612,10 @@ callback, not a `__pack_d` hang. The runner now forces the required EE
 recompiler and reports `Running` before probes. A valid 120-second mission
 capture then recorded no `CTbdFile::Error`, 124 ReadChunk starts and 124
 completions, and 124 calls to `GMissionGoalsMenu::LoadHackCallback`, while the
-grounded ShellLoadLevel return remained absent. This is accepted progress and
-negative-boundary evidence, not a mission-service inventory.
+grounded ShellLoadLevel return remained absent. A repeat accounted 4,029,554
+bytes across those completed chunks, with no chunk exceeding the 1 MiB slice.
+This is accepted progress and negative-boundary evidence, not a mission-service
+inventory.
 
 Gap: explain the continued completed-chunk/callback work and use the grounded
 mission boundary once its return is observed, define

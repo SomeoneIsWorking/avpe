@@ -343,8 +343,10 @@ either backend; the optical run was also tested to 600 seconds. The world
 endpoint appears. The execution seam now also observes grounded TBF progress:
 a valid native 120-second capture completed all 124 observed ReadChunk calls,
 ran 124 `GMissionGoalsMenu::LoadHackCallback` calls, and saw no
-`CTbdFile::Error`, but still did not reach the post-load point. The remaining
-gap is the title's continued archive/load work, not an ungrounded address, a
+`CTbdFile::Error`, but still did not reach the post-load point. A repeat
+accounted 4,029,554 payload bytes across those 124 chunks, with an 868,004-byte
+maximum, a 228-byte last chunk, and no multi-slice chunks. The remaining
+gap is the title's continued small-record archive/load work, not an ungrounded address, a
 stuck ReadChunk, or permission to enlarge the timeout until it passes.
 
 ## Bounded native cache and lifecycle

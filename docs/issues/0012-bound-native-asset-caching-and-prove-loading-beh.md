@@ -176,8 +176,10 @@ surfaceless/native mission run still did not reach `0x0016FA4C` within the
 120-second capture, but it also did not hang in one TBF chunk: the bounded
 observer recorded 124 `CTbdFile::ReadChunk` starts, 124 completions, and 124
 callbacks to `GMissionGoalsMenu::LoadHackCallback` (`0x00204AC0`), with no
-`CTbdFile::Error`. The earlier `litodp`/`__pack_d` timeout samples are loading
+`CTbdFile::Error`. A repeat accounted 4,029,554 payload bytes across those 124
+chunks, with an 868,004-byte maximum, a 228-byte final chunk, and zero
+multi-slice chunks. The earlier `litodp`/`__pack_d` timeout samples are loading
 icon timer conversions under that callback, not a formatting-loop failure.
-This narrows the missing timing proof to the title's continued archive/load
+This narrows the missing timing proof to the title's continued small-record archive/load
 work after the early world endpoint; it does not justify a larger guessed
 timeout or a native timing claim.
