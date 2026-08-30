@@ -14,9 +14,10 @@ means the capability is absent.
 
 **S025 — required firmware service inventory.** The bounded BIOS census now has
 repeatable clean-boot and post-savestate phase evidence, and a grounded
-mission entry/return observer. The remaining work is runtime completion of
-that observer plus the complete menu, mission, save/load, shutdown, and
-service-level inventory.
+mission entry/return and archive-progress observer. A valid mission run proved
+124 completed TBF chunks and no loader error without reaching the return. The
+remaining work is the completed mission boundary plus the complete menu,
+save/load, shutdown, and service-level inventory.
 Current focus is attention, not a separate state.
 
 ## Capability inventory
@@ -523,10 +524,12 @@ native leg advanced TBF reads with zero original fallback and retained the
 bounded cache. Grounded disassembly places the `CTbdFile::Load` return
 continuation at `0x0016FA4C`; clean timing runs captured the exact M1 entry but
 not that post-load point within 240 seconds on either backend, or within 600
-seconds on the optical oracle. The world endpoint still appeared, so the
-remaining issue is the recompiler execution-boundary seam, not an ungrounded
-guest address. Gap: capture exact `CShell::ShellLoadLevel` entry and return
-boundaries; demonstrate zero original fallthrough and zero emulated optical
+seconds on the optical oracle. The world endpoint still appeared. The
+recompiler seam now captures exact boundary and TBF progress PCs: a valid
+native run completed 124 of 124 observed ReadChunk calls through
+`GMissionGoalsMenu::LoadHackCallback` without a loader error, but did not reach
+the post-load point within 120 seconds. Gap: capture the exact
+`CShell::ShellLoadLevel` return boundary; demonstrate zero original fallthrough and zero emulated optical
 wait for supported operations inside that interval; and run three alternating
 clean oracle/native mission-timing pairs. Title-observed failure tracing
 remains separate hardening in issue #16; it does not substitute for this
@@ -601,13 +604,16 @@ and first post-load point `0x0016FA4C` on the emulation CPU thread. It records
 both guest clocks, frame, ordinal, and host time, and has a bounded refusal for
 a missing return. A fresh 30-second guest-return wait reached the readiness,
 M1 trigger, and grounded entry, but expired with the EE at `0x002CE88C`
-(`__pack_d`) and no return. The earlier five-second window was too short for
-this guest operation; a later 120-second attempt did not reach the verified
-`Running` status and is discarded as runtime evidence. Cache invalidation did
-not change the 30-second result. There is no accepted mission-boundary runtime
-evidence yet.
+(`litodp`) and no return. Static RE grounds that PC under the title's loading
+callback, not a `__pack_d` hang. The runner now forces the required EE
+recompiler and reports `Running` before probes. A valid 120-second mission
+capture then recorded no `CTbdFile::Error`, 124 ReadChunk starts and 124
+completions, and 124 calls to `GMissionGoalsMenu::LoadHackCallback`, while the
+grounded ShellLoadLevel return remained absent. This is accepted progress and
+negative-boundary evidence, not a mission-service inventory.
 
-Gap: use the new grounded mission boundary once its return is observed, define
+Gap: explain the continued completed-chunk/callback work and use the grounded
+mission boundary once its return is observed, define
 a guest-owned completion boundary before repeating save/load captures, add
 shutdown phase boundaries, and separate archive/service operations from
 resumed execution.

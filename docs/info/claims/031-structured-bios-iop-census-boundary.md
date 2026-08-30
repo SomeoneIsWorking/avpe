@@ -4,10 +4,10 @@ kind: claim
 status: holds
 created: 2026-08-28
 tags: bios,hle,iop,inventory
-depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#SnapshotAndDisableJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#CaptureAtGuestBoundaryJson, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#OnGuestFrameBoundary, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#StartMissionBoundary, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#CaptureMissionBoundaryJson, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#dispatch, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_start, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_capture_at_guest_boundary, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_start_mission, thirdparty/pcsx2/pcsx2/AVPE/AVPE.cpp#handle_bios_trace_capture_mission, thirdparty/pcsx2/pcsx2/Counters.cpp#VSyncStart, thirdparty/pcsx2/pcsx2/IopBios.cpp#irxImportExec, thirdparty/pcsx2/pcsx2/IopCounters.cpp#_rcntFireInterrupt, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, thirdparty/pcsx2/pcsx2/R5900.cpp#cpuException, thirdparty/pcsx2/pcsx2/R3000A.cpp#psxException, thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp#OnSaveStateLoaded, src/avpe/native_bios_probe.py#bios_trace_is_verified, src/avpe/native_bios_probe.py#mission_boundary_is_verified, src/avpe/native_bios_probe.py#run_bios_phase, src/avpe/native_bios_probe.py#run_requested_bios_probe, tools/run_control_test.py#main, thirdparty/pcsx2/pcsx2/AVPE/NativeMissionLoadTiming.cpp#ObserveEeExecution, thirdparty/pcsx2/tests/ctest/core/avpe_native_bios_trace_tests.cpp
+depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#ObserveMissionLoadProgress
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-30
-verified_at: 2026-08-30 02:24:02
+verified_at: 2026-08-30 03:08:45
 ---
 
 ## Claim
@@ -152,13 +152,14 @@ Post-landing verification passed 155 Python tests, 22 native production tests, c
 ## Re-confirmed 2026-08-30
 
 The focused Clang build passed 153 Python tests and 12 NativeBiosTrace tests.
-The mission route now arms on the emulation CPU thread and waits on the exact
-guest return with a bounded 120-second deadline. A valid 30-second control run
-reached the grounded entry and early `GAvPWorld` endpoint but expired while the
-EE was at `0x002CE88C` (`__pack_d`); the return was absent and cache clearing
-did not change the result. A separate 120-second attempt exited before the
-verified `Running` boundary and was discarded. No mission completion or
-service-level runtime claim is made.
+The mission route arms on the emulation CPU thread and waits on the exact guest
+return with a bounded 120-second deadline. The earlier 30-second run reached
+the grounded entry and early `GAvPWorld` endpoint; its `0x002CE88C` sample is
+inside `litodp` under a title loading callback, not evidence of a `__pack_d`
+hang. The later attempt did reach verified `Running` and ended through normal
+runner shutdown after its bounded inner failure, but its `EnableEE=false`
+profile made it invalid evidence for the dynarec observer. No mission
+completion or service-level runtime claim is made from those runs.
 
 ## Re-confirmed 2026-08-30
 
@@ -167,3 +168,7 @@ service-level runtime claim is made.
 ## Re-confirmed 2026-08-30
 
 2026-08-30 post-landing: full Clang verifier passed 154 Python tests, 22 native production tests, clang-format, and 46 clang-tidy translation units. The mission boundary route arms on the emulation CPU thread and retains a bounded structured refusal; runtime attempts did not establish a mission return, so no mission service claim is added.
+
+## Re-confirmed 2026-08-30
+
+Full Clang verifier passed 154 Python tests, 22 native production-path tests, clang-format, and 46 clang-tidy translation units. Fourteen focused NativeBiosTrace tests include production-order rejection of progress PCs as false mission returns plus success, timeout, loader-error, and ReadChunk-progress outcomes. A valid surfaceless/native mission run reached verified Running and exact ShellLoadLevel entry, then reported no return/error with 124 ReadChunk starts, 124 completions, 124 callbacks to 0x00204AC0, and zero invalid stack reads.

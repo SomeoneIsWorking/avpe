@@ -6,7 +6,7 @@ symptom: Startup native I/O is byte-equivalent, bounded, and faster, but the rep
 state_items: S024
 tags: assets,cache,loading,timing
 created: 2026-08-27
-updated: 2026-08-28
+updated: 2026-08-30
 ---
 
 ## Scope
@@ -167,3 +167,17 @@ endpoint still appeared and the clean transition proof remained valid. The
 timing callback seam therefore needs a recompiler execution-boundary fix (or
 a title-grounded completion event), not another guessed guest address. No
 mission timing pair is claimed until that boundary is observed on both legs.
+
+### Finding (2026-08-30)
+
+The recompiler seam now instruments the exact grounded entry and post-load
+continuation permanently, with runtime arming. A valid Clang-built
+surfaceless/native mission run still did not reach `0x0016FA4C` within the
+120-second capture, but it also did not hang in one TBF chunk: the bounded
+observer recorded 124 `CTbdFile::ReadChunk` starts, 124 completions, and 124
+callbacks to `GMissionGoalsMenu::LoadHackCallback` (`0x00204AC0`), with no
+`CTbdFile::Error`. The earlier `litodp`/`__pack_d` timeout samples are loading
+icon timer conversions under that callback, not a formatting-loop failure.
+This narrows the missing timing proof to the title's continued archive/load
+work after the early world endpoint; it does not justify a larger guessed
+timeout or a native timing claim.

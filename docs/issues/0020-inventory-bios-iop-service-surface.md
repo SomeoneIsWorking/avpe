@@ -132,27 +132,40 @@ mission capture returned HTTP 504 because the grounded return was not observed
 within its five-second deadline. The seam is therefore exercised but no
 mission boundary or service-level runtime claim is accepted.
 
-### Finding (2026-08-30, world endpoint is not loader completion)
+### Finding (2026-08-30, mission archive makes bounded forward progress)
 
-The mission probe's `GAvPWorld != 0` check is an early progress marker, not the
-completion of `CShell::ShellLoadLevel`: the observer had already captured the
-grounded entry when the endpoint became non-null, and the title was still
-executing at `0x002CE88C` (`__pack_d`) when a bounded 30-second wait expired.
-The prior five-second wait was therefore a host-time assumption about a guest
-operation and could not establish the return boundary. The route now arms on
-the emulation CPU thread and waits up to 120 seconds for the exact guest return;
-the 120-second attempt that did not reach the verified `Running` status is
-discarded as invalid runtime evidence. Cache invalidation did not change the
-result and is not part of the route.
+The mission probe's `GAvPWorld != 0` check remains an early progress marker,
+not completion of `CShell::ShellLoadLevel`. Static call-graph and disassembly
+evidence corrected the earlier timeout-PC interpretation: `0x002CE88C` is the
+bounded normalization loop in `litodp`, reached through `__floatdisf` from the
+title's TBF loading callbacks. It is not evidence of a hang in `__pack_d`.
+
+The 360-second runner attempt previously described as never reaching
+`Running` did reach the verified boundary, then ended normally when the inner
+mission capture returned its bounded failure. Its control profile had
+`EnableEE=false`, so the dynarec-only boundary observer could not produce valid
+evidence. The isolated test profile now explicitly sets
+`EmuCore/CPU/Recompiler.EnableEE=true`, and the runner reports the accepted
+`Running` status before starting long probes.
+
+The mission observer now distinguishes exact `CTbdFile::Error`, `ReadChunk`
+entry, callback, and epilogue PCs from the two exact ShellLoadLevel boundary
+PCs. Its production-order regression rejects progress PCs as mission returns.
+A valid Clang-built surfaceless/native run reached `Running`, the exact mission
+entry, and the early world endpoint, then returned HTTP 504 after 120 seconds
+with no ShellLoadLevel return and no loader error. During that interval it
+observed 124 ReadChunk starts, all 124 completions, and 124 callbacks to
+`GMissionGoalsMenu::LoadHackCallback` at `0x00204AC0`, with zero invalid stack
+reads. The timeout sampled `__floatdisf` in that callback path. This proves
+sustained archive progress rather than a stuck chunk; it still does not
+establish a completed mission service slice.
 
 ## Remaining work
 
-Use the new grounded `CShell::ShellLoadLevel` boundary at `0x0016FA4C` to
-determine why the native M1 load has not returned after its early world
-endpoint, then capture repeated clean traces once the return is observed. Next
-cover boot,
-menu, mission, save, load, and
-shutdown. Add a separate grounded observation seam for remaining interrupt
+Determine why the title continues completed `ReadChunk` work through the
+mission-goals callback without reaching `0x0016FA4C`, then capture repeated
+clean traces once that grounded return is observed. Next cover boot, menu,
+mission, save, load, and shutdown. Add a separate grounded observation seam for remaining interrupt
 delivery, kernel primitives, executable loading, and IOP module loads, then
 capture their service results and negative paths before designing the HLE
 implementation. The EE syscall result boundary now exists but still needs

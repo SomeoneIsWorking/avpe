@@ -339,7 +339,14 @@ class ControlTestPolicyTests(unittest.TestCase):
                 "complete": False,
                 "entry": {"pc": MISSION_TRACE_ENTRY_PC},
                 "return": None,
-                "load_return": None,
+                "load_error": {
+                    "argument": 0,
+                    "return_pc": 1521844,
+                },
+                "load_progress": {
+                    "chunks_started": 4,
+                    "chunks_completed": 3,
+                },
                 "sequence_errors": 0,
             },
         })
@@ -347,7 +354,11 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertIn("mission_complete=False", detail)
         self.assertIn("mission_entry=True", detail)
         self.assertIn("mission_return=False", detail)
-        self.assertIn("mission_load_return=False", detail)
+        self.assertIn("mission_load_error={'argument': 0, 'return_pc': 1521844}", detail)
+        self.assertIn(
+            "mission_load_progress={'chunks_started': 4, 'chunks_completed': 3}",
+            detail,
+        )
 
     def test_json_probe_reporting_rejects_missing_requested_proof(self) -> None:
         self.assertTrue(
@@ -710,6 +721,7 @@ class ConfigurationIsolationTests(unittest.TestCase):
             self.assertIn("Slot1_Enable = true", text)
             self.assertIn("Slot1_Filename = probe.ps2", text)
             self.assertIn("Slot2_Enable = false", text)
+            self.assertIn("EnableEE = true", text)
 
 
 class ProductLaunchPolicyTests(unittest.TestCase):
