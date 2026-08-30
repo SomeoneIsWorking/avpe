@@ -48,3 +48,13 @@ probe, recorded exact mission entry with no return or loader error, and
 completed 124/124 chunks between host timestamps 443471480200970 and
 443472644934231 ns. The requested artifact now survives structured mission
 timeouts; an unstructured timeout still produces no fabricated trace.
+
+## Re-confirmed 2026-08-30
+
+Sixteen focused Clang tests cover repeated and nested `LoadCore` phase
+sequences plus a skipped-stage OTHER answer. A valid mission capture recorded
+22 EOF, watch-release, offsets, externs, publics, and handles points, but only
+21 `InitTypes` completions and `LoadCore` returns. The bounded nesting tracker
+ended at depth zero, next expected `init_types_complete`, with zero sequence
+errors. This grounds the active outer phase inside `InitTypes`; its nested
+`LoadCore` had already completed.

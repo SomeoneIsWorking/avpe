@@ -204,3 +204,12 @@ candidate boundary at EOF finalization: the `_WatchCount` gate followed by
 `FixupOffsets`, `FixupExterns`, `SetupPublics`, `FixupHandles`, and `InitTypes`.
 The next observation must classify those title-owned phases before any backend
 performance claim is extended.
+
+The phase observer now does so without instrumenting the hot `_WatchCount`
+loop. A valid clean run recorded 22 ordered rounds through `FixupHandles`, but
+only 21 `InitTypes` completions and `LoadCore` returns. A bounded parent-stage
+stack modeled the nested `LoadCore` called from the final outer `InitTypes`;
+the trace ended at depth zero, next expected `init_types_complete`, with zero
+sequence errors. The active boundary is therefore the outer `InitTypes`
+indirect initializer call at `0x0017467C`, after its nested archive load, not
+any native asset operation.

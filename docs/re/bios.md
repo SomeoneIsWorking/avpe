@@ -124,6 +124,11 @@ all 124 calls completed in a 1.164733261 s/67-frame burst. Their bodies used
 and payload/read/decompression used 0.388417553 s. The 120-second missing-return
 wait is after the final chunk, so the next grounded boundary is `LoadCore` EOF
 finalization rather than storage delivery.
+The exact post-read partition then recorded 22 rounds through `FixupHandles`
+but only 21 `InitTypes` completions and `LoadCore` returns. Its bounded nesting
+stack ended at depth zero, next expected `init_types_complete`, with zero
+sequence errors. Static disassembly identifies the next seam as the outer
+`InitTypes` indirect call at `0x0017467C` and continuation `0x00174684`.
 
 Three repeated captures currently produce the same 28-event slice: 20 module
 registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero

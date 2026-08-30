@@ -353,6 +353,10 @@ timing refinement measured the 124 calls as one 1.164733261 s/67-frame burst:
 callback accounted for only 0.022820176 s and payload/read/decompression for
 0.388417553 s. The apparent 124-chunks-per-120-seconds rate was a count/timeout
 conflation; the next candidate is `CTbdFile::LoadCore` EOF finalization.
+That finalization is now partitioned: 22 rounds completed through
+`FixupHandles`, while 21 completed `InitTypes` and returned. Nested-round
+tracking ended cleanly at outer `InitTypes`; its indirect call at `0x0017467C`
+is title-owned object initialization, beyond the native storage boundary.
 
 ## Bounded native cache and lifecycle
 

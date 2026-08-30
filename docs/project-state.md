@@ -17,8 +17,9 @@ repeatable clean-boot and post-savestate phase evidence, and a grounded
 mission entry/return and archive-progress observer. A valid mission run proved
 124 completed TBF chunks carrying 4,029,554 bytes and no loader error without
 reaching the return; timing proved those chunks finish in a 1.164733261 s burst
-and the long wait is in post-read `LoadCore` finalization. The remaining work
-is to classify that finalization path and capture the completed mission
+and the long wait reaches outer `LoadCore::InitTypes`; 22 rounds reached
+`FixupHandles` but only 21 completed `InitTypes`. The remaining work is to
+identify the active indirect type initializer and capture the completed mission
 boundary, plus the complete menu,
 save/load, shutdown, and service-level inventory.
 Current focus is attention, not a separate state.
@@ -537,7 +538,10 @@ chunks. A bounded refinement then showed that all 124 calls completed in a
 1.164733261 s/67-frame burst: 0.435780112 s in chunk bodies and 0.728953149 s
 in inter-chunk gaps. The 120-second missing-return interval is after the final
 chunk, narrowing the next title boundary to `CTbdFile::LoadCore` EOF
-finalization. Gap: capture the exact
+finalization. Exact phase counts now narrow it further to the outer
+`InitTypes` indirect call at `0x0017467C`: 22 rounds reached `FixupHandles`,
+only 21 completed `InitTypes`/returned, and the nesting-aware sequence had zero
+errors. Gap: capture the exact
 `CShell::ShellLoadLevel` return boundary; demonstrate zero original fallthrough and zero emulated optical
 wait for supported operations inside that interval; and run three alternating
 clean oracle/native mission-timing pairs. Title-observed failure tracing
@@ -625,7 +629,7 @@ not work spread across the 120-second timeout: chunk bodies used 0.435780112 s
 and inter-chunk gaps 0.728953149 s. This is accepted progress and
 negative-boundary evidence, not a mission-service inventory.
 
-Gap: classify the post-read `LoadCore` EOF/fixup phases and use the grounded
+Gap: identify the active `InitTypes` indirect initializer and use the grounded
 mission boundary once its return is observed, define
 a guest-owned completion boundary before repeating save/load captures, add
 shutdown phase boundaries, and separate archive/service operations from
