@@ -4,9 +4,9 @@ kind: claim
 status: holds
 created: 2026-08-27
 tags: input,menu,keyboard,verification
-depends: thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp#Apply, tools/run_control_test.py#probe_native_menu
-reconfirmed: 2026-08-27
-verified_at: 2026-08-27 02:55:15
+depends: thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp#Apply, src/avpe/native_mission_probe.py#mission_transition_is_verified, tools/run_control_test.py#probe_native_menu
+reconfirmed: 2026-08-30
+verified_at: 2026-08-30
 ---
 
 ## Claim
@@ -15,11 +15,11 @@ AVP:E active-menu discovery and returning directional input change game-owned pa
 
 ## Evidence
 
-The surfaceless/null-muted menu probe resolved unique active GMenu 0x012E85A0 from 32 GInputDevice callbacks, then GMenu::Input(Down) changed focus handle/object from 0x03400000/0x015DFB60 (Resume) to 0x03410000/0x015E0640 (Save) in 7,953 EE cycles. Before/down snapshots differed and the process shut down gracefully with exit zero. Synchronous Activate is explicitly rejected because separate negative work proved it can replace menu/shell ownership without returning.
+The surfaceless/null-muted menu probe resolved unique active GMenu 0x012E85A0 from 32 GInputDevice callbacks, then GMenu::Input(Down) changed focus handle/object from 0x03400000/0x015DFB60 (Resume) to 0x03410000/0x015E0640 (Save) in 7,953 EE cycles. Before/down snapshots differed and the process shut down gracefully with exit zero. Synchronous Activate is explicitly rejected for that callback-registry source because separate negative work proved it can replace menu/shell ownership without returning; the exact mission-load modal is a distinct synchronous source.
 
 ## What would falsify it
 
-The active callback registry resolves zero or multiple menu owners in the verified pause state; a returning directional action no longer changes game-owned focus; the bridge writes virtual-pad state; unsupported activation is accepted; or the probe cannot shut down gracefully.
+The active callback registry resolves zero or multiple menu owners in the verified pause state; a returning directional action no longer changes game-owned focus; the mission source admits a non-exact menu or Exit object; the bridge writes virtual-pad state; unsupported callback-source activation is accepted; or the probe cannot shut down gracefully.
 
 ## Re-confirmed 2026-08-27
 
@@ -32,3 +32,13 @@ Reverified after extending NativeMenuInput with pointer actions: the surfaceless
 ## Re-confirmed 2026-08-27
 
 Post-landing baseline for the already completed surfaceless/null-muted pause regression: returning directional calls changed focus from Resume 0x015DFB60 to Save 0x015E0640 after the NativeMenuInput pointer extension; activation and virtual cancel completed with exact stack restoration and the runner shut down gracefully.
+
+## Re-confirmed 2026-08-30
+
+The clean mission probe exercised the second grounded discovery source: before
+normal callback registration, `NativeMenuInput` validated the synchronous
+mission-goals menu, waited for the exact Exit object, focused it through its
+title virtual, and invoked `GMenu::Input(Activate)` synchronously. The exact
+focused/action object matched, stack restoration passed, the singleton cleared,
+and `ShellLoadLevel` reached its grounded continuation. Callback-registry
+pause-menu behavior remains distinct and unchanged.

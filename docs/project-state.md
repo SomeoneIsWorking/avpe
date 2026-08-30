@@ -13,15 +13,16 @@ means the capability is absent.
 ## Current focus
 
 **S025 — required firmware service inventory.** The bounded BIOS census now has
-repeatable clean-boot and post-savestate phase evidence, and a grounded
-mission entry/return and archive-progress observer. A valid mission run proved
-124 completed TBF chunks carrying 4,029,554 bytes and no loader error without
-reaching the return; timing proved those chunks finish in a 1.164733261 s burst
-and the long wait reaches outer `LoadCore::InitTypes`; 22 rounds reached
-`FixupHandles` but only 21 completed `InitTypes`. The remaining work is to
-identify the active indirect type initializer and capture the completed mission
-boundary, plus the complete menu,
-save/load, shutdown, and service-level inventory.
+repeatable clean-boot and post-savestate phase evidence plus a completed,
+grounded clean-boot mission boundary. Stack-aware observers identified the
+outer initializer as `CPresetFillData`, then the active factory as
+`GExitMissionGoalsButton::Create`. The actual wait was the title's synchronous
+mission-goals modal, which polls `GInputDevice` before normal callback-registry
+ownership. Exact Exit-item focus and synchronous game-native activation cleared
+the modal and reached `ShellLoadLevel` return with 2,638/2,638 initializer calls,
+942/942 factory calls, all 24 post-read rounds complete, and zero sequence
+errors. Remaining work is the complete menu, save/load, shutdown, and
+service-level inventory.
 Current focus is attention, not a separate state.
 
 ## Capability inventory
@@ -168,12 +169,18 @@ Evidence: claim C010, instrument I003, resolved issue #5, and
 
 Observed subset: `NativeMenuInput` discovers the unique active `GMenu` owner
 from AVP:E's live `GInputDevice` callback registry and resolves focused items
-through the game handle table. Returning directional calls changed pause-menu
-focus from Resume (`0x015DFB60`) to Save (`0x015E0640`). Activation and cancel
-now queue deferred guest calls through the ordinary VM scheduler and restore
-the interrupted EE/FPU/VU0 context plus exact reserved stack bytes at the
-return PC. Pause Save activation replaced `0x012E85A0` with `0x015AFA70`, and
-virtual cancel restored `0x012E85A0`.
+through the game handle table. It also validates the synchronous mission-goals
+load modal by its singleton and vtable, traverses its bounded object tree to the
+unique grounded Exit item, invokes that item's exact virtual focus handler, and
+activates it synchronously through `GMenu::Input`. Returning directional calls
+changed pause-menu focus from Resume (`0x015DFB60`) to Save (`0x015E0640`).
+Ordinary activation and cancel queue deferred guest calls through the VM
+scheduler; the reentrant mission-load activation is synchronous because its
+modal-loop observation PC can otherwise masquerade as a deferred return. Both
+forms restore interrupted EE/FPU/VU0 context plus exact reserved stack bytes.
+Pause Save activation replaced `0x012E85A0` with `0x015AFA70`, virtual cancel
+restored `0x012E85A0`, and the clean mission modal cleared its singleton before
+the grounded load return.
 
 The active menu-capable `GAvPPointer` is discovered by its validated virtual
 capabilities rather than a concrete vtable address. Normalized pointer targets
@@ -187,7 +194,7 @@ gameplay owners without DualShock emulation. All cited passing runs were
 surfaceless, null-muted, and shut down gracefully.
 
 Gap: real window key/mouse delivery remains unobserved because agent tests must
-be windowless. Title, mission, and in-game menu coverage remains incomplete.
+be windowless. Title and broader in-game menu coverage remains incomplete.
 The prior Press START saved-state transition is no longer accepted as stable
 evidence: the same deferred call later completed with exact restoration but
 left menu `0x01346590` active through the 90-second deadline, falsifying C012's
@@ -525,30 +532,26 @@ The clean-boot M1 transition trigger is now verified: after native
 `MENU01.ZIV` readiness, `SetNextLevel` staged/restored the exact
 `M01/background.tbd` path and the real loader populated `pThe GAvPWorld`; the
 native leg advanced TBF reads with zero original fallback and retained the
-bounded cache. Grounded disassembly places the `CTbdFile::Load` return
-continuation at `0x0016FA4C`; clean timing runs captured the exact M1 entry but
-not that post-load point within 240 seconds on either backend, or within 600
-seconds on the optical oracle. The world endpoint still appeared. The
-recompiler seam now captures exact boundary and TBF progress PCs: a valid
-native run completed 124 of 124 observed ReadChunk calls through
-`GMissionGoalsMenu::LoadHackCallback` without a loader error, but did not reach
-the post-load point within 120 seconds. A repeat measured 4,029,554 payload
-bytes, an 868,004-byte maximum chunk, a 228-byte final chunk, and no multi-slice
-chunks. A bounded refinement then showed that all 124 calls completed in a
-1.164733261 s/67-frame burst: 0.435780112 s in chunk bodies and 0.728953149 s
-in inter-chunk gaps. The 120-second missing-return interval is after the final
-chunk, narrowing the next title boundary to `CTbdFile::LoadCore` EOF
-finalization. Exact phase counts now narrow it further to the outer
-`InitTypes` indirect call at `0x0017467C`: 22 rounds reached `FixupHandles`,
-only 21 completed `InitTypes`/returned, and the nesting-aware sequence had zero
-errors. Gap: capture the exact
-`CShell::ShellLoadLevel` return boundary; demonstrate zero original fallthrough and zero emulated optical
-wait for supported operations inside that interval; and run three alternating
-clean oracle/native mission-timing pairs. Title-observed failure tracing
+bounded cache. Grounded disassembly places the `CTbdFile::Load` continuation at
+`0x0016FA4C`. The recompiler observer first proved that all 124 payload
+`ReadChunk` calls complete in a 1.164733261 s/67-frame burst with 4,029,554
+bytes and no loader error, then localized the wait to the outer `InitTypes`
+call. Stack-aware initializer and object-factory observations identified
+`CPresetFillData` and `GExitMissionGoalsButton::Create`; static and runtime
+evidence then grounded a synchronous `GMissionGoalsMenu` load modal, not
+unfinished storage work. The native mission probe now waits until the exact
+Exit object exists, focuses it through its title virtual, invokes
+`GMenu::Input(Activate)` synchronously, and clears the modal. A valid run
+reached `0x0016FA4C` with all 24 post-read rounds, 2,638/2,638 initializer
+calls, 942/942 factory calls, and zero sequence errors. The M1 boundary is
+therefore captured on the native leg. Gap: demonstrate zero original
+fallthrough and zero emulated optical wait for supported operations through
+that interval, capture the same completed boundary on the oracle leg, and run
+three alternating clean oracle/native mission-timing pairs. Title-observed failure tracing
 remains separate hardening in issue #16; it does not substitute for this
 timing proof. Live guest reset cleanup is now verified in issue #15. Evidence:
 claims C024 through C029,
-instruments I014 through I018,
+instruments I014 through I019,
 [`re/disc-io.md`](re/disc-io.md), ignored timing artifact
 `scratch/control-test/load-timing-refresh-210/asset-load-timing-comparison.json`, and ignored
 cache artifact `scratch/control-test/native-asset-cache-proof.json`, and ignored
@@ -611,29 +614,33 @@ the native `MENU01.ZIV` proof with two sector reads and two consumed CDVD
 completion records. Unknown import-looking probes remain uncounted and on the
 original oracle path.
 
-The mission BIOS phase now waits for native `MENU01.ZIV` readiness and arms a
+The mission BIOS phase waits for native `MENU01.ZIV` readiness and arms a
 one-shot shared-EE observer around `CShell::ShellLoadLevel` entry `0x0016F910`
-and first post-load point `0x0016FA4C` on the emulation CPU thread. It records
-both guest clocks, frame, ordinal, and host time, and has a bounded refusal for
-a missing return. A fresh 30-second guest-return wait reached the readiness,
-M1 trigger, and grounded entry, but expired with the EE at `0x002CE88C`
-(`litodp`) and no return. Static RE grounds that PC under the title's loading
-callback, not a `__pack_d` hang. The runner now forces the required EE
-recompiler and reports `Running` before probes. A valid 120-second mission
-capture then recorded no `CTbdFile::Error`, 124 ReadChunk starts and 124
-completions, and 124 calls to `GMissionGoalsMenu::LoadHackCallback`, while the
-grounded ShellLoadLevel return remained absent. A repeat accounted 4,029,554
-bytes across those completed chunks, with no chunk exceeding the 1 MiB slice.
-The timing partition then proved those 124 calls were a 1.164733261 s burst,
-not work spread across the 120-second timeout: chunk bodies used 0.435780112 s
-and inter-chunk gaps 0.728953149 s. This is accepted progress and
-negative-boundary evidence, not a mission-service inventory.
+and continuation `0x0016FA4C` on the emulation CPU thread. Its exact loader,
+chunk, nested `LoadCore`, type-initializer, and object-factory observations are
+bounded and stack-paired. They identified the last outer initializer as
+`CPresetFillData` and its active factory as `GExitMissionGoalsButton::Create`.
+Static RE then showed the constructor synchronously enters
+`GMissionGoalsMenu::LoadHackCallback`, whose tight loop polls `GInputDevice`
+before normal callback registration. `NativeHostYield` pumps only pending host
+CPU transactions at that exact title loop; `NativeMenuInput` waits for the
+grounded Exit object, focuses it through its exact virtual, and invokes
+`GMenu::Input(Activate)` synchronously. Deferred execution is deliberately not
+used there because the request originates reentrantly at the same PC and could
+falsely complete on the original guest block.
 
-Gap: identify the active `InitTypes` indirect initializer and use the grounded
-mission boundary once its return is observed, define
-a guest-owned completion boundary before repeating save/load captures, add
-shutdown phase boundaries, and separate archive/service operations from
-resumed execution.
+A valid clean native run then reached the exact continuation with no loader
+error: 134/134 observed chunks and 124 payload chunks completed, all 24
+post-read rounds returned, 2,638 initializer calls paired with 2,638 returns,
+942 factory calls paired with 942 returns, and every sequence/error counter was
+zero. The exact Exit object was focused and activated in 3,609 EE cycles with
+stack restoration, and the mission-goals singleton became zero. This completes
+the mission boundary needed for later service capture; it does not by itself
+inventory the services executed within that phase.
+
+Gap: define a guest-owned completion boundary before repeating save/load
+captures, add shutdown phase boundaries, and separate archive/service
+operations from resumed execution.
 EE timers,
 remaining interrupt delivery, kernel primitives, executable loading, IOP module
 loads, and service-level negative-path semantics remain incomplete; S025 cannot
@@ -649,10 +656,10 @@ Static candidate evidence now complements the runtime census: the bounded
 `tools/analyze_ee_syscalls.py` scanner found one executable segment in the
 user-supplied target ELF, 158 BIOS wrapper definitions, 458 direct wrapper
 callsites, 8 direct syscall instructions, and 63 candidate syscall numbers.
-This does not prove execution, indirect dispatch, or service results. The next
-runtime slice remains the grounded `CShell::ShellLoadLevel` return at
-`0x0016FA4C`, not the existing frame-boundary marker; the early world pointer is
-not a substitute for it.
+This does not prove execution, indirect dispatch, or service results. The
+grounded mission return is now available for a stable service slice; the early
+world pointer and generic frame boundary remain insufficient substitutes for
+other phases.
 
 ### S026 — AVP:E-specific HLE implementation: blocked
 

@@ -179,12 +179,39 @@ Nested-round tracking ended at depth zero, next expected
 the active work in the outer `InitTypes` indirect initializer call at
 `0x0017467C`; its nested `LoadCore` has already returned.
 
+### Finding (2026-08-30, completed mission boundary)
+
+The stack-paired initializer observer identified the active target as
+`CPresetFillData`; a second stack-paired factory observer identified
+`GExitMissionGoalsButton::Create`. Static RE established that the constructor
+enters the synchronous `GMissionGoalsMenu::LoadHackCallback` loop and polls
+`GInputDevice` before the ordinary callback registry owns the menu. The prior
+timeout was therefore the title waiting in a load modal, not a stalled BIOS,
+IOP, archive, or type initializer.
+
+`NativeEeExecutionHooks` now composes the mission timing and BIOS observers at
+the shared interpreter/recompiler seams. `NativeHostYield` pumps pending host
+CPU transactions only at the exact modal loop PC. `NativeMenuInput` waits for
+the exact Exit object, focuses it through its grounded virtual, and invokes
+`GMenu::Input(Activate)` synchronously; deferred dispatch is unsafe at this
+reentrant PC because the original guest execution can falsely look like the
+queued call's return.
+
+A valid clean mission capture reached `ShellLoadLevel` continuation
+`0x0016FA4C` with no loader error, 134/134 observed chunks, all 24 post-read
+rounds, 2,638/2,638 initializer calls/returns, 942/942 factory calls/returns,
+and zero sequence errors. The exact Exit object was focused and activated in
+3,609 EE cycles with stack restoration, and the mission menu singleton cleared.
+This supplies the grounded mission completion boundary for a later service
+slice; the current artifact still does not enumerate every service used by the
+phase.
+
 ## Remaining work
 
-Instrument the `InitTypes` indirect initializer call/return at
-`0x0017467C`/`0x00174684` to identify the active type initializer, then capture repeated
-clean traces once that grounded return is observed. Next cover boot, menu,
-mission, save, load, and shutdown. Add a separate grounded observation seam for remaining interrupt
+Capture and analyze repeated service traces through the now-grounded completed
+mission boundary. Next cover boot, menu, save, load, and shutdown. Define a
+guest-owned save/load completion boundary rather than a host delay. Add a
+separate grounded observation seam for remaining interrupt
 delivery, kernel primitives, executable loading, and IOP module loads, then
 capture their service results and negative paths before designing the HLE
 implementation. The EE syscall result boundary now exists but still needs

@@ -35,3 +35,12 @@ Reverified after final deferred/menu/router changes: pause navigation+activation
 The 2026-08-27 surfaceless press-start.p2s regression completed deferred call 1 safely in 6902716 cycles with exact stack restoration but did not change active menu 0x01346590 before the 90-second deadline; the saved-state transition is not deterministic enough to support the recorded universal claim.
 
 > Anything that cited this claim as proof must be re-checked. Grep the repo for it.
+
+## Downstream audit 2026-08-30
+
+The completed mission-load path does not restore this universal claim. Its
+activation is intentionally synchronous: the control transaction originates
+reentrantly at the title's observed modal-loop PC, so deferred execution can
+falsely complete when the original guest block revisits that same PC. Ordinary
+pause-menu deferred activation/cancel evidence remains scoped under C011 and
+the project-state text; no completed mission evidence depends on C012.

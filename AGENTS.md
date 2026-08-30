@@ -13,8 +13,16 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativePointerMotion.*` owns shared normalized-coordinate validation,
   resolution lookup, guest staging, and absolute pointer movement.
 - `NativeInput.*` owns gameplay pointer and button semantics.
-- `NativeMenuInput.*` owns discovery and invocation of AVP:E keyboard and
-  pointer menu actions.
+- `NativeMenuInput.*` owns callback-registry menu discovery, the synchronous
+  mission-goals load modal's exact Exit-item discovery/focus, and invocation
+  of AVP:E keyboard and pointer menu actions.
+- `NativeMenuRoute.*` owns only the diagnostic HTTP parsing, status mapping,
+  and JSON presentation for typed native-menu state and actions.
+- `NativeEeExecutionHooks.*` composes AVPE's narrow EE instruction observers;
+  the interpreter and recompiler call this owner rather than individual
+  diagnostic modules.
+- `NativeHostYield.*` owns demand-driven host CPU event pumping at the exact
+  AVP:E mission-goals modal loop. It does not own menu policy or guest actions.
 - `NativeAssets.*` owns title gating, the AVP:E disc namespace, ioman host-file
   replacement, FSSOUND's direct cdvdman sector mapping, and store/cache
   lifecycle composition.

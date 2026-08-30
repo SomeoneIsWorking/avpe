@@ -96,39 +96,33 @@ proves the control boundary and resumed service traffic; it does not claim to
 observe archive serialization internals or shutdown after the process exits.
 
 The runner also exposes `--probe-bios-phase mission`, which requires a clean
-boot and a copied memory card. It first waits for the existing native
-`MENU01.ZIV` readiness boundary, then arms a one-shot observer on the
-emulation CPU thread through the shared EE instrumentation path around the
-grounded `CShell::ShellLoadLevel`
-entry at `0x0016F910` and first post-load point at `0x0016FA4C`. The capture
-records both guest cycle domains, frame, ordinal, and host time, rejects
-duplicates or wrong ordering, and waits up to 120 seconds for the guest
-return. The mission trace is accepted only when its exact PCs are present, the
-sequence error count is zero, and both guest cycle domains advance. The
-`GAvPWorld` pointer is only an early progress marker: a 30-second run reached
-it and the grounded entry but still had the EE at `0x002CE88C` (`litodp`)
-with no return. Static RE places that bounded conversion under the TBF loading
-callbacks, not in a stuck formatting routine. The isolated runner now forces
-the EE recompiler required by this observer. Its exact loader-error and
-ReadChunk progress points are classified separately from the two boundary
-PCs; production-order tests prevent progress PCs from becoming false returns.
-A valid 120-second native run recorded no loader error, 124 ReadChunk starts
-and completions, and 124 callbacks to `GMissionGoalsMenu::LoadHackCallback`
-at `0x00204AC0`, while `0x0016FA4C` remained absent. A repeated capture
-accounted 4,029,554 payload bytes, with an 868,004-byte maximum, a 228-byte
-last chunk, and no chunk requiring multiple 1 MiB slices. This is completed
-small-record loader progress and negative completion evidence, not
-mission-service coverage. A later timing partition corrected the implied rate:
-all 124 calls completed in a 1.164733261 s/67-frame burst. Their bodies used
-0.435780112 s, their 123 gaps used 0.728953149 s, callbacks used 0.022820176 s,
-and payload/read/decompression used 0.388417553 s. The 120-second missing-return
-wait is after the final chunk, so the next grounded boundary is `LoadCore` EOF
-finalization rather than storage delivery.
-The exact post-read partition then recorded 22 rounds through `FixupHandles`
-but only 21 `InitTypes` completions and `LoadCore` returns. Its bounded nesting
-stack ended at depth zero, next expected `init_types_complete`, with zero
-sequence errors. Static disassembly identifies the next seam as the outer
-`InitTypes` indirect call at `0x0017467C` and continuation `0x00174684`.
+boot and copied memory card. It waits for native `MENU01.ZIV` readiness, then
+arms a one-shot observer on the emulation CPU thread around grounded
+`CShell::ShellLoadLevel` entry `0x0016F910` and continuation `0x0016FA4C`.
+`NativeEeExecutionHooks` composes the BIOS and mission-timing observers at both
+EE engines. Exact loader-error, `ReadChunk`, nested `LoadCore`, indirect
+initializer, and object-factory PCs are classified separately; initializer and
+factory frames pair by guest stack pointer and remain bounded.
+
+The progress sequence first proved that 124 payload chunks carrying 4,029,554
+bytes complete in a 1.164733261 s/67-frame burst with no loader error. It then
+identified the active outer initializer as `CPresetFillData` and its active
+factory as `GExitMissionGoalsButton::Create`. Static RE showed the constructor
+enters `GMissionGoalsMenu::LoadHackCallback`, whose synchronous tight loop polls
+`GInputDevice` before normal menu callback registration. `NativeHostYield`
+pumps pending host CPU transactions only at that exact loop PC.
+`NativeMenuInput` validates the mission menu and exact Exit object, invokes its
+exact focus virtual, and activates through `GMenu::Input` synchronously. The
+synchronous call is required because a deferred request originating at the
+observed loop PC can mistake the original guest block for its own return.
+
+A valid clean native run reached the exact continuation with no loader error,
+134/134 observed chunks, all 24 post-read rounds, 2,638/2,638 initializer
+calls/returns, 942/942 factory calls/returns, and zero sequence errors. The Exit
+object was focused and activated in 3,609 EE cycles with stack restoration, and
+the mission-menu singleton cleared. The trace establishes a completed mission
+boundary for service capture; it does not by itself establish the complete
+mission service inventory.
 
 Three repeated captures currently produce the same 28-event slice: 20 module
 registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero

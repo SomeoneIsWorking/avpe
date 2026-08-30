@@ -1,5 +1,7 @@
 import copy
+import time
 import unittest
+from unittest.mock import patch
 
 from avpe import native_mission_probe
 
@@ -30,6 +32,36 @@ class NativeMissionProbePolicyTests(unittest.TestCase):
                 },
             },
             "endpoint": {"world": "0x01500000"},
+            "mission_goals": {
+                "singleton_address": "0x00367C04",
+                "menu": "0x01510000",
+                "state_before": {
+                    "source": "mission-goals-load",
+                    "menu": "0x01510000",
+                    "action_target": "0x01510200",
+                    "callback_count": 0,
+                    "focus_handle": "0x00000000",
+                    "focus_object": "0x00000000",
+                },
+                "focus_vtable": "0x00342370",
+                "action": "activate",
+                "dispatch": {
+                    "source": "mission-goals-load",
+                    "menu": "0x01510000",
+                    "handler": "0x00125330",
+                    "action_target": "0x01510200",
+                    "before": {
+                        "focus_handle": "0x00001234",
+                        "focus_object": "0x01510200",
+                    },
+                    "execution": "synchronous",
+                    "stopped_pc": "0x002052C8",
+                    "stack_restored": True,
+                    "elapsed_cycles": 1100,
+                    "deferred": False,
+                },
+                "singleton_after": "0x00000000",
+            },
         }
         if native_assets:
             proof["native_assets"] = {
@@ -120,6 +152,79 @@ class NativeMissionProbePolicyTests(unittest.TestCase):
 
         self.assertTrue(any("pending-level flag" in error for error in errors))
         self.assertTrue(any("already populated" in error for error in errors))
+
+    def test_rejects_unmatched_or_uncleared_mission_goals_menu(self) -> None:
+        proof = self._proof(native_assets=False)
+        mission_goals = proof["mission_goals"]
+        assert isinstance(mission_goals, dict)
+        state = mission_goals["state_before"]
+        assert isinstance(state, dict)
+        state["menu"] = "0x01520000"
+        state["source"] = "callback-registry"
+        mission_goals["singleton_after"] = "0x01510000"
+
+        errors = native_mission_probe.validate_marine_m1_evidence(proof)
+
+        self.assertTrue(any("did not match" in error for error in errors))
+        self.assertTrue(any("synchronous load source" in error for error in errors))
+        self.assertTrue(any("did not clear" in error for error in errors))
+
+    def test_rejects_deferred_mission_goals_activation(self) -> None:
+        proof = self._proof(native_assets=False)
+        mission_goals = proof["mission_goals"]
+        assert isinstance(mission_goals, dict)
+        dispatch = mission_goals["dispatch"]
+        assert isinstance(dispatch, dict)
+        dispatch["execution"] = "deferred"
+        dispatch["deferred"] = True
+        dispatch["stack_restored"] = False
+
+        errors = native_mission_probe.validate_marine_m1_evidence(proof)
+
+        self.assertTrue(any("synchronous execution" in error for error in errors))
+        self.assertTrue(any("did not complete safely" in error for error in errors))
+
+    def test_dismisses_only_the_grounded_mission_goals_menu(self) -> None:
+        state = {
+            "source": "mission-goals-load",
+            "menu": "0x01510000",
+            "action_target": "0x01510200",
+            "callback_count": 0,
+            "focus_handle": "0x00000000",
+            "focus_object": "0x00000000",
+        }
+        dispatch = {
+            "source": "mission-goals-load",
+            "menu": "0x01510000",
+            "handler": "0x00125330",
+            "action_target": "0x01510200",
+            "before": {
+                "focus_handle": "0x00001234",
+                "focus_object": "0x01510200",
+            },
+            "execution": "synchronous",
+            "stopped_pc": "0x002052C8",
+            "stack_restored": True,
+            "elapsed_cycles": 1100,
+            "deferred": False,
+        }
+        deadline = time.monotonic() + 1.0
+        with patch(
+            "avpe.native_mission_probe._await_nonzero_u32", return_value=0x01510000
+        ), patch(
+            "avpe.native_mission_probe.menu_state", return_value=(200, state, "")
+        ), patch(
+            "avpe.native_mission_probe.menu_action",
+            return_value=(200, dispatch, ""),
+        ) as activate, patch(
+            "avpe.native_mission_probe._read_u32",
+            return_value=native_mission_probe.EXIT_MISSION_GOALS_BUTTON_VTABLE,
+        ), patch("avpe.native_mission_probe._await_zero_u32"):
+            evidence = native_mission_probe.dismiss_mission_goals(31234, deadline)
+
+        activate.assert_called_once_with(31234, "activate")
+        self.assertEqual(evidence["menu"], "0x01510000")
+        self.assertEqual(evidence["singleton_after"], "0x00000000")
 
     def test_rejects_native_reopen_fallback_and_nonincreasing_reads(self) -> None:
         proof = self._proof()

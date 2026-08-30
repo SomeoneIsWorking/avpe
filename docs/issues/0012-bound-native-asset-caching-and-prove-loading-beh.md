@@ -73,10 +73,10 @@ ignored evidence is
 
 ## Remaining
 
-- Automate the clean-boot M1 loader route and exact pre/post transition evidence.
-- Capture the exact `ShellLoadLevel` entry and return PCs.
-- Prove supported operations inside that interval never enter optical timing or
-  original IOP/CDVD delivery.
+- Capture the completed mission boundary through the optical oracle with the
+  same title-modal completion policy.
+- Prove supported operations inside the full entry-to-return interval never
+  enter optical timing or original IOP/CDVD delivery on the native leg.
 - Run and compare three alternating clean oracle/native mission pairs.
 
 ## Bounded cache and lifecycle
@@ -213,3 +213,29 @@ the trace ended at depth zero, next expected `init_types_complete`, with zero
 sequence errors. The active boundary is therefore the outer `InitTypes`
 indirect initializer call at `0x0017467C`, after its nested archive load, not
 any native asset operation.
+
+### Finding (2026-08-30, mission return and modal root cause)
+
+Stack-aware initializer observation identified the active outer call as
+`CPresetFillData`; object-factory observation then identified
+`GExitMissionGoalsButton::Create`. Static RE showed its constructor enters the
+synchronous `GMissionGoalsMenu::LoadHackCallback` loop while the menu singleton
+is live. That loop polls `GInputDevice` directly before the menu reaches the
+normal callback registry, so the missing return was a title-owned modal waiting
+for Exit activation, not storage throughput or an unfinished nested archive.
+
+The runtime bridge now pumps pending host CPU transactions only at the exact
+modal loop PC. `NativeMenuInput` validates the mission menu singleton/vtable,
+waits for the unique exact Exit-button vtable, invokes its exact focus virtual,
+and calls `GMenu::Input(Activate)` synchronously. Deferred dispatch is invalid
+at this reentrant seam because the original guest block can revisit the same PC
+and falsely satisfy the deferred return test.
+
+A clean native run reached `ShellLoadLevel` continuation `0x0016FA4C` with no
+loader error. It completed 134/134 observed chunks (124 payload chunks), all 24
+post-read rounds, 2,638/2,638 initializer calls/returns, and 942/942 object
+factory calls/returns with zero sequence errors. The exact Exit object was
+focused and activated with exact stack restoration, and the mission menu
+singleton cleared. This closes the native missing-boundary investigation. The
+issue remains open for interval-wide no-optical proof and three alternating
+oracle/native mission timing pairs.
