@@ -1,8 +1,9 @@
 ---
 id: I020
 kind: instrument
-status: trusted
+status: DISTRUSTED
 created: 2026-08-30
+distrusted_on: 2026-08-30
 ---
 
 ## Instrument
@@ -22,3 +23,9 @@ Native unit tests forced BIOS/oracle events to omit results and direct/HLE event
   identity/outcome/result group.
 - Exact BIOS syscall call totals can vary with scheduling; three matched mission
   captures differed by one `sceSifSetDma` call.
+
+## DISTRUSTED 2026-08-30
+
+The v2 validator equates direct ownership with a valid result, but GetOsdConfigParam2 returns directly without assigning v0; the ix86 constant FlushCache/iFlushCache path also bypasses the observer. The instrument demonstrated BIOS/oracle omission correctly in the mission slice but cannot be trusted for all direct EE syscall paths.
+
+> Every result this instrument produced is suspect until it is re-validated.

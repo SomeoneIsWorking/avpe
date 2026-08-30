@@ -23,9 +23,11 @@ the modal and reached `ShellLoadLevel` return with 2,638/2,638 initializer calls
 942/942 factory calls, all 24 post-read rounds complete, and zero sequence
 errors at those ownership boundaries. The older single-frame load-timing
 observer separately reports 10 nesting errors and is not timing evidence for
-this path. Three corrected v2 service captures now repeat the same 11 EE syscall
-and 4 IOP import identities without inventing BIOS/oracle return values.
-Remaining work is the complete menu, save/load, shutdown, and service-level
+this path. Two schema-v3 service captures pair every return-capable EE BIOS
+call at the exact post-syscall PC, distinguish results from void/unobserved and
+non-returning calls, and repeat the same 11 syscall identity/disposition
+classes with zero pairing errors. Remaining work is the complete menu,
+save/load, shutdown, IOP-oracle-return, 64-bit-result, and service-level
 negative-path inventory.
 Current focus is attention, not a separate state.
 
@@ -566,14 +568,17 @@ completion, live state-recovery, and guest-reset cleanup seams.
 ### S025 — required firmware service inventory: partial
 
 Observed subset: the BIOS-backed IOP import boundary now emits a bounded,
-sequence-ordered v2 diagnostic census containing each recognized HLE/debug
+sequence-ordered v3 diagnostic census containing each recognized HLE/debug
 dispatch's module, ordinal, resolved name, first four input arguments, handler
 availability, actual outcome, and occurrence count. A handled HLE call carries
 its grounded signed `v0` result; an oracle fallback explicitly has no observed
 result. The same census records shared EE `SYSCALL` dispatches with their
 normalized number, BIOS name, four argument registers, and whether the call
-returned directly from PCSX2 or continued into the BIOS. Only the direct path
-carries a result. The census also records loadcore module registration/release,
+returned directly from PCSX2 or continued into the BIOS. Return-capable BIOS
+calls pair by stack pointer and exact post-syscall PC. ABI disposition is
+independent of ownership: supported 32-bit results carry signed `v0`, void and
+non-returning calls carry none, and 64-bit/unknown results remain explicitly
+unobserved. The census also records loadcore module registration/release,
 intrman interrupt registration, and sifcmd RPC registration. EE and IOP
 exception-entry boundaries also record the domain, cause code, pre-entry PC,
 and branch-delay state without changing dispatch or fallback behavior. EE and
@@ -581,7 +586,7 @@ IOP counter target/overflow paths also record counter state, cycle, and whether
 the interrupt was delivered. The isolated C++ and Python tests prove disabled
 capture, ordering, outcome/result-validity pairs, rejection of legacy or
 malformed result fields, exception/timer fields, and the exact capacity/
-overflow behavior.
+overflow behavior, wrong return pairing, and malformed result dispositions.
 
 A successful `Host::OnSaveStateLoaded()` reset now separates post-savestate
 execution from restore-time scheduler traffic. Three different BIOS-backed
@@ -605,10 +610,11 @@ remaining boundary defect: one had 237 events and its immediate repeat had one
 timer event. Both were bounded valid traces, so the result is a negative
 repeatability control rather than mission-service coverage.
 
-`tools/analyze_bios_traces.py` now turns retained v2 captures into a
+`tools/analyze_bios_traces.py` now turns retained v3 captures into a
 deterministic inventory report using the same strict trace validator as the
-runner. Its v2 summary separates observed result calls from BIOS/oracle calls
-whose results remain unobserved. The earlier seven-capture v1 set still proves
+runner. Its v3 summary separates observed results, returned void calls,
+unobserved results, and non-returning transfers. The earlier seven-capture v1
+set still proves
 its phase boundaries and event identities, but its sampled `v0` fields were
 pre-dispatch values and are rejected by the current analyzer; its claimed
 service results are withdrawn.
@@ -648,27 +654,30 @@ not evidence for this mission path. The exact Exit object was focused and
 activated in 3,609 EE cycles with stack restoration, and the mission-goals
 singleton became zero.
 
-Three corrected v2 captures then completed that same mission boundary with zero
-overflow and repeated the same 11 EE syscall and 4 IOP import service
-identities. Every syscall continued into the BIOS, so no syscall result is
-claimed. `cdvdman.sceCdGetError` fell through to the oracle and likewise has no
-claimed result. Handled `ioman.read`, `ioman.lseek`, and `sysmem.Kprintf` calls
-carry grounded results; their identities, call totals, and result sets matched
-exactly between runs. The only service-count delta was BIOS
-`sceSifSetDma` at 1,126 versus 1,125 calls, so exact syscall totals are not a
-repeatability contract.
+Two clean v3 captures then completed that same mission boundary and paired
+13,566/13,566 and 13,565/13,565 return-capable BIOS entries/returns with zero
+pending calls, sequence errors, or overflow. Both repeat the same 11 syscall
+identity/disposition classes. `ResumeIntrDispatch` is non-returning;
+`FlushCache` and `sceSifSetDChain` return control but are void; the observed
+thread/semaphore and SIF DMA services return declared 32-bit values. Fixed
+thread/semaphore result sets repeated. Hot totals did not: `sceSifSetDma`
+differed by one call and direct `FlushCache` by two, so exact syscall totals and
+SIF transaction IDs are not a repeatability contract. The v2 captures remain
+entry/import identity evidence only; C034 and I020 are falsified/distrusted.
+`cdvdman.sceCdGetError` still falls through to an unobserved oracle result.
 
 Gap: define a guest-owned completion boundary before repeating save/load
 captures, add shutdown phase boundaries, and separate archive/service
 operations from resumed execution.
-EE timers,
-remaining interrupt delivery, kernel primitives, executable loading, IOP module
-loads, and service-level negative-path semantics remain incomplete; S025 cannot
-become verified from the current dispatch census alone.
+EE timers, remaining interrupt delivery, kernel primitives outside the mission
+slice, executable loading, IOP module loads/oracle returns, 64-bit results, and
+service-level negative-path semantics remain incomplete; S025 cannot become
+verified from this mission census alone.
 
-Evidence: claim C034, instrument I020, [`re/bios.md`](re/bios.md), issue #20,
-and the `NativeBiosTraceTest` production tests. Claim C031 is falsified and is
-not current evidence. Three repeated surfaceless clean boots
+Evidence: claim C035, instrument I021, [`re/bios.md`](re/bios.md), issue #20,
+and the `NativeBiosTraceTest` production tests. Claims C031/C034 are falsified
+and I020 is distrusted; none is current result evidence. Three repeated
+surfaceless clean boots
 also captured the same 28-event `clean_boot_to_running` trace with zero
 overflow through the atomic production capture route; three restored-state
 captures were also accepted with zero overflow after the post-restore reset.

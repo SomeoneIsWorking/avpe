@@ -15,20 +15,29 @@ def make_artifact() -> dict[str, object]:
         "operation": "menu_down",
         "statefile": "pause-menu.p2s",
         "trace": {
-            "schema": "avpe-bios-trace-v2",
+            "schema": "avpe-bios-trace-v3",
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": {
+                "entries": 0,
+                "returns": 0,
+                "pending": 0,
+                "sequence_errors": 0,
+                "overflow": 0,
+            },
             "events": [
                 {
                     "sequence": 1,
                     "kind": "ee_syscall",
-                    "number": 100,
-                    "name": "FlushCache",
+                    "number": 127,
+                    "name": "GetMemorySize",
                     "first_arguments": [0, 1, 2, 3],
                     "outcome": "direct",
                     "result_valid": True,
                     "result": 0,
+                    "result_expected": True,
+                    "return_expected": True,
                 },
                 {
                     "sequence": 2,
@@ -90,7 +99,7 @@ class BiosInventoryTests(unittest.TestCase):
         self.assertEqual(summary["schema"], INVENTORY_SCHEMA)
         self.assertEqual(summary["event_count"], 7)
         self.assertEqual(summary["event_counts"]["exception"], 1)
-        self.assertEqual(summary["services"]["ee_syscall"][0]["name"], "FlushCache")
+        self.assertEqual(summary["services"]["ee_syscall"][0]["name"], "GetMemorySize")
         self.assertEqual(summary["services"]["import"][0]["function"], "open")
         self.assertEqual(
             summary["services"]["ee_syscall"][0]["outcomes"], {"direct": 1}
@@ -125,6 +134,9 @@ class BiosInventoryTests(unittest.TestCase):
         syscall["outcome"] = "bios"
         syscall["result_valid"] = False
         del syscall["result"]
+        artifact["trace"]["ee_syscall_pairing"].update(
+            {"entries": 1, "pending": 1}
+        )
         imported = artifact["trace"]["events"][1]
         imported["outcome"] = "oracle"
         imported["result_valid"] = False
@@ -139,6 +151,138 @@ class BiosInventoryTests(unittest.TestCase):
         self.assertEqual(syscall_summary["unobserved_result_calls"], 1)
         self.assertEqual(import_summary["outcomes"], {"oracle": 1})
         self.assertEqual(import_summary["unobserved_result_calls"], 1)
+
+    def test_distinguishes_resultless_direct_calls_from_pending_bios_calls(self) -> None:
+        artifact = make_artifact()
+        syscall = artifact["trace"]["events"][0]
+        syscall.update({"number": 100, "name": "FlushCache", "result_expected": False})
+        syscall["result_valid"] = False
+        del syscall["result"]
+
+        summary = summarize_bios_artifact(artifact)
+
+        syscall_summary = summary["services"]["ee_syscall"][0]
+        self.assertEqual(syscall_summary["resultless_calls"], 1)
+        self.assertEqual(syscall_summary["unobserved_result_calls"], 0)
+        self.assertEqual(syscall_summary["observed_result_calls"], 0)
+
+    def test_pairs_bios_return_results_with_the_entry_identity(self) -> None:
+        artifact = make_artifact()
+        syscall = artifact["trace"]["events"][0]
+        syscall.update({"number": 68, "name": "WaitSema", "outcome": "bios"})
+        syscall["result_valid"] = False
+        del syscall["result"]
+        artifact["trace"]["events"].append(
+            {
+                "sequence": 8,
+                "kind": "ee_syscall_return",
+                "number": 68,
+                "name": "WaitSema",
+                "result_expected": True,
+                "result_valid": True,
+                "result": -1,
+                "first_stack_pointer": 0x01FFF000,
+                "first_resume_pc": 0x00102004,
+            }
+        )
+        artifact["trace"]["ee_syscall_pairing"].update(
+            {"entries": 1, "returns": 1}
+        )
+
+        summary = summarize_bios_artifact(artifact)
+
+        syscall_summary = summary["services"]["ee_syscall"][0]
+        self.assertEqual(syscall_summary["calls"], 1)
+        self.assertEqual(syscall_summary["returned_bios_calls"], 1)
+        self.assertEqual(syscall_summary["observed_result_calls"], 1)
+        self.assertEqual(syscall_summary["unobserved_result_calls"], 0)
+        self.assertEqual(syscall_summary["results"], [-1])
+
+    def test_distinguishes_returned_void_from_uncaptured_result(self) -> None:
+        void_artifact = make_artifact()
+        void_entry = void_artifact["trace"]["events"][0]
+        void_entry.update(
+            {
+                "number": 100,
+                "name": "FlushCache",
+                "outcome": "bios",
+                "result_valid": False,
+                "result_expected": False,
+            }
+        )
+        del void_entry["result"]
+        void_artifact["trace"]["events"].append(
+            {
+                "sequence": 8,
+                "kind": "ee_syscall_return",
+                "number": 100,
+                "name": "FlushCache",
+                "result_expected": False,
+                "result_valid": False,
+                "first_stack_pointer": 0x01FFF000,
+                "first_resume_pc": 0x00102004,
+            }
+        )
+        void_artifact["trace"]["ee_syscall_pairing"].update(
+            {"entries": 1, "returns": 1}
+        )
+
+        void_summary = summarize_bios_artifact(void_artifact)["services"]["ee_syscall"][0]
+        self.assertEqual(void_summary["resultless_calls"], 1)
+        self.assertEqual(void_summary["unobserved_result_calls"], 0)
+
+        unknown_artifact = make_artifact()
+        unknown_entry = unknown_artifact["trace"]["events"][0]
+        unknown_entry.update(
+            {
+                "number": 3,
+                "name": "RFU003",
+                "outcome": "bios",
+                "result_valid": False,
+            }
+        )
+        del unknown_entry["result"]
+        unknown_artifact["trace"]["events"].append(
+            {
+                "sequence": 8,
+                "kind": "ee_syscall_return",
+                "number": 3,
+                "name": "RFU003",
+                "result_expected": True,
+                "result_valid": False,
+                "first_stack_pointer": 0x01FFF000,
+                "first_resume_pc": 0x00102004,
+            }
+        )
+        unknown_artifact["trace"]["ee_syscall_pairing"].update(
+            {"entries": 1, "returns": 1}
+        )
+
+        unknown_summary = summarize_bios_artifact(unknown_artifact)["services"]["ee_syscall"][0]
+        self.assertEqual(unknown_summary["resultless_calls"], 0)
+        self.assertEqual(unknown_summary["unobserved_result_calls"], 1)
+
+    def test_counts_nonreturning_bios_control_transfers_separately(self) -> None:
+        artifact = make_artifact()
+        syscall = artifact["trace"]["events"][0]
+        syscall.update(
+            {
+                "number": 5,
+                "name": "ResumeIntrDispatch",
+                "outcome": "bios",
+                "result_valid": False,
+                "result_expected": False,
+                "return_expected": False,
+            }
+        )
+        del syscall["result"]
+
+        summary = summarize_bios_artifact(artifact)
+
+        syscall_summary = summary["services"]["ee_syscall"][0]
+        self.assertEqual(syscall_summary["nonreturning_calls"], 1)
+        self.assertEqual(syscall_summary["returned_bios_calls"], 0)
+        self.assertEqual(syscall_summary["unobserved_result_calls"], 0)
 
     def test_rejects_invalid_trace_and_empty_combination(self) -> None:
         invalid = make_artifact()

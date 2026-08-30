@@ -69,13 +69,27 @@ def make_bios_syscall_event(sequence: int) -> dict[str, object]:
     return {
         "sequence": sequence,
         "kind": "ee_syscall",
-        "number": 100,
-        "name": "FlushCache",
+        "number": 127,
+        "name": "GetMemorySize",
         "first_arguments": [0, 0, 0, 0],
         "outcome": "direct",
         "result_valid": True,
         "result": 0,
+        "result_expected": True,
+        "return_expected": True,
         "calls": 1,
+    }
+
+
+def make_ee_syscall_pairing(
+    entries: int = 0, returns: int = 0, pending: int = 0
+) -> dict[str, int]:
+    return {
+        "entries": entries,
+        "returns": returns,
+        "pending": pending,
+        "sequence_errors": 0,
+        "overflow": 0,
     }
 
 
@@ -153,6 +167,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [
                 make_bios_import_event(1),
             ],
@@ -162,10 +177,11 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_rejects_legacy_or_ungrounded_bios_service_results(self) -> None:
         legacy = {
-            "schema": "avpe-bios-trace-v1",
+            "schema": "avpe-bios-trace-v2",
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [make_bios_import_event(1)],
         }
         ungrounded = {
@@ -189,12 +205,158 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertFalse(bios_trace_is_verified(ungrounded))
         self.assertFalse(bios_trace_is_verified(mismatched))
 
+    def test_accepts_resultless_direct_syscall(self) -> None:
+        event = make_bios_syscall_event(1)
+        event.update({"number": 100, "name": "FlushCache", "result_expected": False})
+        event["result_valid"] = False
+        del event["result"]
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "events": [event],
+        }
+
+        self.assertTrue(bios_trace_is_verified(trace))
+
+    def test_accepts_exactly_paired_bios_syscall_return(self) -> None:
+        entry = make_bios_syscall_event(1)
+        entry.update({"number": 68, "name": "WaitSema", "outcome": "bios"})
+        entry["result_valid"] = False
+        del entry["result"]
+        returned = {
+            "sequence": 2,
+            "kind": "ee_syscall_return",
+            "number": 68,
+            "name": "WaitSema",
+            "result_expected": True,
+            "result_valid": True,
+            "result": 0,
+            "first_stack_pointer": 0x01FFF000,
+            "first_resume_pc": 0x00102004,
+            "calls": 1,
+        }
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(1, 1, 0),
+            "events": [entry, returned],
+        }
+
+        self.assertTrue(bios_trace_is_verified(trace))
+
+    def test_accepts_nonreturning_bios_control_transfer(self) -> None:
+        event = make_bios_syscall_event(1)
+        event.update(
+            {
+                "number": 5,
+                "name": "ResumeIntrDispatch",
+                "outcome": "bios",
+                "result_valid": False,
+                "result_expected": False,
+                "return_expected": False,
+            }
+        )
+        del event["result"]
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "events": [event],
+        }
+
+        self.assertTrue(bios_trace_is_verified(trace))
+
+    def test_accepts_resultless_and_unobserved_bios_returns(self) -> None:
+        void_entry = make_bios_syscall_event(1)
+        void_entry.update(
+            {
+                "number": 100,
+                "name": "FlushCache",
+                "outcome": "bios",
+                "result_valid": False,
+                "result_expected": False,
+            }
+        )
+        del void_entry["result"]
+        void_return = {
+            "sequence": 2,
+            "kind": "ee_syscall_return",
+            "number": 100,
+            "name": "FlushCache",
+            "result_expected": False,
+            "result_valid": False,
+            "first_stack_pointer": 0x01FFF000,
+            "first_resume_pc": 0x00102004,
+            "calls": 1,
+        }
+        unknown_entry = make_bios_syscall_event(3)
+        unknown_entry.update(
+            {
+                "number": 3,
+                "name": "RFU003",
+                "outcome": "bios",
+                "result_valid": False,
+            }
+        )
+        del unknown_entry["result"]
+        unknown_return = {
+            "sequence": 4,
+            "kind": "ee_syscall_return",
+            "number": 3,
+            "name": "RFU003",
+            "result_expected": True,
+            "result_valid": False,
+            "first_stack_pointer": 0x01FFE000,
+            "first_resume_pc": 0x00103004,
+            "calls": 1,
+        }
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(2, 2, 0),
+            "events": [void_entry, void_return, unknown_entry, unknown_return],
+        }
+
+        self.assertTrue(bios_trace_is_verified(trace))
+
+        void_return["result"] = 2
+        self.assertFalse(bios_trace_is_verified(trace))
+
+    def test_rejects_syscall_return_pairing_errors(self) -> None:
+        event = make_bios_syscall_event(1)
+        event.update({"number": 68, "name": "WaitSema", "outcome": "bios"})
+        event["result_valid"] = False
+        del event["result"]
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": {
+                **make_ee_syscall_pairing(1, 0, 1),
+                "sequence_errors": 1,
+            },
+            "events": [event],
+        }
+
+        self.assertFalse(bios_trace_is_verified(trace))
+
     def test_rejects_unordered_or_overflowed_bios_trace(self) -> None:
         trace = {
             "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [
                 make_bios_import_event(2),
                 make_bios_syscall_event(1),
@@ -211,6 +373,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [{"sequence": 1, "kind": "rpc"}],
             "mission_boundary": {
                 "entry_pc": MISSION_TRACE_ENTRY_PC,
@@ -230,6 +393,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [{"sequence": 1, "kind": "rpc"}],
             "mission_boundary": {
                 "entry_pc": MISSION_TRACE_ENTRY_PC,
@@ -251,6 +415,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [],
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -267,6 +432,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [],
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -284,6 +450,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [],
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -307,6 +474,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [
                 make_bios_import_event(1),
                 make_bios_syscall_event(2),
@@ -328,6 +496,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [make_bios_import_event(1)],
         }
         with patch(
@@ -357,6 +526,7 @@ class ControlTestPolicyTests(unittest.TestCase):
                     "enabled": True,
                     "capacity": 4096,
                     "overflow": 0,
+                    "ee_syscall_pairing": make_ee_syscall_pairing(),
                     "events": [{"sequence": 1, "kind": "rpc"}],
                     "mission_boundary": {
                         "entry_pc": MISSION_TRACE_ENTRY_PC,
@@ -384,6 +554,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": False,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [{"sequence": 1, "kind": "rpc"}],
             "mission_boundary": {
                 "entry_pc": MISSION_TRACE_ENTRY_PC,
@@ -462,6 +633,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": True,
             "capacity": 4096,
             "overflow": 12786,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [{"sequence": 1, "kind": "ee_syscall"}],
         }
 
@@ -469,7 +641,8 @@ class ControlTestPolicyTests(unittest.TestCase):
 
         self.assertIn("events=1", detail)
         self.assertIn("overflow=12786", detail)
-        self.assertNotIn("sequence", detail)
+        self.assertIn("syscall_sequence_errors=0", detail)
+        self.assertNotIn("first_arguments", detail)
 
     def test_bios_trace_failure_detail_reports_mission_boundary(self) -> None:
         detail = bios_trace_failure_detail({
@@ -477,6 +650,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "enabled": False,
             "capacity": 4096,
             "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
             "events": [],
             "mission_boundary": {
                 "complete": False,

@@ -8,7 +8,7 @@ from typing import Any
 from avpe.native_bios_probe import bios_trace_is_verified
 
 
-INVENTORY_SCHEMA = "avpe-bios-inventory-v2"
+INVENTORY_SCHEMA = "avpe-bios-inventory-v3"
 _SERVICE_KINDS = ("ee_syscall", "import", "module", "interrupt", "rpc")
 
 
@@ -41,7 +41,11 @@ def summarize_bios_artifact(artifact: object) -> dict[str, Any]:
     }
 
     for kind in _SERVICE_KINDS:
-        summary["services"][kind] = _summarize_services(events, kind)
+        summary["services"][kind] = (
+            _summarize_ee_syscalls(events)
+            if kind == "ee_syscall"
+            else _summarize_services(events, kind)
+        )
     return summary
 
 
@@ -93,11 +97,9 @@ def _summarize_services(events: list[dict[str, Any]], kind: str) -> list[dict[st
             identity,
             {key: value for key, value in _identity_fields(event, kind)},
         )
-        calls = event.get("calls", 1)
-        if isinstance(calls, bool) or not isinstance(calls, int) or calls <= 0:
-            raise ValueError("BIOS service calls must be a positive integer")
+        calls = _event_calls(event)
         entry["calls"] = entry.get("calls", 0) + calls
-        if kind == "ee_syscall" or kind == "import":
+        if kind == "import":
             outcome = _required_string(event, "outcome")
             entry.setdefault("outcomes", Counter())[outcome] += calls
             entry.setdefault("results", set())
@@ -129,6 +131,95 @@ def _summarize_services(events: list[dict[str, Any]], kind: str) -> list[dict[st
             str(entry[key]) for key in entry if key != "calls"
         ),
     )
+
+
+def _summarize_ee_syscalls(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[Any, ...], dict[str, Any]] = {}
+    bios_entry_calls: Counter[tuple[Any, ...]] = Counter()
+    bios_result_entry_calls: Counter[tuple[Any, ...]] = Counter()
+    bios_result_return_calls: Counter[tuple[Any, ...]] = Counter()
+    for event in events:
+        if event["kind"] != "ee_syscall":
+            continue
+        identity = _service_identity(event, "ee_syscall")
+        entry = grouped.setdefault(
+            identity,
+            {key: value for key, value in _identity_fields(event, "ee_syscall")},
+        )
+        calls = _event_calls(event)
+        entry["calls"] = entry.get("calls", 0) + calls
+        outcome = _required_string(event, "outcome")
+        result_expected = _required_bool(event, "result_expected")
+        return_expected = _required_bool(event, "return_expected")
+        entry.setdefault("outcomes", Counter())[outcome] += calls
+        entry.setdefault("results", set())
+        if outcome == "bios" and return_expected:
+            bios_entry_calls[identity] += calls
+            if result_expected:
+                bios_result_entry_calls[identity] += calls
+        elif outcome == "bios":
+            entry["nonreturning_calls"] = entry.get("nonreturning_calls", 0) + calls
+        elif _required_bool(event, "result_valid"):
+            entry["observed_result_calls"] = entry.get("observed_result_calls", 0) + calls
+            entry["results"].add(_required_int(event, "result"))
+        elif result_expected:
+            entry["unobserved_result_calls"] = (
+                entry.get("unobserved_result_calls", 0) + calls
+            )
+        else:
+            entry["resultless_calls"] = entry.get("resultless_calls", 0) + calls
+
+    for event in events:
+        if event["kind"] != "ee_syscall_return":
+            continue
+        identity = _service_identity(event, "ee_syscall")
+        entry = grouped.get(identity)
+        if entry is None:
+            raise ValueError("BIOS syscall return has no matching entry identity")
+        calls = _event_calls(event)
+        entry["returned_bios_calls"] = entry.get("returned_bios_calls", 0) + calls
+        result_expected = _required_bool(event, "result_expected")
+        result_valid = _required_bool(event, "result_valid")
+        if result_expected:
+            bios_result_return_calls[identity] += calls
+        if result_valid:
+            entry["observed_result_calls"] = entry.get("observed_result_calls", 0) + calls
+            entry["results"].add(_required_int(event, "result"))
+        elif result_expected:
+            entry["unobserved_result_calls"] = (
+                entry.get("unobserved_result_calls", 0) + calls
+            )
+        else:
+            entry["resultless_calls"] = entry.get("resultless_calls", 0) + calls
+
+    result = []
+    for identity, entry in grouped.items():
+        returned_calls = entry.get("returned_bios_calls", 0)
+        if returned_calls > bios_entry_calls[identity]:
+            raise ValueError("BIOS syscall returns exceed matching entries")
+        pending_result_calls = (
+            bios_result_entry_calls[identity] - bios_result_return_calls[identity]
+        )
+        if pending_result_calls < 0:
+            raise ValueError("BIOS syscall result returns exceed matching entries")
+        entry["unobserved_result_calls"] = (
+            entry.get("unobserved_result_calls", 0) + pending_result_calls
+        )
+        entry["outcomes"] = dict(sorted(entry["outcomes"].items()))
+        entry["results"] = sorted(entry["results"])
+        entry.setdefault("observed_result_calls", 0)
+        entry.setdefault("returned_bios_calls", 0)
+        entry.setdefault("resultless_calls", 0)
+        entry.setdefault("nonreturning_calls", 0)
+        result.append(entry)
+    return sorted(result, key=lambda entry: (entry["number"], entry["name"]))
+
+
+def _event_calls(event: dict[str, Any]) -> int:
+    calls = event.get("calls", 1)
+    if isinstance(calls, bool) or not isinstance(calls, int) or calls <= 0:
+        raise ValueError("BIOS service calls must be a positive integer")
+    return calls
 
 
 def _service_identity(event: dict[str, Any], kind: str) -> tuple[Any, ...]:
