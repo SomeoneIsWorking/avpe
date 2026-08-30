@@ -116,9 +116,14 @@ A valid 120-second native run recorded no loader error, 124 ReadChunk starts
 and completions, and 124 callbacks to `GMissionGoalsMenu::LoadHackCallback`
 at `0x00204AC0`, while `0x0016FA4C` remained absent. A repeated capture
 accounted 4,029,554 payload bytes, with an 868,004-byte maximum, a 228-byte
-last chunk, and no chunk requiring multiple 1 MiB slices. This is sustained
+last chunk, and no chunk requiring multiple 1 MiB slices. This is completed
 small-record loader progress and negative completion evidence, not
-mission-service coverage.
+mission-service coverage. A later timing partition corrected the implied rate:
+all 124 calls completed in a 1.164733261 s/67-frame burst. Their bodies used
+0.435780112 s, their 123 gaps used 0.728953149 s, callbacks used 0.022820176 s,
+and payload/read/decompression used 0.388417553 s. The 120-second missing-return
+wait is after the final chunk, so the next grounded boundary is `LoadCore` EOF
+finalization rather than storage delivery.
 
 Three repeated captures currently produce the same 28-event slice: 20 module
 registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero

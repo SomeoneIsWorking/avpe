@@ -346,8 +346,13 @@ ran 124 `GMissionGoalsMenu::LoadHackCallback` calls, and saw no
 `CTbdFile::Error`, but still did not reach the post-load point. A repeat
 accounted 4,029,554 payload bytes across those 124 chunks, with an 868,004-byte
 maximum, a 228-byte last chunk, and no multi-slice chunks. The remaining
-gap is the title's continued small-record archive/load work, not an ungrounded address, a
-stuck ReadChunk, or permission to enlarge the timeout until it passes.
+gap is after the completed archive reads, not an ungrounded address, a stuck
+`ReadChunk`, or permission to enlarge the timeout until it passes. A bounded
+timing refinement measured the 124 calls as one 1.164733261 s/67-frame burst:
+0.435780112 s in chunk bodies and 0.728953149 s in 123 inter-chunk gaps. The
+callback accounted for only 0.022820176 s and payload/read/decompression for
+0.388417553 s. The apparent 124-chunks-per-120-seconds rate was a count/timeout
+conflation; the next candidate is `CTbdFile::LoadCore` EOF finalization.
 
 ## Bounded native cache and lifecycle
 

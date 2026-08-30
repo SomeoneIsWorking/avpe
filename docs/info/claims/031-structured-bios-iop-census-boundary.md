@@ -7,7 +7,7 @@ tags: bios,hle,iop,inventory
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#ObserveMissionLoadProgress
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-30
-verified_at: 2026-08-30 03:25:46
+verified_at: 2026-08-30 04:03:25
 ---
 
 ## Claim
@@ -35,6 +35,16 @@ Repeated EE syscall, exception, and timer identities are coalesced with
 occurrence counts for the same bounded-census reason.
 `GET /bios/trace`
 exposes the snapshot for later clean runtime traces.
+
+The grounded mission observer also keeps bounded aggregate timing rather than
+per-call events. A valid clean mission trace completed 124/124 `ReadChunk`
+calls in 1.164733261 s from first entry to last return: 0.435780112 s inside
+the calls and 0.728953149 s in 123 inter-call gaps. Callback time was
+0.022820176 s and payload/read/decompression time was 0.388417553 s. Exact
+entry, no return/error, zero boundary errors, and zero timing errors were
+preserved in the structured timeout artifact. This falsifies the prior
+count/timeout throughput interpretation; it does not establish mission
+completion.
 
 Three repeated BIOS-backed surfaceless clean boots captured the same 28-event
 boot-to-`Running` slice with zero overflow through the atomic capture route.
@@ -176,3 +186,7 @@ Full Clang verifier passed 154 Python tests, 22 native production-path tests, cl
 ## Re-confirmed 2026-08-30
 
 Full Clang verifier again passed 154 Python tests, 22 native production-path tests, clang-format, and 46 clang-tidy translation units after payload accounting. Fourteen focused NativeBiosTrace tests include a 2.5 MiB multi-slice OTHER answer. A valid surfaceless/native mission run reached verified Running and exact entry, then reported no return/error; 124/124 completed chunks carried 4,029,554 bytes, maximum 868,004, final 228, zero multi-slice chunks, and 124 callbacks to 0x00204AC0.
+
+## Re-confirmed 2026-08-30
+
+Full Clang verifier passed 156 Python/structure tests, 22 native production-path tests, clang-format, and 46 clang-tidy translation units. Fourteen focused NativeBiosTrace tests include a two-chunk nonzero inter-gap control. A valid surfaceless/null-muted clean mission run preserved its structured HTTP 504 diagnostic while failing literally; exact mission entry had no return/error, zero boundary/timing errors, and all 124 ReadChunk calls completed in a 1.164733261-second/67-frame burst (0.435780112 s in calls, 0.728953149 s across 123 gaps).
