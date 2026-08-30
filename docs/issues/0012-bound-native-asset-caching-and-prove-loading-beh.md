@@ -180,6 +180,27 @@ callbacks to `GMissionGoalsMenu::LoadHackCallback` (`0x00204AC0`), with no
 chunks, with an 868,004-byte maximum, a 228-byte final chunk, and zero
 multi-slice chunks. The earlier `litodp`/`__pack_d` timeout samples are loading
 icon timer conversions under that callback, not a formatting-loop failure.
-This narrows the missing timing proof to the title's continued small-record archive/load
-work after the early world endpoint; it does not justify a larger guessed
-timeout or a native timing claim.
+This narrows the missing timing proof to title-owned post-read finalization
+after the early world endpoint; it does not justify a larger guessed timeout
+or a native timing claim.
+
+### Finding (2026-08-30, archive reads finish before the long wait)
+
+The earlier count-only result did not show one `ReadChunk` per host second.
+Dividing 124 completed chunks by the later 120-second boundary timeout conflated
+a completed burst with the post-read wait. The grounded timing observer now
+records first/last chunk points and aggregate chunk, callback,
+payload/decompression, and inter-chunk clocks. A valid native run completed all
+124 chunks from 443471480200970 to 443472644934231 host ns: 1.164733261 s and
+67 frames. Chunk bodies accounted for 0.435780112 s/25 frames; 123 gaps
+accounted for 0.728953149 s/42 frames. Callback and payload intervals were
+0.022820176 s and 0.388417553 s respectively. All sequence counters were zero,
+all 4,029,554 bytes were accounted, and no loader error occurred.
+
+The 120-second missing-return interval therefore begins after the final
+`ReadChunk`; it is not native-storage throughput, a stuck chunk, callback
+pacing, or inter-chunk pacing. Static `CTbdFile::LoadCore` places the next
+candidate boundary at EOF finalization: the `_WatchCount` gate followed by
+`FixupOffsets`, `FixupExterns`, `SetupPublics`, `FixupHandles`, and `InitTypes`.
+The next observation must classify those title-owned phases before any backend
+performance claim is extended.

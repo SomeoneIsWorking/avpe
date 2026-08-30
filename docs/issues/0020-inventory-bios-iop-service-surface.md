@@ -159,14 +159,23 @@ observed 124 ReadChunk starts, all 124 completions, and 124 callbacks to
 reads. A repeated payload-accounting run measured 4,029,554 bytes across the
 same 124 completed chunks; the largest was 868,004 bytes, the last was 228
 bytes, and none crossed the 1 MiB slice boundary. The timeout sampled the
-same floating-point runtime beneath the callback. This proves sustained
-small-record archive progress rather than a stuck chunk, one giant transfer,
-or a retry loop; it still does not establish a completed mission service slice.
+same floating-point runtime beneath the callback. The timing refinement
+corrected that count-only interpretation: a valid run completed all 124 chunks
+in 1.164733261 s/67 frames from first entry to last return. Chunk bodies
+consumed 0.435780112 s, callbacks 0.022820176 s,
+payload/read/decompression 0.388417553 s, and the 123 inter-chunk gaps
+0.728953149 s. The remaining approximately 119 seconds are after the final
+chunk, with no loader error and no mission return. The timeout debug PC is only
+an instantaneous sample and cannot overrule the paired timing evidence. This
+proves a completed small-record archive burst rather than a stuck chunk, one
+giant transfer, or a retry loop; it still does not establish a completed
+mission service slice.
 
 ## Remaining work
 
-Determine why the title continues completed `ReadChunk` work through the
-mission-goals callback without reaching `0x0016FA4C`, then capture repeated
+Instrument the post-read `CTbdFile::LoadCore` EOF path—the `_WatchCount` gate,
+`FixupOffsets`, `FixupExterns`, `SetupPublics`, `FixupHandles`, and `InitTypes`—
+to locate why finalization does not reach `0x0016FA4C`, then capture repeated
 clean traces once that grounded return is observed. Next cover boot, menu,
 mission, save, load, and shutdown. Add a separate grounded observation seam for remaining interrupt
 delivery, kernel primitives, executable loading, and IOP module loads, then

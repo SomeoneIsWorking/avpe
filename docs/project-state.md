@@ -16,8 +16,10 @@ means the capability is absent.
 repeatable clean-boot and post-savestate phase evidence, and a grounded
 mission entry/return and archive-progress observer. A valid mission run proved
 124 completed TBF chunks carrying 4,029,554 bytes and no loader error without
-reaching the return. The
-remaining work is the completed mission boundary plus the complete menu,
+reaching the return; timing proved those chunks finish in a 1.164733261 s burst
+and the long wait is in post-read `LoadCore` finalization. The remaining work
+is to classify that finalization path and capture the completed mission
+boundary, plus the complete menu,
 save/load, shutdown, and service-level inventory.
 Current focus is attention, not a separate state.
 
@@ -531,7 +533,11 @@ native run completed 124 of 124 observed ReadChunk calls through
 `GMissionGoalsMenu::LoadHackCallback` without a loader error, but did not reach
 the post-load point within 120 seconds. A repeat measured 4,029,554 payload
 bytes, an 868,004-byte maximum chunk, a 228-byte final chunk, and no multi-slice
-chunks. Gap: capture the exact
+chunks. A bounded refinement then showed that all 124 calls completed in a
+1.164733261 s/67-frame burst: 0.435780112 s in chunk bodies and 0.728953149 s
+in inter-chunk gaps. The 120-second missing-return interval is after the final
+chunk, narrowing the next title boundary to `CTbdFile::LoadCore` EOF
+finalization. Gap: capture the exact
 `CShell::ShellLoadLevel` return boundary; demonstrate zero original fallthrough and zero emulated optical
 wait for supported operations inside that interval; and run three alternating
 clean oracle/native mission-timing pairs. Title-observed failure tracing
@@ -614,10 +620,12 @@ capture then recorded no `CTbdFile::Error`, 124 ReadChunk starts and 124
 completions, and 124 calls to `GMissionGoalsMenu::LoadHackCallback`, while the
 grounded ShellLoadLevel return remained absent. A repeat accounted 4,029,554
 bytes across those completed chunks, with no chunk exceeding the 1 MiB slice.
-This is accepted progress and negative-boundary evidence, not a mission-service
-inventory.
+The timing partition then proved those 124 calls were a 1.164733261 s burst,
+not work spread across the 120-second timeout: chunk bodies used 0.435780112 s
+and inter-chunk gaps 0.728953149 s. This is accepted progress and
+negative-boundary evidence, not a mission-service inventory.
 
-Gap: explain the continued completed-chunk/callback work and use the grounded
+Gap: classify the post-read `LoadCore` EOF/fixup phases and use the grounded
 mission boundary once its return is observed, define
 a guest-owned completion boundary before repeating save/load captures, add
 shutdown phase boundaries, and separate archive/service operations from

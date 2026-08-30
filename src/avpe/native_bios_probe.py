@@ -18,6 +18,12 @@ MISSION_TRACE_ENTRY_PC = 0x0016F910
 MISSION_TRACE_RETURN_PC = 0x0016FA4C
 
 
+class BiosMissionCaptureError(RuntimeError):
+    def __init__(self, message: str, trace: dict[str, object] | None = None) -> None:
+        super().__init__(message)
+        self.trace = trace
+
+
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--probe-bios-trace", action="store_true",
                         help="capture the bounded BIOS/IOP census from boot or a savestate")
@@ -160,15 +166,17 @@ def capture_bios_mission_boundary(port: int) -> dict[str, object]:
             debug_suffix = f" debug={debug}"
         else:
             debug_suffix = f" debug_unavailable={debug_detail}"
-        raise RuntimeError(
+        raise BiosMissionCaptureError(
             f"BIOS mission trace capture returned HTTP {status}: "
-            f"{bios_trace_failure_detail(diagnostic)}{debug_suffix}"
+            f"{bios_trace_failure_detail(diagnostic)}{debug_suffix}",
+            diagnostic if isinstance(diagnostic, dict) else None,
         )
     trace = json.loads(body)
     if not mission_boundary_is_verified(trace):
-        raise RuntimeError(
+        raise BiosMissionCaptureError(
             "complete grounded mission boundary was not observed: "
-            f"{bios_trace_failure_detail(trace)}"
+            f"{bios_trace_failure_detail(trace)}",
+            trace if isinstance(trace, dict) else None,
         )
     assert isinstance(trace, dict)
     return trace
@@ -194,7 +202,12 @@ def run_bios_phase(
         transition = probe_marine_m1_transition(
             port, deadline, state_path.parent, require_native_assets=True
         )
-        trace = capture_bios_mission_boundary(port)
+        try:
+            trace = capture_bios_mission_boundary(port)
+        except BiosMissionCaptureError as error:
+            if error.trace is not None:
+                error.trace["mission_transition_proof"] = transition
+            raise
         trace["mission_transition_proof"] = transition
         return trace, "clean_boot_to_mission", "shell_set_next_level"
     if phase == "menu":
@@ -251,6 +264,13 @@ def run_requested_bios_probe(
                 log_dir.parent / "bios-phase-state.p2s",
             )
             return trace, phase, operation, None
+        except BiosMissionCaptureError as error:
+            return (
+                error.trace,
+                "clean_boot_to_mission",
+                "shell_set_next_level",
+                str(error),
+            )
         except (RuntimeError, ValueError, json.JSONDecodeError) as error:
             return None, None, None, str(error)
     return None, None, None, None
@@ -287,11 +307,19 @@ def report_bios_trace(
     phase: str | None = None,
     operation: str | None = None,
 ) -> bool:
+    actual_output = output or (log_dir.parent / "bios-trace.json")
+    if trace is not None:
+        write_bios_trace(trace, actual_output, control_status, statefile, phase, operation)
+    if probe_error is not None:
+        output_detail = f"; diagnostic output={actual_output}" if trace is not None else ""
+        print(
+            f"FATAL BIOS trace failed: {probe_error}{output_detail}; see {log_dir}",
+            file=sys.stderr,
+        )
+        return False
     if trace is None:
-        detail = probe_error or "probe did not run"
+        detail = "probe did not run"
         print(f"FATAL BIOS trace failed: {detail}; see {log_dir}", file=sys.stderr)
         return False
-    actual_output = output or (log_dir.parent / "bios-trace.json")
-    write_bios_trace(trace, actual_output, control_status, statefile, phase, operation)
     print(f"control-test bios-trace output={actual_output}", flush=True)
     return True

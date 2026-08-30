@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from struct import pack
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from avpe.control_test import (
@@ -24,6 +25,7 @@ from avpe.launch import (
 )
 from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
 from avpe.native_bios_probe import (
+    BiosMissionCaptureError,
     MISSION_TRACE_ENTRY_PC,
     MISSION_TRACE_RETURN_PC,
     bios_trace_failure_detail,
@@ -31,6 +33,8 @@ from avpe.native_bios_probe import (
     capture_bios_trace,
     capture_bios_mission_boundary,
     mission_boundary_is_verified,
+    report_bios_trace,
+    run_requested_bios_probe,
     start_bios_mission_phase,
     start_bios_trace,
     write_bios_trace,
@@ -312,6 +316,84 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(request.call_args_list[1].args[:3],
                          (31234, "POST", "/bios/trace/capture-mission"))
         self.assertEqual(request.call_args_list[1].kwargs["timeout"], 122.0)
+
+    def test_bios_mission_timeout_writes_diagnostic_and_still_fails(self) -> None:
+        diagnostic = {
+            "schema": "avpe-bios-trace-v1",
+            "enabled": False,
+            "capacity": 4096,
+            "overflow": 0,
+            "events": [{"sequence": 1, "kind": "rpc"}],
+            "mission_boundary": {
+                "entry_pc": MISSION_TRACE_ENTRY_PC,
+                "return_pc": MISSION_TRACE_RETURN_PC,
+                "complete": False,
+                "sequence_errors": 0,
+                "entry": {"pc": MISSION_TRACE_ENTRY_PC},
+                "return": None,
+            },
+        }
+        transition = {"world": "populated"}
+        args = SimpleNamespace(
+            probe_bios_trace=False,
+            probe_bios_phase="mission",
+            statefile=None,
+        )
+        scratch = Path("scratch")
+        scratch.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=scratch) as directory:
+            log_dir = Path(directory) / "logs"
+            output = Path(directory) / "mission-timeout.json"
+            with patch("avpe.native_bios_probe.await_native_stream_reads"), patch(
+                "avpe.native_bios_probe.start_bios_mission_phase"
+            ), patch(
+                "avpe.native_bios_probe.probe_marine_m1_transition",
+                return_value=transition,
+            ), patch(
+                "avpe.native_bios_probe.request_bytes",
+                return_value=(504, json.dumps(diagnostic).encode()),
+            ), patch(
+                "avpe.native_bios_probe.request_json",
+                return_value=(200, {"ee_pc": "0x002CDAF8"}, ""),
+            ):
+                trace, phase, operation, error = run_requested_bios_probe(
+                    args, 31234, 100.0, log_dir
+                )
+
+            self.assertIsNotNone(error)
+            self.assertEqual(trace, {**diagnostic, "mission_transition_proof": transition})
+            self.assertEqual(phase, "clean_boot_to_mission")
+            self.assertEqual(operation, "shell_set_next_level")
+            with patch("avpe.native_bios_probe.sys.stderr"):
+                self.assertFalse(
+                    report_bios_trace(
+                        trace,
+                        output,
+                        self.status,
+                        log_dir,
+                        None,
+                        error,
+                        phase,
+                        operation,
+                    )
+                )
+            artifact = json.loads(output.read_text())
+
+        self.assertEqual(artifact["trace"], trace)
+        self.assertEqual(artifact["phase"], "clean_boot_to_mission")
+        self.assertEqual(artifact["operation"], "shell_set_next_level")
+
+    def test_bios_mission_unstructured_timeout_has_no_diagnostic_trace(self) -> None:
+        with patch(
+            "avpe.native_bios_probe.request_bytes",
+            return_value=(504, b"deadline expired"),
+        ), patch(
+            "avpe.native_bios_probe.request_json",
+            return_value=(503, None, "unavailable"),
+        ), self.assertRaises(BiosMissionCaptureError) as raised:
+            capture_bios_mission_boundary(31234)
+
+        self.assertIsNone(raised.exception.trace)
 
     def test_bios_trace_failure_detail_is_bounded(self) -> None:
         trace = {
