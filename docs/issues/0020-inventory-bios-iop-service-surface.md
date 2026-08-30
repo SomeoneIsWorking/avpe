@@ -11,16 +11,21 @@ updated: 2026-08-30
 
 ## Root cause
 
-Existing AVPE hooks observe selected asset imports and debug registrations, but
-there is no bounded structured census covering the BIOS-backed IOP lifecycle,
-and no corresponding EE-kernel or firmware-service inventory.
+The project began with only selected asset-import/debug hooks and no bounded
+firmware census. The remaining root gap is now narrower: the v2 entry/dispatch
+census identifies required services honestly, but it does not observe BIOS or
+oracle returns, and stable guest-owned save/load and shutdown boundaries do not
+yet exist. An entry-register sample cannot substitute for either missing owner.
 
 ## Current work
 
-`NativeBiosTrace` now records EE `SYSCALL` dispatches through the shared
+`NativeBiosTrace` v2 records EE `SYSCALL` entries through the shared
 interpreter implementation, including their four argument registers and
-post-dispatch signed `v0` result, EE/IOP exception entry, plus recognized HLE/
-debug IOP imports,
+whether PCSX2 returned directly or dispatched into the BIOS. Only a direct
+return carries a grounded signed `v0` result. Recognized HLE/debug IOP imports
+snapshot arguments before dispatch and record whether HLE handled the call or
+the oracle fallback remained responsible; only handled HLE carries a result.
+The census also records EE/IOP exception entry,
 loadcore module registration and release, interrupt registration, and SIF RPC
 registration. EE and IOP counter target/overflow paths now record the counter
 state, cycle, and whether the interrupt was delivered. All observations use
@@ -68,22 +73,13 @@ position race, but the differing traces show that a frame transition is not
 the guest-owned post-restore completion boundary still needed for repeatable
 mission/save/load inventory.
 
-The retained trace set is now mechanically summarized by
+The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict validator and
-groups only events actually present in each capture. The selected seven
-captures contain 335 events across clean boot, title resume, menu, and
-save-load phases. Their runtime service categories are EE syscalls and module
-registration; IOP import, interrupt-registration, and RPC events are absent
-from these windows even though their encodings remain covered by production
-tests.
-
-The observed EE syscall identities in the retained set are
-`RotateThreadReadyQueue` (#43), `sceSifSetDma_isceSifSetDma` (#119),
-`sceSifSetDChain_isceSifSetDChain` (#120), `iSignalSema` (#67), `RFU005` (#5),
-`DeleteSema` (#65), `CreateSema` (#64), and `WaitSema` (#68). The set includes
-both `RotateThreadReadyQueue` results 0 and 1, plus `DeleteSema` result 11;
-other observed returns are zero except for the dynamic `WaitSema` results.
-This is a service-level observed subset, not the complete syscall inventory.
+groups only events actually present in each capture. Schema v2 separately
+counts grounded results and unobserved BIOS/oracle returns. The earlier seven
+v1 captures remain phase-boundary and service-identity evidence, but their
+sampled `v0` values were pre-dispatch registers and are no longer accepted as
+results by the analyzer.
 
 ### Finding (2026-08-29, mission-state repeatability control)
 
@@ -200,11 +196,34 @@ queued call's return.
 A valid clean mission capture reached `ShellLoadLevel` continuation
 `0x0016FA4C` with no loader error, 134/134 observed chunks, all 24 post-read
 rounds, 2,638/2,638 initializer calls/returns, 942/942 factory calls/returns,
-and zero sequence errors. The exact Exit object was focused and activated in
-3,609 EE cycles with stack restoration, and the mission menu singleton cleared.
-This supplies the grounded mission completion boundary for a later service
-slice; the current artifact still does not enumerate every service used by the
-phase.
+and zero mission/post-read/initializer/factory sequence errors. The exact Exit
+object was focused and activated in 3,609 EE cycles with stack restoration, and
+the mission menu singleton cleared. The separate single-active-frame load-
+timing observer reported 10 nesting errors, so its timing totals are not used
+for this path.
+
+### Finding (2026-08-30, result-boundary correction and mission census)
+
+Schema v1 sampled EE `v0` before BIOS dispatch and sampled IOP `v0` before an
+oracle fallback completed. It then coalesced services without preserving valid
+result variation. The impossible values in the first completed mission report
+falsified C031 and every downstream v1 return-value claim.
+
+Schema v2 records explicit `bios`/`direct` and `oracle`/`hle` outcomes, omits a
+result for BIOS/oracle ownership, snapshots IOP arguments before HLE dispatch,
+and rejects legacy or malformed artifacts. Three clean v2 captures completed the
+grounded mission boundary with zero overflow. They repeated the same 11 EE
+syscall and 4 IOP import service identities and exactly matched all import
+summaries. The only service-count delta was BIOS `sceSifSetDma`, at 1,126
+versus 1,125 calls. Every syscall result remains unobserved at this entry seam;
+`sceCdGetError` likewise remained oracle-owned. Handled `ioman.read`,
+`ioman.lseek`, and `sysmem.Kprintf` calls carried grounded result sets.
+
+The combined Clang analyzer also exposed an existing ioman/iomanX directory-
+read defect: both HLE paths copied complete directory-entry structs to guest
+memory even though their stack buffers were uninitialized before the host
+owner filled named fields. Both buffers are now value-initialized, preventing
+indeterminate padding or untouched fields from entering guest-visible state.
 
 ## Remaining work
 
@@ -214,8 +233,8 @@ guest-owned save/load completion boundary rather than a host delay. Add a
 separate grounded observation seam for remaining interrupt
 delivery, kernel primitives, executable loading, and IOP module loads, then
 capture their service results and negative paths before designing the HLE
-implementation. The EE syscall result boundary now exists but still needs
-runtime phase traces and service-level interpretation.
+implementation. The EE syscall entry boundary is not a BIOS return seam; a
+separate grounded result observer is still required.
 
 ## Resolution
 

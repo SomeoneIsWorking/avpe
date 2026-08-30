@@ -1,13 +1,14 @@
 ---
 id: C031
 kind: claim
-status: holds
+status: falsified
 created: 2026-08-28
 tags: bios,hle,iop,inventory
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeEeExecutionHooks.cpp#Observe, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#ObserveMissionTypeInitializer, src/avpe/native_mission_probe.py#mission_transition_is_verified
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-30
 verified_at: 2026-08-30 04:37:52
+falsified_on: 2026-08-30
 ---
 
 ## Claim
@@ -221,3 +222,9 @@ units. The focused production suites separately passed 19 NativeBiosTrace, one
 NativeHostYield, and one NativeMenuInput test. `AVPE.cpp` route growth was
 resolved by extracting `NativeMenuRoute`; the normal verifier now includes all
 three new translation units and headers.
+
+## FALSIFIED 2026-08-30
+
+The completed clean mission trace exposed impossible service results: non-HLE EE syscalls are recorded before cpuException/BIOS return, and recognized IOP imports are recorded after an HLE attempt even when it declines and oracle execution continues. The event result field is therefore not a general post-service return value.
+
+> Anything that cited this claim as proof must be re-checked. Grep the repo for it.
