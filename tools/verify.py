@@ -19,6 +19,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/LoadTimingPoint.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeBiosEventStore.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeEeExecutionHooks.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeHostYield.cpp",
@@ -71,6 +72,7 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/LoadTimingPoint.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetByteTrace.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeBiosEventStore.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeEeExecutionHooks.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeHostYield.h",
@@ -107,7 +109,7 @@ CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/IopCounters.cpp": ((1, 16), (207, 240)),
 	ROOT / "thirdparty/pcsx2/pcsx2/Counters.cpp": ((1, 20), (488, 494), (682, 723)),
 	ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp": (
-		(1, 18), (910, 925), (1068, 1069), (1205, 1206), (1215, 1215)),
+		(1, 18), (910, 925), (1059, 1063), (1196, 1201), (1206, 1210)),
     ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp": ((1, 18), (96, 99)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (177, 182), (563, 620), (688, 720)),
@@ -118,9 +120,9 @@ CORE_SCOPED_SOURCES = {
         (90, 105), (315, 325), (1080, 1130), (1140, 1165), (1175, 1215)),
     ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp": (
         (1, 10), (1690, 1710), (2335, 2400)),
-    ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": (
-        (1, 10), (47, 51), (398, 410), (779, 788), (1_698, 1_707),
-        (2_205, 2_220), (2_350, 2_357)),
+	ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": (
+		(1, 10), (47, 51), (398, 410), (779, 805), (1_698, 1_707),
+		(2_205, 2_220), (2_354, 2_357)),
     ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900Jump.cpp": (
         (1, 10), (75, 82)),
 }

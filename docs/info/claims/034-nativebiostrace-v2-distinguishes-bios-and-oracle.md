@@ -1,12 +1,13 @@
 ---
 id: C034
 kind: claim
-status: holds
+status: falsified
 created: 2026-08-30
 tags: bios,iop,inventory,mission
 depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#RecordImport, thirdparty/pcsx2/pcsx2/IopBios.cpp#CompleteImportTrace, thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp#SYSCALL, src/avpe/native_bios_probe.py#bios_trace_is_verified
 reconfirmed: 2026-08-30
 verified_at: 2026-08-30 04:29:37+00:00
+falsified_on: 2026-08-30
 ---
 
 ## Claim
@@ -24,3 +25,9 @@ a v2 capture contains a result when result_valid is false, omits a result when r
 ## Re-confirmed 2026-08-30
 
 scratch/control-test/bios-mission-service-v2-a.json; scratch/control-test/bios-mission-service-v2-b.json; scratch/control-test/bios-mission-service-v2-c.json; scratch/control-test/bios-mission-service-v2-repeat.json; focused NativeBiosTrace and Python inventory tests
+
+## FALSIFIED 2026-08-30
+
+Static direct-path audit found that GetOsdConfigParam2 returns directly without assigning v0 while v2 marks every direct outcome result_valid=true; the ix86 constant FlushCache/iFlushCache optimization also bypasses the shared observer. The three mission artifacts contain no direct outcomes and remain valid for their observed surface, but the generalized v2 direct-result and engine-coverage claim is false.
+
+> Anything that cited this claim as proof must be re-checked. Grep the repo for it.

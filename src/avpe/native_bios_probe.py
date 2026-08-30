@@ -10,9 +10,18 @@ from avpe.menu_probe import await_deferred_call, menu_action
 from avpe.native_asset_probe import await_native_stream_reads
 from avpe.native_mission_probe import probe_marine_m1_transition
 
-BIOS_TRACE_SCHEMA = "avpe-bios-trace-v2"
+BIOS_TRACE_SCHEMA = "avpe-bios-trace-v3"
 BIOS_EVENT_KINDS = frozenset(
-    {"ee_syscall", "exception", "import", "interrupt", "module", "rpc", "timer"}
+    {
+        "ee_syscall",
+        "ee_syscall_return",
+        "exception",
+        "import",
+        "interrupt",
+        "module",
+        "rpc",
+        "timer",
+    }
 )
 MISSION_TRACE_ENTRY_PC = 0x0016F910
 MISSION_TRACE_RETURN_PC = 0x0016FA4C
@@ -68,6 +77,12 @@ def bios_trace_is_verified(trace: object) -> bool:
             or not isinstance(events, list) or not events or len(events) > capacity:
         return False
 
+    bios_entry_calls = 0
+    bios_entry_identities: dict[tuple[int, str], int] = {}
+    # Result semantics are identity-level ABI facts, independent of event coalescing.
+    bios_result_expectations: dict[tuple[int, str], bool] = {}
+    return_identities: dict[tuple[int, str], int] = {}
+    return_calls = 0
     for expected_sequence, event in enumerate(events, start=1):
         if not isinstance(event, dict) \
                 or event.get("sequence") != expected_sequence \
@@ -80,17 +95,45 @@ def bios_trace_is_verified(trace: object) -> bool:
         if event["kind"] in {"ee_syscall", "import"} \
                 and not _service_event_is_verified(event):
             return False
-    return True
+        if event["kind"] == "ee_syscall" \
+                and event.get("outcome") == "bios" \
+                and event.get("return_expected") is True:
+            bios_entry_calls += calls
+            identity = (event["number"], event["name"])
+            bios_entry_identities[identity] = bios_entry_identities.get(identity, 0) + calls
+            result_expected = event["result_expected"]
+            if identity in bios_result_expectations \
+                    and bios_result_expectations[identity] != result_expected:
+                return False
+            bios_result_expectations[identity] = result_expected
+        if event["kind"] == "ee_syscall_return":
+            if not _syscall_return_event_is_verified(event):
+                return False
+            return_calls += calls
+            identity = (event["number"], event["name"])
+            return_identities[identity] = return_identities.get(identity, 0) + calls
+            if identity not in bios_entry_identities \
+                    or event["result_expected"] != bios_result_expectations[identity]:
+                return False
+    if any(calls > bios_entry_identities[identity]
+           for identity, calls in return_identities.items()):
+        return False
+    return _syscall_pairing_is_verified(
+        trace.get("ee_syscall_pairing"), bios_entry_calls, return_calls
+    )
 
 
 def _service_event_is_verified(event: dict[str, object]) -> bool:
     arguments = event.get("first_arguments")
     outcome = event.get("outcome")
     result_valid = event.get("result_valid")
+    result_expected = event.get("result_expected")
+    return_expected = event.get("return_expected")
     if not isinstance(arguments, list) or len(arguments) != 4 \
             or any(not _is_u32(argument) for argument in arguments) \
             or not isinstance(outcome, str) \
-            or not isinstance(result_valid, bool):
+            or not isinstance(result_valid, bool) \
+            or (event["kind"] == "ee_syscall" and not isinstance(result_expected, bool)):
         return False
     if result_valid:
         result = event.get("result")
@@ -101,12 +144,38 @@ def _service_event_is_verified(event: dict[str, object]) -> bool:
         return False
 
     if event["kind"] == "ee_syscall":
-        return outcome in {"bios", "direct"} and result_valid == (outcome == "direct")
+        number = event.get("number")
+        name = event.get("name")
+        return bool(
+            isinstance(number, int)
+            and not isinstance(number, bool)
+            and 0 <= number <= 0xff
+            and isinstance(name, str)
+            and name
+            and isinstance(return_expected, bool)
+            and outcome in {"bios", "direct"}
+            and (outcome != "bios" or not result_valid)
+            and (
+                outcome != "direct"
+                or (return_expected and result_valid == result_expected)
+            )
+            and (return_expected or (not result_expected and not result_valid))
+        )
 
+    library = event.get("library")
+    ordinal = event.get("ordinal")
+    function = event.get("function")
     hle_available = event.get("hle_available")
     debug_available = event.get("debug_available")
     return bool(
-        isinstance(hle_available, bool)
+        isinstance(library, str)
+        and library
+        and isinstance(ordinal, int)
+        and not isinstance(ordinal, bool)
+        and 0 <= ordinal <= 0xffff
+        and isinstance(function, str)
+        and function
+        and isinstance(hle_available, bool)
         and isinstance(debug_available, bool)
         and (hle_available or debug_available)
         and outcome in {"hle", "oracle"}
@@ -119,6 +188,56 @@ def _is_u32(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and 0 <= value < (1 << 32)
 
 
+def _syscall_return_event_is_verified(event: dict[str, object]) -> bool:
+    number = event.get("number")
+    name = event.get("name")
+    result_expected = event.get("result_expected")
+    result_valid = event.get("result_valid")
+    result = event.get("result")
+    return bool(
+        isinstance(number, int)
+        and not isinstance(number, bool)
+        and 0 <= number <= 0xff
+        and isinstance(name, str)
+        and name
+        and isinstance(result_expected, bool)
+        and isinstance(result_valid, bool)
+        and (not result_valid or result_expected)
+        and (
+            (not result_valid and "result" not in event)
+            or (
+                result_valid
+                and isinstance(result, int)
+                and not isinstance(result, bool)
+                and -(1 << 31) <= result < (1 << 31)
+            )
+        )
+        and _is_u32(event.get("first_stack_pointer"))
+        and _is_u32(event.get("first_resume_pc"))
+    )
+
+
+def _syscall_pairing_is_verified(
+    pairing: object, bios_entry_calls: int, return_calls: int
+) -> bool:
+    if not isinstance(pairing, dict):
+        return False
+    values = {
+        key: pairing.get(key)
+        for key in ("entries", "returns", "pending", "sequence_errors", "overflow")
+    }
+    if any(isinstance(value, bool) or not isinstance(value, int) or value < 0
+           for value in values.values()):
+        return False
+    return bool(
+        values["sequence_errors"] == 0
+        and values["overflow"] == 0
+        and values["entries"] == bios_entry_calls
+        and values["returns"] == return_calls
+        and values["pending"] == bios_entry_calls - return_calls
+    )
+
+
 def bios_trace_failure_detail(trace: object) -> str:
     if not isinstance(trace, dict):
         return f"response is not an object ({type(trace).__name__})"
@@ -128,6 +247,15 @@ def bios_trace_failure_detail(trace: object) -> str:
         f"schema={trace.get('schema')!r} enabled={trace.get('enabled')!r} "
         f"events={event_count} overflow={trace.get('overflow')!r}"
     )
+    pairing = trace.get("ee_syscall_pairing")
+    if isinstance(pairing, dict):
+        detail += (
+            f" syscall_entries={pairing.get('entries')!r}"
+            f" syscall_returns={pairing.get('returns')!r}"
+            f" syscall_pending={pairing.get('pending')!r}"
+            f" syscall_sequence_errors={pairing.get('sequence_errors')!r}"
+            f" syscall_overflow={pairing.get('overflow')!r}"
+        )
     boundary = trace.get("mission_boundary")
     if isinstance(boundary, dict):
         detail += (

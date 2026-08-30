@@ -12,17 +12,21 @@ updated: 2026-08-30
 ## Root cause
 
 The project began with only selected asset-import/debug hooks and no bounded
-firmware census. The remaining root gap is now narrower: the v2 entry/dispatch
-census identifies required services honestly, but it does not observe BIOS or
-oracle returns, and stable guest-owned save/load and shutdown boundaries do not
-yet exist. An entry-register sample cannot substitute for either missing owner.
+firmware census. The remaining root gap is now narrower: the v3 mission census
+has a grounded EE BIOS return owner and ABI-aware result validity, but IOP
+oracle returns, 64-bit EE results, stable guest-owned save/load and shutdown
+boundaries, and service negative paths are still absent. One mission slice
+cannot substitute for the complete required firmware contract.
 
 ## Current work
 
-`NativeBiosTrace` v2 records EE `SYSCALL` entries through the shared
+`NativeBiosTrace` v3 records EE `SYSCALL` entries through the shared
 interpreter implementation, including their four argument registers and
-whether PCSX2 returned directly or dispatched into the BIOS. Only a direct
-return carries a grounded signed `v0` result. Recognized HLE/debug IOP imports
+whether PCSX2 returned directly or dispatched into the BIOS. Return-capable
+BIOS entries pair by guest stack pointer and exact post-syscall PC. A ps2sdk-
+grounded disposition table separates captured signed 32-bit results, returned
+void calls, unobserved result types, and non-returning context/process/thread
+transfers. Recognized HLE/debug IOP imports
 snapshot arguments before dispatch and record whether HLE handled the call or
 the oracle fallback remained responsible; only handled HLE carries a result.
 The census also records EE/IOP exception entry,
@@ -74,9 +78,10 @@ the guest-owned post-restore completion boundary still needed for repeatable
 mission/save/load inventory.
 
 The retained trace set is mechanically summarized by
-`tools/analyze_bios_traces.py`, which reuses the runner's strict validator and
-groups only events actually present in each capture. Schema v2 separately
-counts grounded results and unobserved BIOS/oracle returns. The earlier seven
+`tools/analyze_bios_traces.py`, which reuses the runner's strict v3 validator
+and groups only events actually present in each capture. Schema v3 separately
+counts grounded results, returned void calls, unobserved results, and
+non-returning transfers. The earlier seven
 v1 captures remain phase-boundary and service-identity evidence, but their
 sampled `v0` values were pre-dispatch registers and are no longer accepted as
 results by the analyzer.
@@ -225,16 +230,45 @@ memory even though their stack buffers were uninitialized before the host
 owner filled named fields. Both buffers are now value-initialized, preventing
 indeterminate padding or untouched fields from entering guest-visible state.
 
+### Finding (2026-08-30, grounded EE BIOS return and result disposition)
+
+The generalized v2 direct-result contract was false: `GetOsdConfigParam2` and
+the recompiler's constant `FlushCache` path return directly without assigning
+`v0`. The first BIOS-return experiment was also false: sampling every COP0
+`ERET` paired 13,566 ordinary returns but treated 1,706
+`ResumeIntrDispatch` context restores as missing returns, producing 1,705
+superseded frames and one pending frame. Current ps2sdk syscall identities and
+declarations establish that control return, result existence, and result width
+are independent ABI facts.
+
+Schema v3 observes the instruction immediately after a syscall through the
+shared EE execution hook and pairs it to a pending BIOS entry by stack pointer
+and exact resume PC. `NativeBiosEventStore` owns bounded admission,
+coalescing, serialization, and pairing separately from trace lifecycle. Its
+disposition table classifies supported 32-bit results, void returns,
+unobserved 64-bit/unknown results, and non-returning calls. Validator and
+inventory tests reject wrong resume PCs, malformed result fields, legacy
+schemas, and overflow, and force both returned-void and unobserved-result paths.
+
+Two Clang-built clean mission captures completed the grounded mission boundary.
+They paired 13,566/13,566 and 13,565/13,565 return-capable BIOS calls with zero
+pending calls, sequence errors, pairing overflow, trace overflow, or mission
+sequence errors. Both repeat the same 11 syscall identity/disposition classes.
+`ResumeIntrDispatch` is non-returning; `FlushCache` and
+`sceSifSetDChain` return control without a result; thread/semaphore calls and
+`sceSifSetDma` expose their program-visible signed 32-bit result. Fixed
+thread/semaphore result sets repeat. Exact hot-path totals do not:
+`sceSifSetDma` differed by one call and direct `FlushCache` by two. C035/I021
+therefore claim stable service semantics, not byte-identical traces.
+
 ## Remaining work
 
-Capture and analyze repeated service traces through the now-grounded completed
-mission boundary. Next cover boot, menu, save, load, and shutdown. Define a
+Next cover title/menu, save, load, and shutdown. Define a
 guest-owned save/load completion boundary rather than a host delay. Add a
 separate grounded observation seam for remaining interrupt
-delivery, kernel primitives, executable loading, and IOP module loads, then
-capture their service results and negative paths before designing the HLE
-implementation. The EE syscall entry boundary is not a BIOS return seam; a
-separate grounded result observer is still required.
+delivery, kernel primitives outside the mission slice, executable loading, IOP
+module loads/oracle returns, and 64-bit EE results, then capture service
+negative paths before designing the HLE implementation.
 
 ## Resolution
 

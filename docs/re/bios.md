@@ -16,8 +16,11 @@ surfaceless control-test mode enables it and exposes its snapshot at
   handled HLE outcome carries its signed `v0` result;
 - every EE `SYSCALL` identity through the shared interpreter implementation,
   with the normalized syscall number, BIOS name, first four argument registers,
-  actual `direct` or `bios` outcome, result validity, and an occurrence count;
-  only an emulator-direct return carries its signed `v0` result;
+  actual `direct` or `bios` outcome, return/result expectations, result validity,
+  and an occurrence count. Return-capable BIOS calls pair by guest stack pointer
+  and exact post-syscall PC, and emit a separate return event. Declared 32-bit
+  results carry the program-visible signed `v0`; void returns omit it;
+  declared 64-bit and unknown result types remain explicitly unobserved;
 - the first EE/IOP exception-entry observation for each domain, cause code,
   pre-entry PC, and branch-delay shape, with an occurrence count;
 - the first EE/IOP counter observation for each domain, counter, overflow, and
@@ -38,8 +41,11 @@ Both the interpreter and dynarec route the EE `SYSCALL` opcode through the
 same implementation, so
 the syscall observation is not engine-specific. Schema v1 sampled `v0` before
 BIOS dispatch and before IOP oracle fallback completed; those fields were stale
-register values. Schema v2 makes outcome/result validity explicit, and the
-runner rejects v1 artifacts rather than presenting those samples as returns.
+register values. Schema v2 made outcome/result validity explicit but still
+mistakenly equated every direct path with a result and had no BIOS return seam.
+Schema v3 classifies returning-result, returning-void, unobserved-result, and
+non-returning syscalls independently of BIOS/direct ownership. The runner
+rejects v1/v2 artifacts rather than presenting them as current return evidence.
 
 ## Static EE syscall candidates
 
@@ -167,42 +173,54 @@ only one timer event. Both captures passed the bounded-trace validator, but
 their different lengths make them negative repeatability evidence rather than
 a mission-service inventory.
 
+Two clean schema-v3 mission captures pair every return-capable BIOS entry at
+the exact instruction after its syscall. The runs recorded 13,566/13,566 and
+13,565/13,565 entries/returns, with zero pending calls, sequence errors,
+pairing overflow, trace overflow, or mission-boundary errors. Both repeat the
+same 11 EE syscall identities and the same result-disposition class for each.
+`ResumeIntrDispatch` is a non-returning context restore and never enters pairing
+state. `FlushCache` and `sceSifSetDChain` return control but are declared void,
+so their 18/16 and 1,706 calls respectively carry no invented result. The
+thread/semaphore calls and `sceSifSetDma` carry their program-visible signed
+32-bit result. Hot totals remain scheduling-sensitive: `sceSifSetDma` differed
+by one call and direct `FlushCache` differed by two, so exact event equality is
+not claimed.
+
 ## Inventory analysis
 
 `tools/analyze_bios_traces.py` consumes one or more captured artifact files and
-emits `avpe-bios-inventory-report-v2`. Its summaries preserve the phase and
+emits `avpe-bios-inventory-report-v3`. Its summaries preserve the phase and
 statefile labels, count retained event identities, group observed EE syscalls
 and IOP imports by identity with occurrence counts, and group module,
 interrupt, and RPC registrations. Exception domains/codes/PCs and timer
 delivery/overflow outcomes are reported separately. For EE syscalls and IOP
-imports it separately counts valid observed results and unobserved BIOS/oracle
-returns. It calls the same strict `bios_trace_is_verified()` policy used by the
-runner, so a v1, malformed, incomplete, or overflowed capture is rejected
+imports it separately counts observed results, returned void calls, unobserved
+results, and non-returning transfers. It calls the same strict
+`bios_trace_is_verified()` policy used by the runner, so a legacy, malformed,
+incomplete, or overflowed capture is rejected
 rather than summarized.
 
 The earlier seven-capture v1 report remains phase-boundary and event-identity
 evidence, but every claimed v1 syscall/import result is withdrawn because the
-sink sampled `v0` before the BIOS/oracle owner returned. Three clean v2 mission
-captures supersede that result evidence. All completed the exact mission
-boundary with zero overflow and repeated the same 11 EE syscall and 4 IOP
-import service identities. All 11 syscalls continued into the BIOS, so their
-15,272, 15,271, and 15,271 total calls respectively have unobserved results.
-`cdvdman.sceCdGetError` similarly fell through to the oracle 527 times with no
-observed result. Handled `ioman.read` (924 calls), `ioman.lseek` (56 calls), and
-`sysmem.Kprintf` (1 call) carried grounded results; their call totals and result
-sets matched exactly. Only BIOS `sceSifSetDma` differed, at 1,126 versus 1,125
-calls, so exact syscall totals are scheduling-sensitive. This is a stable
-mission service-identity slice, not an exhaustive firmware contract or an HLE
-implementation.
+sink sampled `v0` before the BIOS/oracle owner returned. The three v2 mission
+captures remain entry/import identity evidence, but C034 and I020 are
+falsified/distrusted for generalized result semantics. Two clean v3 mission
+captures supersede their EE return evidence. Both completed the exact mission
+boundary, repeated the same 11 syscall identity/disposition classes, and paired
+every return-capable BIOS call. The fixed thread/semaphore result sets repeated;
+SIF DMA transaction IDs and hot call totals are scheduling-sensitive.
+`cdvdman.sceCdGetError` remains oracle-owned and unobserved. Handled
+`ioman.read`, `ioman.lseek`, and `sysmem.Kprintf` retain their grounded HLE
+results. This is a stable mission service-semantics slice, not an exhaustive
+firmware contract or an HLE implementation.
 
 ## Required evidence before S025 can be verified
 
 The census still needs a guest-owned completion boundary for save/load and
-then repeated BIOS-backed traces through stable title/menu
-and mission paths, plus explicit service-level save, load, and shutdown
-boundaries. The
-EE syscall stream is an entry observation boundary, not a BIOS return seam:
-kernel primitives, executable loading, timers, interrupt delivery, and the
-results of each required BIOS/oracle service still need separate evidence. A
+then repeated BIOS-backed traces through stable title/menu paths, plus explicit
+service-level save, load, and shutdown boundaries. The mission slice now has a
+grounded EE BIOS return seam, but kernel primitives outside that slice,
+executable loading, timers, interrupt delivery, IOP oracle returns, 64-bit
+results, and required negative paths still need separate evidence. A
 BIOS-free HLE path and paired success/error comparisons are S026–S028 work and
 remain blocked.
