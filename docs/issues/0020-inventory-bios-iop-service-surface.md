@@ -171,11 +171,18 @@ proves a completed small-record archive burst rather than a stuck chunk, one
 giant transfer, or a retry loop; it still does not establish a completed
 mission service slice.
 
+The next exact-PC partition further grounds the missing return. Twenty-two
+`LoadCore` rounds reached EOF, escaped `_WatchCount`, and completed offsets,
+externs, publics, and handles; only 21 completed `InitTypes` and returned.
+Nested-round tracking ended at depth zero, next expected
+`init_types_complete`, with zero sequence errors. Static disassembly places
+the active work in the outer `InitTypes` indirect initializer call at
+`0x0017467C`; its nested `LoadCore` has already returned.
+
 ## Remaining work
 
-Instrument the post-read `CTbdFile::LoadCore` EOF path—the `_WatchCount` gate,
-`FixupOffsets`, `FixupExterns`, `SetupPublics`, `FixupHandles`, and `InitTypes`—
-to locate why finalization does not reach `0x0016FA4C`, then capture repeated
+Instrument the `InitTypes` indirect initializer call/return at
+`0x0017467C`/`0x00174684` to identify the active type initializer, then capture repeated
 clean traces once that grounded return is observed. Next cover boot, menu,
 mission, save, load, and shutdown. Add a separate grounded observation seam for remaining interrupt
 delivery, kernel primitives, executable loading, and IOP module loads, then

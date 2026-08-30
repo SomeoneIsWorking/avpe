@@ -4,10 +4,10 @@ kind: claim
 status: holds
 created: 2026-08-28
 tags: bios,hle,iop,inventory
-depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#ObserveMissionLoadProgress
+depends: thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp#ObserveMissionPostReadProgress
 expires_on: a BIOS-backed clean run or production test shows dispatch, return, ordering, or overflow behavior differs from the documented NativeBiosTrace contract, or the trace changes the existing IOP fallback result
 reconfirmed: 2026-08-30
-verified_at: 2026-08-30 04:03:25
+verified_at: 2026-08-30 04:37:52
 ---
 
 ## Claim
@@ -190,3 +190,7 @@ Full Clang verifier again passed 154 Python tests, 22 native production-path tes
 ## Re-confirmed 2026-08-30
 
 Full Clang verifier passed 156 Python/structure tests, 22 native production-path tests, clang-format, and 46 clang-tidy translation units. Fourteen focused NativeBiosTrace tests include a two-chunk nonzero inter-gap control. A valid surfaceless/null-muted clean mission run preserved its structured HTTP 504 diagnostic while failing literally; exact mission entry had no return/error, zero boundary/timing errors, and all 124 ReadChunk calls completed in a 1.164733261-second/67-frame burst (0.435780112 s in calls, 0.728953149 s across 123 gaps).
+
+## Re-confirmed 2026-08-30
+
+Full Clang verifier passed 156 Python/structure tests, 22 native production tests, clang-format, and 46 clang-tidy units. Sixteen focused NativeBiosTrace tests cover repeated and nested LoadCore rounds plus skipped-stage rejection. A valid clean mission timeout preserved 22 rounds through FixupHandles, 21 InitTypes completions/returns, next expected init_types_complete, depth zero, and zero sequence errors.
