@@ -171,13 +171,23 @@ owners. `NativePointerMotion` owns the coordinate, resolution, guest-staging,
 and absolute-movement mechanics shared by gameplay and menu semantics.
 
 Absolute position update returns safely through the synchronous EE-call
-transaction. `MenuCheck` is deferred because changing focus can enter game
-work that depends on the ordinary scheduler, just as activation does. The
-windowless pause probe focused Resume at normalized `(0.7,0.3)`, Save at
-`(0.7,0.4)`, rejected an out-of-range request without changing deferred state,
-and activated Save through the pointer's original action path. The resulting
-menu transition was `0x012e85a0 -> 0x015afa70`, with exact deferred stack
-restoration.
+transaction only on the grounded pause-menu path. `MenuCheck` is deferred
+because changing focus can enter game work that depends on the ordinary
+scheduler, just as activation does. The windowless pause probe focused Resume
+at normalized `(0.7,0.3)`, Save at `(0.7,0.4)`, rejected an out-of-range request
+without changing deferred state, and activated Save through the pointer's
+original action path. The resulting menu transition was `0x012e85a0 ->
+0x015afa70`, with exact deferred stack restoration.
+
+The Save Game menu falsifies extending that direct-call contract. Its complete
+`Input_UpdatePositionAbsolute` path leaves the synthetic call through
+`SleepThread` (`0x002b3d40`) instead of the interrupted return PC and reaches
+the EE BIOS `EENULL` loop (`0x00081fc0`). Its selector mode remains zero, and
+the individual `SetPos`, `UpdateWorldPos`, and `StartSelection` calls return,
+so neither selector setup nor CInputData stack staging is the cause. Pointer
+motion for this yielding menu state must instead enter AVP:E through the normal
+`GInputDevice` callback dispatch; `NativePointerMotion` must not extend the
+synchronous shuttle contract to cover it.
 
 ## Native bridge
 

@@ -199,6 +199,12 @@ Escape/Backspace, mouse motion, and primary/secondary edges to typed menu or
 gameplay owners without DualShock emulation. All cited passing runs were
 surfaceless, null-muted, and shut down gracefully.
 
+The direct absolute-motion contract is limited to the pause path: on the Save
+Game menu its complete guest routine reaches `SleepThread` and BIOS `EENULL`
+instead of the shuttle return boundary. The required next implementation is
+normal `GInputDevice` callback dispatch for yielding pointer motion (issue #6),
+not a larger synchronous EE-call budget.
+
 Gap: real window key/mouse delivery remains unobserved because agent tests must
 be windowless. Title and broader in-game menu coverage remains incomplete.
 The prior Press START saved-state transition is no longer accepted as stable
