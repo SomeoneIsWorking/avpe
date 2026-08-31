@@ -77,6 +77,15 @@ not a completion condition. The restored menu-action boundary now covers the
 pause-menu slice; title and mission restore states still need their own
 guest-owned completion evidence.
 
+### Finding (2026-08-31, title-state boundary discriminator)
+
+`title-real.p2s` reached the verified surfaceless `Running` state but rejected
+the typed native `down` action with HTTP 409: no active game menu owned
+navigation callbacks. It therefore cannot reuse the pause-menu action as a
+title completion boundary. A title-state probe needs an independently grounded
+title-owned transition; a host delay, VSync edge, or a synthetic menu callback
+would not establish that boundary.
+
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
 and groups only events actually present in each capture. Schema v4 separately
