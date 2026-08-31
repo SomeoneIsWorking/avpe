@@ -219,6 +219,12 @@ without reaching the pacify process or changing the isolated card. It is not
 kept as a probe sequence: the next fixture operation must observe the concrete
 focused-item action at each transition rather than guess another input order.
 
+The callback menu focus can be absent even while the dispatch-bound pointer has
+focused a valid button. In `save-menu.p2s` that pointer focused `0x015AFD10`
+and its original activation restored the stack, but it still did not reach the
+save pacify boundary. Pointer and menu focus are distinct evidence and must not
+be conflated when constructing the fixture.
+
 The guest shutdown path has an equivalent static seam. `GMenu::ItemActivated`
 handles a `QuitGame` item by calling `CShell::Quit` (`0x0016F8D0`), which sets
 the shell quit bit at `+0x808`. `CShell::MainLoop` checks that bit after

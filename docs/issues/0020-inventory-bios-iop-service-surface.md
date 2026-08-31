@@ -151,6 +151,15 @@ The sequence is rejected rather than encoded as probe policy. Obtaining the
 fixture now requires observing the concrete focused-item action at each menu
 transition, not choosing another fixed input sequence.
 
+Focused-item action introspection now reports whether the callback-registry
+focus is a readable `GMenuItem` action without changing menu semantics. On the
+same save-menu state, the callback menu had no focused item, while the grounded
+dispatch-bound pointer path focused item `0x015AFD10` and invoked its original
+pointer action with exact stack restoration. That action still recorded zero
+pacify calls, save entries, and card delta. Pointer focus and menu focus are
+therefore distinct owners; neither may be treated as a normal save fixture
+without the pacify boundary.
+
 ### Finding (2026-08-31, guest shutdown seam)
 
 The generic menu action `QuitGame` reaches `CShell::Quit` at `0x0016F8D0`

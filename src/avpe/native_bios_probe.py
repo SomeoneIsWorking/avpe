@@ -10,6 +10,10 @@ from avpe.control_http import request_bytes, request_json
 from avpe.menu_probe import await_deferred_call, menu_action, menu_state
 from avpe.native_asset_probe import await_native_stream_reads
 from avpe.native_mission_probe import probe_marine_m1_transition
+from avpe.native_menu_pointer_dispatch_probe import (
+    activate_focused_dispatched_menu_pointer,
+    focus_dispatched_menu_pointer,
+)
 
 BIOS_TRACE_SCHEMA = "avpe-bios-trace-v4"
 BIOS_EVENT_KINDS = frozenset(
@@ -555,15 +559,26 @@ def _complete_menu_action(port: int, deadline: float, action: str, context: str)
 
 def _select_game_save_slot(port: int, deadline: float) -> dict[str, object]:
     """Use GSaveGameMenu's grounded ActivateFocused action, not pad emulation."""
+    state_status, state, state_detail = menu_state(port)
+    if state_status != 200 or state is None:
+        raise RuntimeError(
+            "game-save source menu is unavailable: "
+            f"HTTP {state_status}: {state_detail}"
+        )
+    if state.get("focus_object") == "0x00000000":
+        pointer_focus = focus_dispatched_menu_pointer(port, deadline)
+        state["pointer_focus"] = pointer_focus
+        state["pointer_activation"] = activate_focused_dispatched_menu_pointer(port, deadline)
+        return {"before": state, "action": "pointer-activate"}
     status, response, detail = menu_action(port, "activate")
     if status == 202 and response is not None:
         call_id = response.get("deferred_call_id")
         if not isinstance(call_id, int) or call_id <= 0:
             raise RuntimeError(f"game-save activation returned invalid call: {detail}")
         await_deferred_call(port, deadline, call_id, "BIOS phase game-save activate")
-        return {"action": "activate", "deferred_call_id": call_id}
+        return {"before": state, "action": "activate", "deferred_call_id": call_id}
     if status == 200 and response is not None:
-        return {"action": "activate", "response": response}
+        return {"before": state, "action": "activate", "response": response}
     raise RuntimeError(f"game-save activation failed: HTTP {status}: {detail}")
 
 

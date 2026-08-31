@@ -751,6 +751,9 @@ class ControlTestPolicyTests(unittest.TestCase):
             "events": [make_bios_import_event(1)],
         }
         with patch("avpe.native_bios_probe.start_bios_game_save_phase") as start, patch(
+            "avpe.native_bios_probe.menu_state",
+            return_value=(200, {"focus_object": "0x00123456"}, "OK"),
+        ) as state, patch(
             "avpe.native_bios_probe.menu_action",
             return_value=(202, {"deferred_call_id": 17}, "queued"),
         ) as activate, patch("avpe.native_bios_probe.await_deferred_call") as await_call, patch(
@@ -770,6 +773,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             (trace, "statefile_to_game_save", "slot_select_to_cprofile_save_game"),
         )
         start.assert_called_once_with(31234)
+        state.assert_called_once_with(31234)
         activate.assert_called_once_with(31234, "activate")
         await_call.assert_called_once_with(
             31234, 99.0, 17, "BIOS phase game-save activate"
