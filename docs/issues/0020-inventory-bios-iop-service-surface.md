@@ -162,6 +162,15 @@ item or menu level for the normal save path; the prior Cross injection was not
 the root cause. Future evidence must include a positive pacify-process count,
 so a direct or unrelated save cannot certify the menu-owned operation.
 
+### Finding (2026-08-31, live save-menu fixture discriminator)
+
+The separate `save-menu-live.p2s` fixture also failed before the save
+boundary: after reaching `Running`, the guest menu had no readable focused
+item and the phase route refused it with HTTP 500. The isolated formatted card
+remained byte-identical (`changed_bytes=0`). This is a second rejected fixture,
+not evidence of a save failure; a valid state must expose a guest-owned focused
+save action and reach `GSavePacifyMenu::Process`.
+
 ### Finding (2026-08-31, load-card pairing discriminator)
 
 Pairing `mission1.p2s` with the previously produced `after-slot0.ps2` card
