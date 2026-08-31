@@ -281,6 +281,15 @@ object and action null. This falsifies treating the rendered control's visual
 rectangle as a hit-test rectangle; another live owner or a grounded input-map
 route is needed before pointer activation can be used for shutdown.
 
+Static inspection identifies that owner precisely. `GfsPointer::MenuCheck`
+calls `GfsPointer::GetMenuItem`, which scans the live `CRender::SelectedList`
+at `0x003B40B0` through its `pSelected` end pointer at `0x0036706C`. Every
+20-byte entry contains a game-object handle and an inclusive screen rectangle
+`{handle, xmin, ymin, xmax, ymax}`. Absolute pointer input already uses the
+renderer's native coordinates, so the next discriminator is a bounded snapshot
+of these production rectangles and their resolved menu items—not another
+screen-space transform.
+
 ### Finding (2026-08-31, normal game-load owner)
 
 `GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears
