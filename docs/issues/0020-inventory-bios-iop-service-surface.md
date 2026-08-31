@@ -233,6 +233,14 @@ transition, not a `QuitGame` fixture. The next shutdown candidate must be
 discovered from another settled title/menu action rather than assuming this
 profile branch exits the game.
 
+The generic title-action sequencer also falsified using callback discovery as a
+deferred-action queue boundary: a `down,activate,down` sequence was refused
+before its first action because the interrupted guest stack was unaligned. The
+earlier one-action probes happened to run from an aligned CPU event, but that
+does not establish a general contract. The proper next shutdown/input step is
+to queue title actions at a grounded aligned game scheduler boundary, not to
+insert a diagnostic trace request or retry until the stack happens to align.
+
 ### Finding (2026-08-31, normal game-load owner)
 
 `GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears

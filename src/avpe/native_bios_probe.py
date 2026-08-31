@@ -16,6 +16,7 @@ from avpe.native_menu_pointer_dispatch_probe import (
 )
 
 BIOS_TRACE_SCHEMA = "avpe-bios-trace-v5"
+TITLE_MENU_ACTIONS = frozenset(("up", "down", "left", "right", "activate", "cancel"))
 BIOS_EVENT_KINDS = frozenset(
     {
         "ee_syscall",
@@ -54,8 +55,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="capture the bounded BIOS/IOP census from boot or a savestate")
     parser.add_argument(
         "--probe-bios-phase",
-        choices=("title", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save", "mission"),
+        choices=("title", "title-actions", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save", "mission"),
         help="capture a bounded BIOS/IOP phase after a title or observed profile-menu action, control save/load, normal game save, or clean-boot mission load",
+    )
+    parser.add_argument(
+        "--bios-title-actions",
+        help="comma-separated native actions for --probe-bios-phase title-actions",
     )
     parser.add_argument("--bios-trace-output", type=Path,
                         help="write --probe-bios-trace JSON to this scratch path")
@@ -68,6 +73,15 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
         parser.error("--bios-trace-output requires a BIOS trace probe")
     if args.probe_bios_trace and args.probe_bios_phase is not None:
         parser.error("choose either --probe-bios-trace or --probe-bios-phase")
+    title_actions = getattr(args, "bios_title_actions", None)
+    if args.probe_bios_phase == "title-actions":
+        if not isinstance(title_actions, str) or not title_actions:
+            parser.error("--probe-bios-phase title-actions requires --bios-title-actions")
+        invalid = [action for action in title_actions.split(",") if action not in TITLE_MENU_ACTIONS]
+        if invalid:
+            parser.error(f"unsupported --bios-title-actions value(s): {','.join(invalid)}")
+    elif title_actions is not None:
+        parser.error("--bios-title-actions requires --probe-bios-phase title-actions")
     if args.probe_bios_phase in ("title", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save") and args.statefile is None:
         parser.error("--probe-bios-phase requires --statefile")
     if args.probe_bios_phase == "game-save" and getattr(args, "memory_card_source", None) is None:
@@ -649,6 +663,7 @@ def run_bios_phase(
     phase: str,
     statefile: Path | None,
     state_path: Path,
+    title_actions: tuple[str, ...] = (),
 ) -> tuple[dict[str, object], str, str]:
     if phase == "mission":
         await_native_stream_reads(
@@ -671,6 +686,21 @@ def run_bios_phase(
         trace = capture_bios_trace(port, at_guest_boundary=False)
         trace["title_menu_after_action"] = title_menu
         return trace, "zono_splash_to_title_menu_action", "start_then_title_activate"
+    if phase == "title-actions":
+        if not title_actions:
+            raise ValueError("title-actions phase requires at least one action")
+        _reach_title_menu(port, deadline)
+        states: list[dict[str, object]] = []
+        for action in title_actions:
+            _complete_menu_action(port, deadline, action, f"BIOS phase title {action}")
+            status, title_menu = _await_settled_menu_state(
+                port, deadline, f"BIOS phase title post-{action} menu discovery"
+            )
+            states.append({"action": action, "status": status, "state": title_menu})
+        start_bios_trace(port)
+        trace = capture_bios_trace(port, at_guest_boundary=False)
+        trace["title_menu_actions"] = states
+        return trace, "zono_splash_to_title_menu_actions", ",".join(title_actions)
     if phase == "title-down":
         _reach_title_menu(port, deadline)
         start_bios_trace(port)
@@ -774,6 +804,8 @@ def run_requested_bios_probe(
                 args.probe_bios_phase,
                 args.statefile,
                 log_dir.parent / "bios-phase-state.p2s",
+                tuple(getattr(args, "bios_title_actions", "").split(","))
+                if getattr(args, "bios_title_actions", None) else (),
             )
             return trace, phase, operation, None
         except BiosMissionCaptureError as error:
