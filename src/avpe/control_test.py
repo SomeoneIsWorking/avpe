@@ -83,6 +83,7 @@ def build_environment(
     asset_byte_trace_mode: str | None = None,
     asset_load_timing_mode: str | None = None,
     asset_load_timing_target: str | None = None,
+    bios_trace_enabled: bool = True,
 ) -> dict[str, str]:
     env = dict(base)
     env.update({
@@ -113,6 +114,10 @@ def build_environment(
         env.pop("AVPE_LOAD_TIMING_TARGET", None)
     else:
         env["AVPE_LOAD_TIMING_TARGET"] = asset_load_timing_target
+    if bios_trace_enabled:
+        env.pop("AVPE_BIOS_TRACE", None)
+    else:
+        env["AVPE_BIOS_TRACE"] = "0"
     return env
 
 

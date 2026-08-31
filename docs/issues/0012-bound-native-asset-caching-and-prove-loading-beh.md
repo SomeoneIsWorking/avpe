@@ -239,3 +239,16 @@ focused and activated with exact stack restoration, and the mission menu
 singleton cleared. This closes the native missing-boundary investigation. The
 issue remains open for interval-wide no-optical proof and three alternating
 oracle/native mission timing pairs.
+
+### Finding (2026-08-31, timing probe instrumentation regression)
+
+The first two clean mission-timing attempts reached the `TBD/TBF.TBF` start
+boundary but did not reach `STREAMS/MENU01.ZIV` within 210 seconds. This was
+repeatable after unrelated host compiler work finished. The cause was the
+fork's unresolved-IOP-import instrumentation: every control-test boot enabled
+`NativeBiosTrace`, so the new recompiler fallback traced every unresolved import
+even when the requested probe was load timing. The timing launcher now disables
+that diagnostic explicitly with `AVPE_BIOS_TRACE=0`; ordinary control tests and
+explicit BIOS probes retain tracing. A rebuilt Clang binary is ready for one
+fresh mission comparison; no timing result is claimed until that comparison
+completes.
