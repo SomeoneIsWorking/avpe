@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from struct import pack
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from avpe.control_test import (
     asset_trace_is_verified,
@@ -35,6 +35,7 @@ from avpe.native_bios_probe import (
     capture_bios_mission_boundary,
     mission_boundary_is_verified,
     report_bios_trace,
+    run_bios_phase,
     run_requested_bios_probe,
     start_bios_mission_phase,
     start_bios_trace,
@@ -603,6 +604,56 @@ class ControlTestPolicyTests(unittest.TestCase):
             start_bios_trace(31234)
 
         request.assert_called_once_with(31234, "POST", "/bios/trace/start", {})
+
+    def test_save_load_bios_phase_uses_game_owned_menu_completion(self) -> None:
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [make_bios_import_event(1)],
+        }
+        statefile = Path("scratch/states/pause-menu.p2s")
+        isolated_state = Path("scratch/control-test/bios-phase-state.p2s")
+        with patch(
+            "avpe.native_bios_probe.request_json",
+            side_effect=[
+                (200, {"saved": True}, "saved"),
+                (200, {"loaded": True}, "loaded"),
+            ],
+        ) as request, patch(
+            "avpe.native_bios_probe.start_bios_trace"
+        ) as start, patch(
+            "avpe.native_bios_probe.menu_action",
+            return_value=(202, {"deferred_call_id": 17}, "queued"),
+        ) as menu, patch(
+            "avpe.native_bios_probe.await_deferred_call"
+        ) as await_call, patch(
+            "avpe.native_bios_probe.capture_bios_trace", return_value=trace
+        ) as capture:
+            result = run_bios_phase(
+                31234, 99.0, "save-load", statefile, isolated_state
+            )
+
+        self.assertEqual(
+            result,
+            (trace, "save_load_to_menu_action", "state_save_load_then_menu_down"),
+        )
+        self.assertEqual(
+            request.call_args_list,
+            [
+                call(31234, "POST", "/state/save", {"path": str(isolated_state)}),
+                call(31234, "POST", "/state/load", {"path": str(statefile)}),
+            ],
+        )
+        start.assert_called_once_with(31234)
+        menu.assert_called_once_with(31234, "down")
+        await_call.assert_called_once_with(
+            31234, 99.0, 17, "BIOS phase save-load menu down"
+        )
+        capture.assert_called_once_with(31234, at_guest_boundary=False)
 
     def test_bios_mission_phase_uses_grounded_boundary_routes(self) -> None:
         with patch(
