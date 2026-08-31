@@ -1036,6 +1036,41 @@ class ControlTestPolicyTests(unittest.TestCase):
             trace["title_menu_after_down_activation"], {"status": 200, "state": destination_state}
         )
 
+    def test_title_actions_phase_records_each_settled_game_action(self) -> None:
+        deadline = time.monotonic() + 1.0
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA, "enabled": True, "capacity": 4096, "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(), "events": [make_bios_import_event(1)],
+        }
+        first_state = {"menu": "0x01346590", "focused_item_action": "0x807F1E5F"}
+        second_state = {"menu": "0x01346590", "focused_item_action": "0x95DF2577"}
+        with patch("avpe.native_bios_probe._reach_title_menu") as reach, patch(
+            "avpe.native_bios_probe.start_bios_trace"
+        ) as start, patch(
+            "avpe.native_bios_probe.menu_action",
+            side_effect=[(202, {"deferred_call_id": 19}, "down"), (202, {"deferred_call_id": 20}, "down")],
+        ), patch("avpe.native_bios_probe.await_deferred_call") as await_call, patch(
+            "avpe.native_bios_probe.menu_state",
+            side_effect=[(200, first_state, "first"), (200, second_state, "second")],
+        ), patch("avpe.native_bios_probe.capture_bios_trace", return_value=trace):
+            result = run_bios_phase(
+                31234, deadline, "title-actions", Path("scratch/states/title-real.p2s"),
+                Path("scratch/control-test/bios-phase-state.p2s"), ("down", "down"),
+            )
+
+        self.assertEqual(result, (trace, "zono_splash_to_title_menu_actions", "down,down"))
+        reach.assert_called_once_with(31234, deadline)
+        start.assert_called_once_with(31234)
+        self.assertEqual(await_call.call_count, 2)
+        self.assertEqual(
+            trace["title_menu_actions"],
+            [
+                {"action": "down", "status": 200, "state": first_state},
+                {"action": "down", "status": 200, "state": second_state},
+            ],
+        )
+
     def test_title_profile_bios_phase_refuses_another_menu_before_second_activation(self) -> None:
         deadline = time.monotonic() + 1.0
         with patch(
