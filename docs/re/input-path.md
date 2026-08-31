@@ -18,7 +18,7 @@ CPS2Input : COSInput            (libpad poller; ctor 0017dc50)
 GPS2InputDevice : GInputDevice  (device object; GInputDevice::Process = dispatcher)
   Process         00114490      polls backend via vtable+8/+0xc, walks
                                 ZArray<CCallbackTrigger>, edge-detects, __ptmf_scall's
-                                registered member fns with a CInputData built on stack
+                                registered member fns with CInputData at device+0xac
   Register(name)                binds named trigger -> (object, ptmf)
   LoadGamepadTbd  00114380      physical->logical map from .tbd data file
 
@@ -188,6 +188,27 @@ so neither selector setup nor CInputData stack staging is the cause. Pointer
 motion for this yielding menu state must instead enter AVP:E through the normal
 `GInputDevice` callback dispatch; `NativePointerMotion` must not extend the
 synchronous shuttle contract to cover it.
+
+## Normal input-device dispatch
+
+`GInputDevice::Process` dispatches a callback at `0x001147cc`. At that exact
+instruction, `a0` is the resolved callback owner, `a1` is the game-owned
+`CInputData` buffer at device `+0xac`, `a2` is the active `CInputDef`, and
+`t9` points at the three-word member-function descriptor at callback `+0x0c`.
+The following delay slot copies the current input-definition word into that
+buffer before `__ptmf_scall`; the callback itself therefore executes on the
+ordinary game input/update path rather than a synthetic EE frame.
+
+`NativeInputDispatch` is a control-test-only, non-mutating observer of that
+instruction. In the Save Game state it recorded 114 title-admitted dispatches,
+all to menu owner `0x015afa70` and direct descriptor `{0, -1, 0x00125230}`
+(`GMenu::InputAnalog`) with zero input words. The menu pointer is independently
+registered at callback index 0: owner `0x015fe940`, input-definition list
+`0x015dd7f4`, and virtual descriptor `{0, 0xd8, 0}`. It did not fire while the
+backend was neutral. Thus the dispatcher and its real `CInputData` ownership
+are grounded, but a host pointer route must still queue an input definition
+that selects that registered pointer callback; it cannot claim that a direct
+absolute guest call has become safe.
 
 ## Native bridge
 

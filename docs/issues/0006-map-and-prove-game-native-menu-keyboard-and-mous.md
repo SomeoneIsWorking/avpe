@@ -67,7 +67,17 @@ complete original routine reached `SleepThread`. The next correct boundary is
 the normal `GInputDevice` callback dispatch that owns this yielding action, not
 another direct or deferred call to `Input_UpdatePositionAbsolute`.
 
+That dispatch is now observed at `0x001147cc` without mutation. It runs with
+the game-owned `CInputData` buffer at device `+0xac`; its registers carry the
+resolved owner (`a0`), current `CInputDef` (`a2`), and callback member
+descriptor (`t9`). A live neutral Save Game run reached the normal menu analog
+callback 114 times. The menu pointer is registered separately with virtual
+descriptor `{0, 0xd8, 0}` but does not fire while the backend is neutral. The
+remaining implementation is therefore a bounded host-input queue that selects
+that registered pointer definition at this seam and proves the normal callback
+updates the Save Game pointer; it is not another direct-call variant.
+
 Remaining work: verify the real windowed key/mouse path in a user-visible run,
-determine the Press START state dependency, map and prove the normal input-device
-dispatch for yielding pointer motion, and cover title and broader in-game menu
+determine the Press START state dependency, prove the dispatch-bound host
+pointer queue for yielding motion, and cover title and broader in-game menu
 variants.
