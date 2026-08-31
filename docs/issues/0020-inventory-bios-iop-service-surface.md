@@ -274,6 +274,13 @@ activation was therefore a `LoadMenu` transition and cannot certify a guest
 shutdown. A live menu fixture whose callback-registry focus is actually
 `QuitGame` remains required.
 
+The visible Quit label is not sufficient evidence for the existing pointer
+owner either. A dispatch-bound move to its measured `(500, 410)` pause-screen
+coordinate reached that exact guest coordinate but left the pointer's focused
+object and action null. This falsifies treating the rendered control's visual
+rectangle as a hit-test rectangle; another live owner or a grounded input-map
+route is needed before pointer activation can be used for shutdown.
+
 ### Finding (2026-08-31, normal game-load owner)
 
 `GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears
