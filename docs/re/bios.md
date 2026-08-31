@@ -225,6 +225,12 @@ and its original activation restored the stack, but it still did not reach the
 save pacify boundary. Pointer and menu focus are distinct evidence and must not
 be conflated when constructing the fixture.
 
+The focused-item actions resolve through the title's CRC convention: reflected
+CRC-32 with initial `0xFFFFFFFF` and no final XOR. The inherited pointer focus
+is `LoadMenu` (`0xCA788CFB`) and the measured button is `CancelKillMe`
+(`0x95DF2577`), proving the retained state exposes cancellation rather than a
+save slot.
+
 The guest shutdown path has an equivalent static seam. `GMenu::ItemActivated`
 handles a `QuitGame` item by calling `CShell::Quit` (`0x0016F8D0`), which sets
 the shell quit bit at `+0x808`. `CShell::MainLoop` checks that bit after
