@@ -1,7 +1,7 @@
 # AVP:E input path — RE findings
 
 Target: `SLUS_201.47` (USA, NTSC, 2003-04-29). ELF not stripped: `.symtab` ~15k syms.
-Ghidra project `scratch/ghidra/AVPE`, program analyzed as **r5900:LE:32:default**
+Ghidra project `build/ghidra/AVPE`, program analyzed as **r5900:LE:32:default**
 (ghidra-emotionengine-reloaded v2.1.37 installed into Ghidra 12.0.4). Generic-MIPS
 import garbles MMI code — do NOT re-import without `-processor r5900:LE:32:default`.
 
@@ -134,8 +134,8 @@ active menu's actual handler rather than assuming base `0x00124c20`. Pause Save
 activation and cancel changed ownership `0x012e85a0 -> 0x015afa70 ->
 `0x012e85a0`. An earlier Press START activation changed ownership
 `0x01346590 -> 0x0147d230`, but an identical later saved-state run completed
-and restored the call while leaving the source menu active. That title-state
-transition is not deterministic evidence. All completed deferred calls
+and restored the call while leaving the source menu active. That Press Start
+saved-state transition is not deterministic evidence. All completed deferred calls
 attested exact nonzero stack restoration.
 
 The mission-goals load menu is a separate synchronous source. Its singleton is

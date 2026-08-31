@@ -160,12 +160,12 @@ registrations, 7 IOP exception entries, and 1 IOP timer target event, with zero
 overflow. This is repeatability evidence for the boot boundary only; EE
 syscall/import activity begins after that boundary and still needs separate
 menu, mission, save, and shutdown captures. Three restored states also passed
-with zero overflow: `title-real.p2s` produced 220 events (104 EE syscalls and
-116 EE exceptions), `pause-menu.p2s` produced 251 events (2 EE syscalls, 98 EE
-exceptions, and 151 EE timers), and `mission1.p2s` produced 71 events (32 EE
-exceptions and 39 EE timers). The differing mixes demonstrate that the reset
-boundary is observing restored guest execution rather than returning one fixed
-or stale trace.
+with zero overflow: the Zono-splash `title-real.p2s` produced 220 events (104
+EE syscalls and 116 EE exceptions), `pause-menu.p2s` produced 251 events (2 EE
+syscalls, 98 EE exceptions, and 151 EE timers), and `mission1.p2s` produced 71
+events (32 EE exceptions and 39 EE timers). The differing mixes demonstrate
+that the reset boundary is observing restored guest execution rather than
+returning one fixed or stale trace.
 
 A pause-menu `menu_down` phase and the restored-menu save/load phase both
 complete with zero overflow. Capture runs on the emulation CPU thread: two menu
