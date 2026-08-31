@@ -486,9 +486,8 @@ the grounded `CProfile::SaveGame` observer, then cover game-load and shutdown.
 Add a separate grounded
 observation seam for remaining interrupt
 delivery, kernel primitives outside the mission slice, executable loading, IOP
-module loads and services outside the recognized import surface, and a live
-title exercise of the declared 64-bit GS result path, then capture service
-negative paths before designing the HLE
+module loads and services outside the recognized import surface, then capture
+service negative paths before designing the HLE
 implementation.
 
 ## Resolution
