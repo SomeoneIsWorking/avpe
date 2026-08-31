@@ -186,6 +186,13 @@ menu handler. The persisted pause child that exposes `CancelKillMe` therefore
 cannot be the shutdown fixture: a valid capture must reach its parent or
 another live menu item whose action is actually `QuitGame`.
 
+`GPauseHandler::Input_Pause` (`0x001FC5C0`) supplies that entry only from
+gameplay: after its normal timer and pointer guards, it pauses the game and
+calls `GInGameMenu::SwitchMenu` with the handler's configured embedded menu.
+It does not toggle a restored child back to its parent. The existing physical
+pad control route can therefore drive the required fixture from a gameplay
+state; it must not be replaced with a direct guest menu load.
+
 ### Finding (2026-08-31, normal game-load owner)
 
 `GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears
