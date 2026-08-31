@@ -70,7 +70,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native options integration | AVP:E menu extension and game-facing bindings to host display/graphics settings | target: `thirdparty/pcsx2/pcsx2/AVPE/NativeOptions.*`; narrow settings interface in `thirdparty/pcsx2/pcsx2-avpe/` | target: `AVPE::NativeOptions` | target: native-options contract |
 | Diagnostic UI | RmlUi developer-only diagnostics and inspection surfaces | target: a `DebugUI` module under `thirdparty/pcsx2/pcsx2-avpe/` | target: `AVPE::DebugUI` | target: debug-UI contract |
 | Diagnostic pad injection | Bootstrap-only active-low DS2 injection | `thirdparty/pcsx2/pcsx2/SIO/Pad/PadDualshock2.cpp` | `GetButtons()` integration | [control-channel contract](re/control-channel.md) |
-| RE helpers | Ghidra extraction, caller discovery, singleton inventory | `tools/ghidra_scripts/`, `tools/pthe_syms.txt` | individual tools | [input-path contract](re/input-path.md) |
+| RE helpers | Ghidra extraction, caller discovery, static-data inspection, singleton inventory | `tools/ghidra_scripts/`, `tools/pthe_syms.txt` | individual tools | [input-path contract](re/input-path.md) |
 | Evidence | Falsifiable claims and verification dependencies | `docs/info/claims/` | claim files | — |
 
 ## Source map

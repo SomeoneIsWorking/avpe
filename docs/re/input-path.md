@@ -20,7 +20,7 @@ GPS2InputDevice : GInputDevice  (device object; GInputDevice::Process = dispatch
                                 ZArray<CCallbackTrigger>, edge-detects, __ptmf_scall's
                                 registered member fns with CInputData at device+0xac
   Register(name)                binds named trigger -> (object, ptmf)
-  LoadGamepadTbd  00114380      physical->logical map from .tbd data file
+  LoadGamepadTbd  00114250      physical->logical map from .tbd data file
 
 GfsPointer (base) / GAvPPointer (game cursor, singleton pThe__11GAvPPointer @ 00367720)
   Input_UpdatePosition          0012e9f0  RELATIVE: pos += cdata[0..1]*10000.0f, Clip2Screen
@@ -40,6 +40,14 @@ GfsPointer (base) / GAvPPointer (game cursor, singleton pThe__11GAvPPointer @ 00
 Trigger names (strings @ 0x2e1810..): PointerUpdatePosition,
 PointerMouseButton1Activate/DeActivate, PointerMouseButton2Activate/DeActivate.
 ptmf table @ 0x2e17a8, stride 0x10.
+
+`GInputDevice::LoadGamepadTbd` chooses the longest matching controller name,
+then formats `Gamepad%s.tbd` from its selected `TbdFile` entry before loading
+the title resource. Its static table includes `DualShockPS2`, `ThrustMaster`,
+`HammerHead`, `HammerHeadUSB`, and `DualShockPC`; the named actions include the
+shoulder and cluster-button press actions. This grounds controller-resource
+selection, but not a prompt draw: a `.tbd` maps physical controls to named
+actions and does not yet identify any on-screen glyph resource or rectangle.
 
 Singletons (OBJECT syms): pThe__11GAvPPointer 00367720, pThe__12GInputDevice 00366e68,
 pThe__9CRenderer 00367078. CRenderer::GetResolution 00137b30 returns float[4]

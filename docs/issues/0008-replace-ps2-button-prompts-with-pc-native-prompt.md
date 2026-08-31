@@ -6,7 +6,7 @@ symptom: The product still presents PlayStation 2 controller button prompts whil
 state_items: S029
 tags: input,ui,prompts,keyboard,mouse
 created: 2026-08-27
-updated: 2026-08-28
+updated: 2026-08-31
 ---
 
 ## Root cause
@@ -38,6 +38,17 @@ glyph table, and submits sprite batches. Thus replacing generic menu labels or
 adding a shell overlay cannot remove the PS2 glyphs. The next grounded anchor
 is the concrete prompt item's `0xF4` render virtual and its text/resource
 producer, from which its final sprite rectangles can be observed.
+
+### Finding (2026-08-31, controller-resource selection)
+
+`GInputDevice::LoadGamepadTbd` at `0x00114250` chooses a controller name and
+loads the title resource formatted as `Gamepad%s.tbd`. The static table includes
+`DualShockPS2`, `ThrustMaster`, `HammerHead`, `HammerHeadUSB`, and
+`DualShockPC`; the corresponding named input actions include each shoulder and
+cluster-button press. This is the control-mapping resource seam, not prompt
+rendering evidence: neither the loader nor the prompt-menu vtable establishes
+which text/glyph resource reaches `CzFont::Render`, so changing a `.tbd` would
+not yet be a justified prompt replacement.
 
 ## Resolution
 
