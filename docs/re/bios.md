@@ -215,6 +215,14 @@ A shutdown census must validate the shell singleton at `0x003672F0` and span
 that live-menu activation through this main-loop return; the diagnostic VM
 shutdown endpoint is unrelated host lifecycle evidence.
 
+The normal game-load path is also deferred through the shell. After two process
+ticks, `GLoadPacifyMenu::Process` (`0x00202C20`) selects the profile and calls
+`CShell::LoadGame`; this sets the shell load bit. `CShell::MainLoop` consumes
+that bit and calls `CProfile::LoadGame` from `0x0016F7CC`. The load census must
+therefore use a live load-pacify fixture and observe this shell handoff, rather
+than invoke `CProfile::LoadGame` directly or treat a load-confirmation dialog
+as completion.
+
 Two clean schema-v3 mission captures pair every return-capable BIOS entry at
 the exact instruction after its syscall. The runs recorded 13,566/13,566 and
 13,565/13,565 entries/returns, with zero pending calls, sequence errors,
