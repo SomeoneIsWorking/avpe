@@ -30,6 +30,8 @@ from avpe.native_bios_probe import (
     GAME_SAVE_TRACE_ENTRY_PC,
     GAME_SAVE_TRACE_RETURN_PC,
     PROFILE_MENU_VTABLE,
+    SHELL_SHUTDOWN_MAIN_LOOP_RETURN_PC,
+    SHELL_SHUTDOWN_QUIT_ENTRY_PC,
     BiosGameSaveCaptureError,
     BiosMissionCaptureError,
     MISSION_TRACE_ENTRY_PC,
@@ -44,6 +46,7 @@ from avpe.native_bios_probe import (
     report_bios_trace,
     run_bios_phase,
     run_requested_bios_probe,
+    shell_shutdown_boundary_is_verified,
     start_bios_mission_phase,
     start_bios_trace,
     write_bios_trace,
@@ -837,6 +840,61 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(raised.exception.trace, trace)
         self.assertEqual(request.call_args.args[:3], (31234, "POST", "/bios/trace/capture-game-save"))
         self.assertEqual(request.call_args.kwargs["timeout"], 22.0)
+
+    def test_shell_shutdown_boundary_requires_exact_quit_mainloop_pair(self) -> None:
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [make_bios_import_event(1)],
+            "shell_shutdown_boundary": {
+                "complete": True,
+                "quit_bit_observed": True,
+                "sequence_errors": 0,
+                "quit_entry": {
+                    "pc": SHELL_SHUTDOWN_QUIT_ENTRY_PC,
+                    "ee_cycle": 100,
+                    "iop_cycle": 40,
+                    "frame": 3,
+                    "host_time_ns": 1_000,
+                },
+                "main_loop_return": {
+                    "pc": SHELL_SHUTDOWN_MAIN_LOOP_RETURN_PC,
+                    "ee_cycle": 101,
+                    "iop_cycle": 40,
+                    "frame": 3,
+                    "host_time_ns": 1_001,
+                },
+            },
+        }
+
+        self.assertTrue(shell_shutdown_boundary_is_verified(trace))
+        trace["shell_shutdown_boundary"]["quit_bit_observed"] = False
+        self.assertFalse(shell_shutdown_boundary_is_verified(trace))
+
+    def test_shutdown_bios_phase_refuses_a_non_quit_menu_item(self) -> None:
+        deadline = time.monotonic() + 1.0
+        candidate = {"focused_item_action": "0xCA788CFB"}
+        with patch("avpe.native_bios_probe.probe_gameplay_pause_menu") as pause, patch(
+            "avpe.native_bios_probe._complete_menu_action"
+        ) as action, patch(
+            "avpe.native_bios_probe._await_settled_menu_state",
+            return_value=(200, candidate),
+        ) as settled, patch("avpe.native_bios_probe.start_bios_shell_shutdown_phase") as start, self.assertRaisesRegex(
+            RuntimeError, "QuitGame"
+        ):
+            run_bios_phase(
+                31234, deadline, "shutdown", Path("scratch/states/mission1.p2s"),
+                Path("scratch/control-test/bios-phase-state.p2s"),
+            )
+
+        pause.assert_called_once_with(31234, deadline)
+        action.assert_called_once_with(31234, deadline, "down", "BIOS phase shutdown down")
+        settled.assert_called_once_with(31234, deadline, "BIOS phase shutdown QuitGame menu discovery")
+        start.assert_not_called()
 
     def test_title_bios_phase_waits_for_title_menu_then_activates(self) -> None:
         deadline = time.monotonic() + 1.0
