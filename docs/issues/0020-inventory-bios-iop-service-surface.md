@@ -193,6 +193,14 @@ It does not toggle a restored child back to its parent. The existing physical
 pad control route can therefore drive the required fixture from a gameplay
 state; it must not be replaced with a direct guest menu load.
 
+The surfaceless `mission1.p2s` probe now proves that exact route: it begins
+with no active menu, `PAD_START` creates the callback-registry `GPauseMenu`
+at `0x012E85A0`, and its focused action is `CancelKillMe`. An immediate native
+`down` call then exhausts the EE shuttle cycle budget even though menu
+discovery has succeeded. Active-menu discovery is consequently not a safe
+post-pause guest-call boundary; the shutdown fixture still needs a title-owned
+readiness/completion condition before it can navigate to `QuitGame`.
+
 ### Finding (2026-08-31, normal game-load owner)
 
 `GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears
