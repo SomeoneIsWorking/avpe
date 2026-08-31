@@ -310,7 +310,6 @@ explicit game-load, and shutdown boundaries.
 The mission slice now has grounded EE BIOS and IOP oracle-return seams, but
 kernel primitives outside that slice, executable loading, timers, interrupt
 delivery, IOP module loads and services outside the recognized import surface,
-live title exercise of the declared 64-bit GS results, and required negative
-paths still need separate evidence. A
+and required negative paths still need separate evidence. A
 BIOS-free HLE path and paired success/error comparisons are S026–S028 work and
 remain blocked.
