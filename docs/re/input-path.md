@@ -199,16 +199,20 @@ The following delay slot copies the current input-definition word into that
 buffer before `__ptmf_scall`; the callback itself therefore executes on the
 ordinary game input/update path rather than a synthetic EE frame.
 
-`NativeInputDispatch` is a control-test-only, non-mutating observer of that
-instruction. In the Save Game state it recorded 114 title-admitted dispatches,
+`NativeInputDispatch` observes that instruction and leaves it unchanged with no
+pending event. In the Save Game state it recorded 114 title-admitted dispatches,
 all to menu owner `0x015afa70` and direct descriptor `{0, -1, 0x00125230}`
 (`GMenu::InputAnalog`) with zero input words. The menu pointer is independently
 registered at callback index 0: owner `0x015fe940`, input-definition list
 `0x015dd7f4`, and virtual descriptor `{0, 0xd8, 0}`. It did not fire while the
-backend was neutral. Thus the dispatcher and its real `CInputData` ownership
-are grounded, but a host pointer route must still queue an input definition
-that selects that registered pointer callback; it cannot claim that a direct
-absolute guest call has become safe.
+backend was neutral. The diagnostic `POST /input/menu-pointer-dispatch` route
+now queues exactly one relative vector, revalidates the live owner and virtual
+descriptor, and replaces only that dispatch's game-owned `CInputData` and
+member descriptor. A Save Game run admitted ticket 1 and reached `(383.4,
+178.8)` for normalized `(0.6,0.4)` through the ordinary callback. The product
+host still uses the grounded direct pause-menu route: return-ordered menu
+hit-testing and activation remain necessary before this dispatch queue can
+replace it.
 
 ## Native bridge
 
