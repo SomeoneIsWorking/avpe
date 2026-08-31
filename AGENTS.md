@@ -57,6 +57,10 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   entry/return pairing. `NativeBiosTrace.*` owns trace lifecycle, pending-call
   state, and grounded mission progress/boundary capture, and composes the event
   store under its trace lock.
+- `NativeGameSaveBoundary.*` owns the exact normal `CProfile::SaveGame`
+  entry/return observation, including capture scoping from the validated
+  profile object through its final `jr ra`. It is diagnostic-only and does not
+  define menu input or native-save behavior.
 - `src/avpe/native_assets.py`, `iso9660.py`, and `raw_sector.py` own native
   asset-store provisioning. Derived game bytes stay under ignored `scratch/`;
   only the schema, identity anchors, validation logic, and tests are tracked.

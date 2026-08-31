@@ -321,6 +321,9 @@ original game loads either produced record.
   interception mechanism that can route the five `CProfile` operations to
   `AVPE::NativeSaves` while keeping the original game routines available as
   the differential oracle.
+  The available `save-menu.p2s` is not that completion fixture: its
+  dispatch-bound pointer activation and title Cross input did not reach
+  `CProfile::SaveGame` or change the isolated card.
 
 `tools/run_control_test.py --memory-card-source CARD.ps2` copies a formatted
 card into the surfaceless/null-muted test profile, never opens the source for

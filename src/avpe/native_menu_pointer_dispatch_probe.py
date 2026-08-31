@@ -100,9 +100,7 @@ def _target_for_menu(source_menu: dict[str, object]) -> tuple[float, float]:
     return target
 
 
-def probe_native_menu_pointer_dispatch(
-    port: int, deadline: float, output_dir: Path
-) -> dict[str, object]:
+def focus_dispatched_menu_pointer(port: int, deadline: float) -> dict[str, object]:
     source_status, source_menu, source_detail = menu_state(port)
     if source_status != 200 or source_menu is None:
         raise RuntimeError(
@@ -116,15 +114,21 @@ def probe_native_menu_pointer_dispatch(
             "dispatched menu pointer did not focus the measured Save Game button: "
             f"move={move}, dispatch={dispatch}, state={state}"
         )
-    activation, activation_completion = _activate_focused_pointer(port, deadline)
-    proof = {
+    return {
         "source_menu": source_menu,
         "move": move,
         "dispatch": dispatch,
         "state": state,
-        "activation": activation,
-        "activation_completion": activation_completion,
     }
+
+
+def probe_native_menu_pointer_dispatch(
+    port: int, deadline: float, output_dir: Path
+) -> dict[str, object]:
+    proof = focus_dispatched_menu_pointer(port, deadline)
+    activation, activation_completion = _activate_focused_pointer(port, deadline)
+    proof["activation"] = activation
+    proof["activation_completion"] = activation_completion
     (output_dir / "menu-pointer-dispatch-proof.json").write_text(
         json.dumps(proof, indent=2, sort_keys=True) + "\n"
     )

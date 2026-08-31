@@ -26,13 +26,18 @@ from avpe.launch import (
 from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
 from avpe.native_bios_probe import (
     BIOS_TRACE_SCHEMA,
+    GAME_SAVE_TRACE_ENTRY_PC,
+    GAME_SAVE_TRACE_RETURN_PC,
+    BiosGameSaveCaptureError,
     BiosMissionCaptureError,
     MISSION_TRACE_ENTRY_PC,
     MISSION_TRACE_RETURN_PC,
     bios_trace_failure_detail,
     bios_trace_is_verified,
     capture_bios_trace,
+    capture_bios_game_save_boundary,
     capture_bios_mission_boundary,
+    game_save_boundary_is_verified,
     mission_boundary_is_verified,
     report_bios_trace,
     run_bios_phase,
@@ -654,6 +659,104 @@ class ControlTestPolicyTests(unittest.TestCase):
             31234, 99.0, 17, "BIOS phase save-load menu down"
         )
         capture.assert_called_once_with(31234, at_guest_boundary=False)
+
+    def test_game_save_boundary_requires_a_returned_zero_result(self) -> None:
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [make_bios_import_event(1)],
+            "game_save_boundary": {
+                "entry_pc": GAME_SAVE_TRACE_ENTRY_PC,
+                "return_pc": GAME_SAVE_TRACE_RETURN_PC,
+                "complete": True,
+                "succeeded": True,
+                "result": 0,
+                "sequence_errors": 0,
+                "entry": {
+                    "pc": GAME_SAVE_TRACE_ENTRY_PC,
+                    "ee_cycle": 100,
+                    "iop_cycle": 40,
+                    "frame": 3,
+                    "host_time_ns": 1_000,
+                },
+                "return": {
+                    "pc": GAME_SAVE_TRACE_RETURN_PC,
+                    "ee_cycle": 101,
+                    "iop_cycle": 40,
+                    "frame": 3,
+                    "host_time_ns": 1_001,
+                },
+            },
+        }
+
+        self.assertTrue(game_save_boundary_is_verified(trace))
+        trace["game_save_boundary"]["result"] = 1
+        self.assertFalse(game_save_boundary_is_verified(trace))
+
+    def test_game_save_bios_phase_uses_the_title_cross_input(self) -> None:
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [make_bios_import_event(1)],
+        }
+        with patch("avpe.native_bios_probe.start_bios_game_save_phase") as start, patch(
+            "avpe.native_bios_probe.request_json",
+            return_value=(200, {"pressed": True}, "accepted"),
+        ) as press, patch(
+            "avpe.native_bios_probe.capture_bios_game_save_boundary",
+            return_value=trace,
+        ) as capture:
+            result = run_bios_phase(
+                31234,
+                99.0,
+                "game-save",
+                Path("scratch/states/save-menu.p2s"),
+                Path("scratch/control-test/bios-phase-state.p2s"),
+            )
+
+        self.assertEqual(
+            result,
+            (trace, "statefile_to_game_save", "slot_select_to_cprofile_save_game"),
+        )
+        start.assert_called_once_with(31234)
+        press.assert_called_once_with(
+            31234, "POST", "/input/press", {"mask": 1 << 6, "ms": 250}
+        )
+        capture.assert_called_once_with(31234)
+
+    def test_game_save_capture_retains_a_structured_timeout(self) -> None:
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": False,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [],
+            "game_save_boundary": {
+                "complete": False,
+                "entry": None,
+                "return": None,
+                "sequence_errors": 0,
+            },
+        }
+        with patch(
+            "avpe.native_bios_probe.request_bytes",
+            return_value=(504, json.dumps(trace).encode()),
+        ) as request, self.assertRaises(BiosGameSaveCaptureError) as raised:
+            capture_bios_game_save_boundary(31234)
+
+        self.assertEqual(raised.exception.trace, trace)
+        self.assertEqual(request.call_args.args[:3], (31234, "POST", "/bios/trace/capture-game-save"))
+        self.assertEqual(request.call_args.kwargs["timeout"], 22.0)
 
     def test_title_bios_phase_waits_for_title_menu_then_activates(self) -> None:
         trace = {
