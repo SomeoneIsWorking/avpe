@@ -207,6 +207,13 @@ future state/card fixture must preserve a live pacify menu, matching profile,
 and enough normal process execution to reach that handoff; direct invocation
 or a generic save menu would bypass the boundary being inventoried.
 
+The guest shutdown path has an equivalent static seam. `GMenu::ItemActivated`
+handles a `QuitGame` item by calling `CShell::Quit` (`0x0016F8D0`), which sets
+the shell quit bit at `+0x808`. `CShell::MainLoop` checks that bit after
+`ProcessOSUpdates` and returns on the following loop iteration. A shutdown
+census must span that live-menu activation through this main-loop return; the
+diagnostic VM shutdown endpoint is unrelated host lifecycle evidence.
+
 Two clean schema-v3 mission captures pair every return-capable BIOS entry at
 the exact instruction after its syscall. The runs recorded 13,566/13,566 and
 13,565/13,565 entries/returns, with zero pending calls, sequence errors,
