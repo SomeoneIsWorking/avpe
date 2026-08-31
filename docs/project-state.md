@@ -201,9 +201,12 @@ surfaceless, null-muted, and shut down gracefully.
 
 The direct absolute-motion contract is limited to the pause path: on the Save
 Game menu its complete guest routine reaches `SleepThread` and BIOS `EENULL`
-instead of the shuttle return boundary. The required next implementation is
-normal `GInputDevice` callback dispatch for yielding pointer motion (issue #6),
-not a larger synchronous EE-call budget.
+instead of the shuttle return boundary. `NativeInputDispatch` now observes the
+real `GInputDevice::Process` member-call seam and proved its game-owned input
+buffer and neutral menu callback, while separately identifying the registered
+virtual pointer callback. The required next implementation is a bounded host
+queue that selects that callback on the ordinary game path (issue #6), not a
+larger synchronous EE-call budget.
 
 Gap: real window key/mouse delivery remains unobserved because agent tests must
 be windowless. Title and broader in-game menu coverage remains incomplete.
