@@ -213,11 +213,13 @@ member descriptor. Static decompilation shows that the selected
 twice itself: once in the derived routine and once through
 `GfsPointer::Input_UpdatePosition`. Therefore it must not queue a third
 post-return check. A surfaceless Save Game run injected ticket 1 and moved the
-`GPosRot::GetPos` coordinates from `(447.30,178.80)` to `(431.33,178.80)` on
-the ordinary callback path. The callback's native hit tests cleared this
-state's existing pointer focus rather than selecting an item; activation is
-therefore not yet grounded. The product host still uses the verified direct
-pause-menu route.
+`GPosRot::GetPos` coordinates from `(447.30,178.80)` to `(280.00,378.00)` on
+the ordinary callback path. The earlier `(431.33,178.80)` target lay inside a
+`GMiner` render rectangle, which `GetMenuItem` correctly rejects. The Save Game
+`GMenuButton` rectangle is `(268,366)`–`(292,390)`; its measured center focused
+`0x015AFD10`, and the original `GfsPointer::Input_Action` completed through the
+ordinary deferred scheduler with exact stack restoration. The route remains
+diagnostic until product-host integration is grounded.
 
 ## Native bridge
 

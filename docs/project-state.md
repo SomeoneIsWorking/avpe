@@ -208,9 +208,12 @@ virtual pointer callback. Its diagnostic single-event queue replaces exactly
 that callback's game-owned data and descriptor. The callback itself executes
 its virtual `MenuCheck` twice (derived and base pointer routines); a
 post-return third check was removed as redundant. A Save Game probe proved
-pointer movement on that ordinary callback path, but its hit tests cleared
-focus rather than selecting an item, so activation and the product host route
-remain unverified (issue #6).
+pointer movement and activation on that ordinary callback path. Its measured
+`GMenuButton` center `(280,378)` focused `0x015AFD10`; the original pointer
+action then completed through the deferred scheduler with exact stack
+restoration. The former target `(431.33,178.80)` intersects only a `GMiner`
+rectangle and correctly clears focus. The product host route remains
+unverified (issue #6).
 
 Gap: real window key/mouse delivery remains unobserved because agent tests must
 be windowless. Title and broader in-game menu coverage remains incomplete.

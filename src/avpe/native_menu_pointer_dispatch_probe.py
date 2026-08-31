@@ -4,7 +4,14 @@ import json
 from pathlib import Path
 
 from avpe.control_http import request_json
-from avpe.menu_probe import await_dispatched_pointer_motion, menu_pointer_state, menu_state
+from avpe.menu_probe import (
+    await_deferred_call,
+    await_dispatched_pointer_motion,
+    menu_pointer_state,
+    menu_state,
+)
+
+SAVE_GAME_BUTTON_CENTER = (280.0 / 639.0, 378.0 / 447.0)
 
 
 def _move_through_dispatch(
@@ -57,6 +64,27 @@ def _move_through_dispatch(
     return response, dispatch, state
 
 
+def _activate_focused_pointer(
+    port: int, deadline: float
+) -> tuple[dict[str, object], dict[str, object]]:
+    status, response, detail = request_json(port, "POST", "/input/menu-pointer-activate", {})
+    if (
+        status != 202
+        or response is None
+        or response.get("deferred") is not True
+        or int(response.get("deferred_call_id", 0)) <= 0
+        or response.get("handler") != "0x0012EBB0"
+    ):
+        raise RuntimeError(
+            "dispatched menu pointer activation was not queued through game input: "
+            f"HTTP {status}: {detail}"
+        )
+    completion = await_deferred_call(
+        port, deadline, int(response["deferred_call_id"]), "dispatched menu pointer activation"
+    )
+    return response, completion
+
+
 def probe_native_menu_pointer_dispatch(
     port: int, deadline: float, output_dir: Path
 ) -> dict[str, object]:
@@ -66,12 +94,21 @@ def probe_native_menu_pointer_dispatch(
             "native dispatched menu pointer source menu returned "
             f"HTTP {source_status}: {source_detail}"
         )
-    move, dispatch, state = _move_through_dispatch(port, deadline, 0.675, 0.4)
+    move, dispatch, state = _move_through_dispatch(port, deadline, *SAVE_GAME_BUTTON_CENTER)
+    focus = state.get("before")
+    if not isinstance(focus, dict) or focus.get("focus_object") == "0x00000000":
+        raise RuntimeError(
+            "dispatched menu pointer did not focus the measured Save Game button: "
+            f"move={move}, dispatch={dispatch}, state={state}"
+        )
+    activation, activation_completion = _activate_focused_pointer(port, deadline)
     proof = {
         "source_menu": source_menu,
         "move": move,
         "dispatch": dispatch,
         "state": state,
+        "activation": activation,
+        "activation_completion": activation_completion,
     }
     (output_dir / "menu-pointer-dispatch-proof.json").write_text(
         json.dumps(proof, indent=2, sort_keys=True) + "\n"
