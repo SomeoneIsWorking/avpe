@@ -128,13 +128,17 @@ def focus_dispatched_menu_pointer(port: int, deadline: float) -> dict[str, objec
     }
 
 
+def activate_focused_dispatched_menu_pointer(port: int, deadline: float) -> dict[str, object]:
+    """Activate the item focused by ``focus_dispatched_menu_pointer``."""
+    activation, completion = _activate_focused_pointer(port, deadline)
+    return {"activation": activation, "completion": completion}
+
+
 def probe_native_menu_pointer_dispatch(
     port: int, deadline: float, output_dir: Path
 ) -> dict[str, object]:
     proof = focus_dispatched_menu_pointer(port, deadline)
-    activation, activation_completion = _activate_focused_pointer(port, deadline)
-    proof["activation"] = activation
-    proof["activation_completion"] = activation_completion
+    proof.update(activate_focused_dispatched_menu_pointer(port, deadline))
     (output_dir / "menu-pointer-dispatch-proof.json").write_text(
         json.dumps(proof, indent=2, sort_keys=True) + "\n"
     )
