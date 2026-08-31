@@ -641,11 +641,12 @@ def run_bios_phase(
         _reach_title_menu(port, deadline)
         start_bios_trace(port)
         _complete_menu_action(port, deadline, "activate", "BIOS phase title activate")
-        return (
-            capture_bios_trace(port, at_guest_boundary=False),
-            "zono_splash_to_title_menu_action",
-            "start_then_title_activate",
-        )
+        status, title_menu, detail = menu_state(port)
+        if status not in (200, 409) or title_menu is None:
+            raise RuntimeError(f"BIOS phase title post-action menu discovery failed: HTTP {status}: {detail}")
+        trace = capture_bios_trace(port, at_guest_boundary=False)
+        trace["title_menu_after_action"] = {"status": status, "state": title_menu}
+        return trace, "zono_splash_to_title_menu_action", "start_then_title_activate"
     if phase == "menu":
         start_bios_trace(port)
         _complete_menu_action(port, deadline, "down", "BIOS phase menu down")

@@ -857,6 +857,9 @@ class ControlTestPolicyTests(unittest.TestCase):
         ) as menu, patch(
             "avpe.native_bios_probe.await_deferred_call"
         ) as await_call, patch(
+            "avpe.native_bios_probe.menu_state",
+            return_value=(409, {"menu": "0x00123456", "callback_count": 2}, "ambiguous"),
+        ) as state, patch(
             "avpe.native_bios_probe.capture_bios_trace", return_value=trace
         ) as capture:
             result = run_bios_phase(
@@ -872,7 +875,10 @@ class ControlTestPolicyTests(unittest.TestCase):
         start.assert_called_once_with(31234)
         menu.assert_called_once_with(31234, "activate")
         await_call.assert_called_once_with(31234, 99.0, 19, "BIOS phase title activate")
+        state.assert_called_once_with(31234)
         capture.assert_called_once_with(31234, at_guest_boundary=False)
+        self.assertEqual(trace["title_menu_after_action"]["status"], 409)
+        self.assertEqual(trace["title_menu_after_action"]["state"]["menu"], "0x00123456")
 
     def test_bios_mission_phase_uses_grounded_boundary_routes(self) -> None:
         with patch(
