@@ -60,26 +60,22 @@ restore-time scheduler burst.
 The phase runner now has a reset/start boundary. A pause-menu `menu_down`
 capture accepted the game's synchronous native action, and capture is aligned
 to the emulation CPU thread. Two identical menu runs each produced 7 ordered
-events (2 EE syscalls and 5 exceptions), with zero overflow. CPU-thread
-save-load captures produced 34 and 31 ordered timer events, with zero
-overflow. The latter proves post-load service traffic, while the save archive
-itself remains a control-boundary observation rather than an invented BIOS
-event claim.
-
-The CPU-thread capture fixes the HTTP-versus-emulation ownership race for the
-menu phase, but save-load event counts still vary. The archive restore callback
-returns before a guest-owned completion/quiescence condition has been
-identified. An arbitrary host delay would hide this boundary defect rather
-than establish service semantics.
+events (2 EE syscalls and 5 exceptions), with zero overflow. The save-load
+phase now loads the requested state, executes that same restored menu's exact
+`down` action, waits for its completion, and snapshots immediately on the CPU
+thread. Two pause-menu repeats retained the same 28 event identities, five
+fully paired EE BIOS calls, and zero overflow. The save archive itself remains
+a control-boundary observation rather than an invented BIOS event claim.
 
 Phase capture now has a narrower boundary: the control route can arm the sink
 and wait for the next `Counters::VSyncStart` transition on the emulation CPU
 thread. Two repeated pause-menu captures through that route remained bounded
 with zero overflow but retained 21 and 11 event identities, with different
 exception/syscall identity sets. This removes the control request's frame
-position race, but the differing traces show that a frame transition is not
-the guest-owned post-restore completion boundary still needed for repeatable
-mission/save/load inventory.
+position race, but the differing traces show that a frame transition alone is
+not a completion condition. The restored menu-action boundary now covers the
+pause-menu slice; title and mission restore states still need their own
+guest-owned completion evidence.
 
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
@@ -314,9 +310,9 @@ hot-path totals are not a repeatability contract.
 
 ## Remaining work
 
-Next cover title/menu, save, load, and shutdown. Define a
-guest-owned save/load completion boundary rather than a host delay. Add a
-separate grounded observation seam for remaining interrupt
+Next extend the restored-menu completion pattern to title and mission states,
+then cover game-save, game-load, and shutdown. Add a separate grounded
+observation seam for remaining interrupt
 delivery, kernel primitives outside the mission slice, executable loading, IOP
 module loads and services outside the recognized import surface, and 64-bit EE
 results, then capture service negative paths before designing the HLE

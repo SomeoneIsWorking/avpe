@@ -459,6 +459,17 @@ def prepare_bios_trace_for_native_stream(port: int, enabled: bool) -> None:
         start_bios_trace(port)
 
 
+def _complete_menu_action(port: int, deadline: float, action: str, context: str) -> None:
+    status, response, detail = menu_action(port, action)
+    if status == 202 and response is not None:
+        call_id = response.get("deferred_call_id")
+        if not isinstance(call_id, int) or call_id <= 0:
+            raise RuntimeError(f"{context} returned invalid call: {detail}")
+        await_deferred_call(port, deadline, call_id, context)
+    elif status != 200 or response is None:
+        raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
+
+
 def run_bios_phase(
     port: int,
     deadline: float,
@@ -484,14 +495,7 @@ def run_bios_phase(
         return trace, "clean_boot_to_mission", "shell_set_next_level"
     if phase == "menu":
         start_bios_trace(port)
-        status, response, detail = menu_action(port, "down")
-        if status == 202 and response is not None:
-            call_id = response.get("deferred_call_id")
-            if not isinstance(call_id, int) or call_id <= 0:
-                raise RuntimeError(f"BIOS phase menu action returned invalid call: {detail}")
-            await_deferred_call(port, deadline, call_id, "BIOS phase menu down")
-        elif status != 200 or response is None:
-            raise RuntimeError(f"BIOS phase menu action failed: HTTP {status}: {detail}")
+        _complete_menu_action(port, deadline, "down", "BIOS phase menu down")
         return capture_bios_trace(port), "statefile_to_menu", "menu_down"
     if phase == "save-load":
         status, response, detail = request_json(
@@ -505,7 +509,12 @@ def run_bios_phase(
         )
         if status != 200 or response is None or response.get("loaded") is not True:
             raise RuntimeError(f"BIOS phase state load failed: HTTP {status}: {detail}")
-        return capture_bios_trace(port), "save_load_to_running", "state_save_then_load"
+        _complete_menu_action(port, deadline, "down", "BIOS phase save-load menu down")
+        return (
+            capture_bios_trace(port, at_guest_boundary=False),
+            "save_load_to_menu_action",
+            "state_save_load_then_menu_down",
+        )
     raise ValueError(f"unsupported BIOS phase: {phase}")
 
 

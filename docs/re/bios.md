@@ -114,10 +114,14 @@ probe is selected.
 The menu phase starts a fresh sink, invokes the active game's `down` action,
 accepts either its synchronous or deferred completion, and captures the
 resulting `statefile_to_menu` slice. The save-load phase saves to an isolated
-scratch state, starts a fresh sink, loads the requested state, and captures
-the `save_load_to_running` slice after the successful load callback reset. It
-proves the control boundary and resumed service traffic; it does not claim to
-observe archive serialization internals or shutdown after the process exits.
+scratch state, starts a fresh sink, loads the requested state, then invokes the
+restored game's exact `down` action and waits for its synchronous or deferred
+completion. It snapshots immediately on the emulation CPU thread as
+`save_load_to_menu_action`, rather than waiting for an arbitrary next VSync.
+Two pause-menu captures retained the same 28 event identities, five fully
+paired EE BIOS calls, and zero overflow. This proves the narrow restored-menu
+completion boundary and resumed service traffic; it does not claim to observe
+archive serialization internals or shutdown after the process exits.
 
 The runner also exposes `--probe-bios-phase mission`, which requires a clean
 boot and copied memory card. It waits for native `MENU01.ZIV` readiness, then
@@ -163,18 +167,12 @@ exceptions and 39 EE timers). The differing mixes demonstrate that the reset
 boundary is observing restored guest execution rather than returning one fixed
 or stale trace.
 
-A pause-menu `menu_down` phase and a pause-menu save/load phase both complete
-with zero overflow. Capture now runs on the emulation CPU thread: two menu
-runs each produced 7 events (2 EE syscalls and 5 exceptions). Save-load runs
-produced 34 and 31 timer events, so archive restoration still lacks a
-guest-owned completion/quiescence boundary and is not repeatability evidence.
-
-Two further pause-menu captures used the CPU-owned frame-boundary route. They
-remained bounded with zero overflow but retained 21 and 11 event identities,
-respectively; their exception and syscall identity sets differed. The frame
-transition removes the control request's frame-position race, but it does not
-establish a stable post-restore guest completion condition. This is negative
-repeatability evidence, not menu-service coverage.
+A pause-menu `menu_down` phase and the restored-menu save/load phase both
+complete with zero overflow. Capture runs on the emulation CPU thread: two menu
+runs each produced 7 events (2 EE syscalls and 5 exceptions), while two
+save/load repeats retained the same 28 event identities and five fully paired
+EE BIOS calls. The restored menu action, not the earlier VSync-only route, is
+the guest-owned completion condition for this pause-menu slice.
 
 Two fresh `mission1.p2s` statefile-to-running captures on 2026-08-29 also
 demonstrated that boundary defect: the first contained 237 events (2 EE
@@ -230,12 +228,11 @@ firmware contract or an HLE implementation.
 
 ## Required evidence before S025 can be verified
 
-The census still needs a guest-owned completion boundary for save/load and
-then repeated BIOS-backed traces through stable title/menu paths, plus explicit
-service-level save, load, and shutdown boundaries. The mission slice now has
-grounded EE BIOS and IOP oracle-return seams, but kernel primitives outside
-that slice, executable loading, timers, interrupt delivery, IOP module loads
-and services outside the recognized import surface, 64-bit results, and
-required negative paths still need separate evidence. A
+The census still needs this restored-menu completion pattern extended to title
+and mission states, plus explicit game-save, game-load, and shutdown boundaries.
+The mission slice now has grounded EE BIOS and IOP oracle-return seams, but
+kernel primitives outside that slice, executable loading, timers, interrupt
+delivery, IOP module loads and services outside the recognized import surface,
+64-bit results, and required negative paths still need separate evidence. A
 BIOS-free HLE path and paired success/error comparisons are S026–S028 work and
 remain blocked.

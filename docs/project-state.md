@@ -597,13 +597,16 @@ EE syscalls/exceptions, `pause-menu`: EE syscalls/exceptions/timers,
 
 The phase runner can clear and re-enable the sink at a later control boundary.
 A pause-menu `down` action and an isolated save-then-load sequence both
-complete with zero-overflow `statefile_to_menu` and `save_load_to_running`
-traces. The menu action completed synchronously in this state, which the probe
-accepts alongside the deferred form used by other menu owners. Capture now
-runs on the emulation CPU thread: two menu runs each produced 7 events (2 EE
-syscalls and 5 exceptions). Save-load runs produced 34 and 31 timer events,
-so archive restoration still lacks a guest-owned completion/quiescence
-boundary and is not repeatability evidence.
+complete with zero-overflow `statefile_to_menu` and
+`save_load_to_menu_action` traces. The menu action completed synchronously in
+this state, while the probe also accepts deferred completion used by other menu
+owners. Capture runs on the emulation CPU thread: two menu runs each produced
+7 events (2 EE syscalls and 5 exceptions). The save-load phase now waits for
+the restored game's exact `down` action and snapshots immediately when it
+completes, instead of waiting for next VSync. Two pause-menu repeats retained
+the same 28 event identities, five fully paired EE BIOS calls, and zero
+overflow. This proves the narrow restored-menu boundary, not archive
+serialization internals or shutdown.
 
 Two fresh `mission1.p2s` statefile-to-running captures further exposed the
 remaining boundary defect: one had 237 events and its immediate repeat had one
@@ -676,15 +679,15 @@ or overflow. The first trace retained 1,358 event identities and the current
 relinked repeat 1,353,
 so exact hot-path event totals remain outside the repeatability contract.
 
-Gap: define a guest-owned completion boundary before repeating save/load
-captures, add shutdown phase boundaries, and separate archive/service
-operations from resumed execution.
+Gap: extend the restored-menu completion pattern to title and mission states,
+add game-save, game-load, and shutdown phase boundaries, and separate
+archive/service operations from resumed execution.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
 import surface, 64-bit results, and service-level negative-path semantics
 remain incomplete; S025 cannot become verified from this mission census alone.
 
-Evidence: claims C035/C036, instruments I021/I022, [`re/bios.md`](re/bios.md), issue #20,
+Evidence: claims C035–C037, instruments I021–I023, [`re/bios.md`](re/bios.md), issue #20,
 the `NativeBiosTraceTest` production tests, and ignored repeated artifacts
 `scratch/control-test/bios-mission-service-v4.prev.json` and
 `scratch/control-test/bios-mission-service-v4.json`. Claims C031/C034 are falsified
