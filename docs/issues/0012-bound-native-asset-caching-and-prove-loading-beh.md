@@ -260,3 +260,13 @@ successful transition proof shows that this modal legitimately starts with
 `focus_handle=0`; the runtime now discovers the exact Exit vtable first and
 requires focus only after the explicit focus call. This second fix is rebuilt
 with Clang and is the next runtime discriminator.
+
+The resulting six-leg comparison completed all captures but was correctly
+rejected by the existing spread gate. Native mission deltas were stable at
+94 frames and 461,705,069–462,454,166 EE cycles. The optical oracle varied
+from 364–369 frames and 1,790,878,626–1,812,300,623 EE cycles (with matching
+IOP variation), exceeding the one-frame/one-percent guest spread limits; no
+environment or identity errors occurred. The medians still show a 74.34%
+EE-cycle reduction, but this is not admissible timing evidence until the
+optical-oracle variation is explained or the run becomes stable under the
+same policy.
