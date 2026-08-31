@@ -26,6 +26,19 @@ to the guest-rendered prompt and cannot replace it. A texture replacement or
 masking pass would be unsafe until the guest resource identity and prompt
 rectangles are grounded.
 
+### Finding (2026-08-31, rendering ownership)
+
+The generic menu path is not itself the prompt producer.
+`GMenuItem::Display` at `0x00120AD0` only records visibility, dispatches the
+item's render virtual at vtable offset `0xF4`, and displays children;
+`GMenu::Display` likewise only performs input registration and delegates to
+that base path. `CzFont::Render` at `0x001390E0` reads the concrete render
+resource's NUL-terminated byte text, maps every byte through its font-local
+glyph table, and submits sprite batches. Thus replacing generic menu labels or
+adding a shell overlay cannot remove the PS2 glyphs. The next grounded anchor
+is the concrete prompt item's `0xF4` render virtual and its text/resource
+producer, from which its final sprite rectangles can be observed.
+
 ## Resolution
 
 Not resolved. The correct implementation seam is a dedicated final-frame GPU
