@@ -144,6 +144,13 @@ item or menu level for the normal save path; the prior Cross injection was not
 the root cause. Future evidence must include a positive pacify-process count,
 so a direct or unrelated save cannot certify the menu-owned operation.
 
+The known `pause-menu.p2s` is also not the missing fixture. Its grounded
+Down/Activate/Activate sequence completed all three original menu calls, yet
+again observed zero pacify-process calls, zero save entries, and no card delta.
+The sequence is rejected rather than encoded as probe policy. Obtaining the
+fixture now requires observing the concrete focused-item action at each menu
+transition, not choosing another fixed input sequence.
+
 ### Finding (2026-08-31, guest shutdown seam)
 
 The generic menu action `QuitGame` reaches `CShell::Quit` at `0x0016F8D0`
