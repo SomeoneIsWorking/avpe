@@ -16,9 +16,10 @@ firmware census. The remaining root gap is now narrower: the v5 mission census
 has grounded EE BIOS and IOP oracle return owners with ABI-aware result
 validity, each confirmed by repeated mission evidence. Schema v5 now captures
 declared 64-bit EE results without truncation and the ordinary clean boot has
-now exercised `GsPutIMR`; `GsGetIMR`, stable guest-owned save/load and shutdown
-boundaries, and service negative paths are still absent. One mission slice
-cannot substitute for the complete required firmware contract.
+now exercised `GsPutIMR`. Static reachability excludes `GsGetIMR`'s dead
+screen-capture helper from the normal-title inventory; stable guest-owned
+save/load and shutdown boundaries and service negative paths are still absent.
+One mission slice cannot substitute for the complete required firmware contract.
 
 ## Current work
 
@@ -231,7 +232,18 @@ covers nested duplicate and distinct return PCs. Repeating the same clean boot
 then completed with zero EE pairing errors and zero event overflow. Its three
 pending EE calls and one pending IOP import are in-flight work at the capture
 boundary, not pairing failures. This makes the captured `GsPutIMR` result
-admissible while preserving the absence of `GsGetIMR` as a real inventory gap.
+admissible.
+
+Follow-up static reachability resolves the remaining `GsGetIMR` question.
+Ghidra lists only `ps2_screen_capture_GetImage` (`0x00184350`) as the caller of
+`sceGsExecStoreImage`; that helper is reached only by
+`PS2_SCREEN_CAPTURE_TakeSnapshot`, which `CPS2Input::PollDevices`
+(`0x0017DDE0`) calls at `0x0017E160`. The exact instructions initialize poll
+index `s0` to zero, branch to that call only when `s0 == 1`, then increment to
+one and return before another iteration. This is unreachable player-two
+screen-capture support, not an executable normal-title path. The unobserved
+64-bit `GsGetIMR` result therefore remains represented correctly by the trace
+schema but is no longer an S025 coverage gap.
 
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v5 validator
