@@ -137,10 +137,10 @@ synthetic direct call, or unrelated card cannot substitute for that boundary.
 The generic menu action `QuitGame` reaches `CShell::Quit` at `0x0016F8D0`
 through `GMenu::ItemActivated`; it sets shell state `+0x808` to the quit bit
 `4`. `CShell::MainLoop` reads that bit immediately after `ProcessOSUpdates` and
-returns from its next loop iteration. This gives shutdown a guest-owned request
-and completion pair: activate a live `QuitGame` item, then observe the shell
-main-loop return. The control channel's VM shutdown route is not evidence for
-this game path.
+returns at `0x0016F8C8` from its next loop iteration. This gives shutdown a
+guest-owned request and completion pair: validate `CShell::Quit` against the
+live shell singleton at `0x003672F0`, then observe that main-loop return. The
+control channel's VM shutdown route is not evidence for this game path.
 
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
