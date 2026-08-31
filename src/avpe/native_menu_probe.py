@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 from avpe.menu_probe import (
+    await_deferred_call,
     capture_menu_snapshot,
     menu_action,
     menu_state,
@@ -18,9 +19,7 @@ def probe_native_menu(port: int, deadline: float, output_dir: Path) -> dict[str,
     initial_focus: str | None = None
     down_focus: str | None = None
     for _ in range(3):
-        status, response, detail = menu_action(port, "down")
-        if status != 200 or response is None:
-            raise RuntimeError(f"native menu down returned HTTP {status}: {detail}")
+        response = _complete_directional_action(port, deadline, "down")
         before = response.get("before")
         after = response.get("after")
         if not isinstance(before, dict) or not isinstance(after, dict) \
@@ -77,6 +76,36 @@ def probe_native_menu(port: int, deadline: float, output_dir: Path) -> dict[str,
     return proof
 
 
+def _complete_directional_action(
+    port: int,
+    deadline: float,
+    action: str,
+) -> dict[str, object]:
+    status, response, detail = menu_action(port, action)
+    if status == 200 and response is not None:
+        return response
+    if status != 202 or response is None:
+        raise RuntimeError(f"native menu {action} returned HTTP {status}: {detail}")
+    call_id = response.get("deferred_call_id")
+    if not isinstance(call_id, int) or call_id <= 0:
+        raise RuntimeError(f"native menu {action} returned invalid deferred action: {detail}")
+    completion = await_deferred_call(port, deadline, call_id, f"menu {action}")
+    state_status, state, state_detail = menu_state(port)
+    if state_status != 200 or state is None:
+        raise RuntimeError(
+            f"native menu {action} completion left no live menu: "
+            f"HTTP {state_status}: {state_detail}"
+        )
+    completed = dict(response)
+    completed["after"] = {
+        "focus_handle": state.get("focus_handle"),
+        "focus_object": state.get("focus_object"),
+        "focus_vtable": state.get("focus_vtable"),
+    }
+    completed["deferred_completion"] = completion
+    return completed
+
+
 def probe_native_menu_activation(port: int, deadline: float, output_dir: Path) -> dict[str, object]:
     before_snapshot = capture_menu_snapshot(port, "menu-activation-before.bmp", output_dir)
     status, source, detail = menu_action(port, "down")
@@ -106,10 +135,15 @@ def _activate_menu(
 ) -> dict[str, object]:
     activation, completion = run_deferred_menu_action(port, deadline, "activate")
     destination: dict[str, object] | None = None
+    last_status = 0
+    last_detail = ""
+    last_menu: dict[str, object] | None = None
     if require_destination:
         while time.monotonic() < deadline:
-            destination_status, candidate, _ = menu_state(port)
-            if destination_status == 200 and candidate is not None \
+            last_status, candidate, last_detail = menu_state(port)
+            if candidate is not None:
+                last_menu = candidate
+            if last_status == 200 and candidate is not None \
                     and candidate.get("menu") != source_menu:
                 destination = candidate
                 break
@@ -119,7 +153,8 @@ def _activate_menu(
     if require_destination and destination is None:
         raise RuntimeError(
             "menu activation completed but no distinct destination menu became active; "
-            f"source={source_menu}")
+            f"source={source_menu}, last_status={last_status}, "
+            f"last_detail={last_detail}, last_menu={last_menu}")
     activated_snapshot = capture_menu_snapshot(port, artifact_name, output_dir)
     if require_render_change and activated_snapshot == before_snapshot:
         raise RuntimeError("native menu activation left the rendered state unchanged")

@@ -201,6 +201,22 @@ discovery has succeeded. Active-menu discovery is consequently not a safe
 post-pause guest-call boundary; the shutdown fixture still needs a title-owned
 readiness/completion condition before it can navigate to `QuitGame`.
 
+The ordinary post-pause `GInputDevice::Process` callback was then observed for
+that `GPauseMenu`'s `GMenu::InputAnalog` descriptor, but it did not make the
+synthetic direct action safe: `down` stopped at `0x002B71D4` in
+`sceSifCheckStatRpc` after its 3,000,000-cycle budget. The paused menu's focus
+work can therefore enter SIF-backed audio service polling, which requires the
+normal scheduler. Callback-registry directional actions now use the same
+deferred scheduler as activation and cancel; the repeated `down` completed
+with exact stack restoration. This corrects the execution owner rather than
+raising a cycle budget or retrying the call.
+
+That completed directional action still did not establish a shutdown fixture:
+the following activation removed the pause owner, after which menu discovery
+reported an unreadable focused item rather than a live `QuitGame` action. The
+pause route is consequently an input/scheduler proof only. A guest-owned menu
+that actually exposes `QuitGame` remains required for shutdown evidence.
+
 ### Finding (2026-08-31, normal game-load owner)
 
 `GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears
