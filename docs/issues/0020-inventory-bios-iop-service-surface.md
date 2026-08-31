@@ -641,9 +641,23 @@ seven extracted IRX files contain 61 library tables and 260 import stubs across
 `stdio`, `sysclib`, `sysmem`, `thbase`, `thevent`, `thsemap`, and `vblank`.
 Only FSSOUND retains 41 named symbols; the other six modules are stripped, so
 their 219 entries are library/ordinal candidates. This narrows the missing
-service inventory and supplies negative evidence for absent names, but it does
-not prove that any module loaded or that an import executed. Runtime module,
+service inventory while keeping stripped entries explicit rather than silently
+dropped, but it does not prove that any module loaded or that an import
+executed. Runtime module,
 interrupt, and service traces remain required.
+
+### Finding (2026-08-31, cold-boot module registration slice)
+
+The retained pre-`Running` cold-boot trace contains 60
+`RegisterLibraryEntries` events covering 30 module names and 38 distinct
+name/version pairs. Six of the seven extracted IRX module identities map to
+those registrations, including the observed `Sound_Device_Library`/`libsd` and
+`sdr_driver`/`sdrdrv` naming differences; `FSpikeSound` has no matching
+registration identity in this capture. This is positive module-registration
+evidence, but the artifact is schema v1 and is not admissible for current
+EE/IOP result claims. It also does not prove that every registered module
+import executed, that the unmatched module was absent from another loader
+path, or that any release/negative service path was exercised.
 
 ### Finding (2026-08-31, pause Quit confirmation is not `CShell::Quit`)
 

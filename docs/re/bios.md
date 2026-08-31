@@ -110,6 +110,17 @@ library/ordinal candidates. The report is static input to the service census,
 not positive runtime evidence; corresponding module-load, interrupt, and
 import execution traces still need to be captured by phase.
 
+The retained cold-boot artifact
+`scratch/control-test/bios-trace-recompiler-stream-20260829-complete.json`
+provides a separate positive registration slice: 60 `RegisterLibraryEntries`
+events covering 30 module names and 38 name/version pairs before the census
+reset. Six extracted IRX identities have corresponding registration names
+(`Sound_Device_Library`/`libsd` and `sdr_driver`/`sdrdrv` require the observed
+name normalization); `FSpikeSound` has no matching registration identity in
+that capture. The artifact is schema v1 and is therefore not current EE/IOP
+result evidence. Registration is not proof of every module import executing,
+and no release or service-level negative path is established by this slice.
+
 ## Boot and savestate captures
 
 `tools/run_control_test.py --probe-bios-trace` starts a fresh BIOS-backed,

@@ -728,8 +728,11 @@ S025 cannot become verified from this mission census alone.
 The static IRX scan separately found seven extracted module headers, 61 library
 tables, 260 import stubs, and 19 library identities. Six modules are stripped,
 so 219 entries have no symbol name and remain library/ordinal candidates.
-Static presence does not prove module load or runtime execution; phase traces
-still need to cover the remaining services and negative paths.
+The retained legacy cold-boot trace adds 60 module-registration events across
+30 names and 38 name/version pairs, but is schema v1 and does not provide
+current result evidence; registration is not proof of import execution.
+Static presence and registration do not close the remaining service and
+negative-path inventory.
 
 Evidence: claims C035–C037, instruments I021–I023, [`re/bios.md`](re/bios.md), issue #20,
 the `NativeBiosTraceTest` production tests, and ignored repeated artifacts
