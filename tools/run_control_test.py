@@ -48,10 +48,13 @@ from avpe.native_bios_probe import (
 )
 from avpe.menu_probe import (
     await_deferred_call,
+    capture_menu_snapshot,
     menu_action,
+    menu_pointer_state,
     menu_state,
     run_deferred_menu_action,
 )
+from avpe.native_menu_pointer_dispatch_probe import probe_native_menu_pointer_dispatch
 from avpe.native_mission_probe import (
     await_mission_load_timing,
     probe_marine_m1_transition,
@@ -95,16 +98,6 @@ def mouse_button(
 ) -> tuple[int, dict[str, object] | None, str]:
     return request_json(
         port, "POST", "/input/mouse-button", {"button": button, "edge": edge})
-
-
-def menu_pointer_state(port: int) -> tuple[int, dict[str, object] | None, str]:
-    status, body = request_bytes(port, "GET", "/input/menu-pointer")
-    detail = body.decode(errors="replace").strip()
-    try:
-        parsed = json.loads(body)
-    except json.JSONDecodeError:
-        return status, None, detail
-    return status, parsed if isinstance(parsed, dict) else None, detail
 
 
 def stable_cursor_snapshot(
@@ -307,20 +300,6 @@ def probe_native_mouse(port: int, deadline: float, statefile: Path) -> dict[str,
     return proof
 
 
-def menu_snapshot(port: int, name: str) -> str:
-    status = 503
-    bmp = b""
-    for _ in range(20):
-        status, bmp = request_bytes(port, "GET", "/snap")
-        if status == 200:
-            break
-        time.sleep(0.05)
-    if status != 200:
-        raise RuntimeError(f"menu snapshot {name} returned HTTP {status}")
-    (LOG_DIR.parent / name).write_bytes(bmp)
-    return hashlib.sha256(bmp).hexdigest()
-
-
 def move_menu_pointer(
     port: int,
     deadline: float,
@@ -478,7 +457,7 @@ def activate_menu(
         raise RuntimeError(
             f"menu activation completed but no distinct destination menu became active; "
             f"source={source_menu}")
-    activated_snapshot = menu_snapshot(port, artifact_name)
+    activated_snapshot = capture_menu_snapshot(port, artifact_name, LOG_DIR.parent)
     if require_render_change and activated_snapshot == before_snapshot:
         raise RuntimeError("native menu activation left the rendered state unchanged")
 
@@ -494,7 +473,7 @@ def activate_menu(
 
 
 def probe_native_menu(port: int, deadline: float) -> dict[str, object]:
-    before_snapshot = menu_snapshot(port, "menu-before.bmp")
+    before_snapshot = capture_menu_snapshot(port, "menu-before.bmp", LOG_DIR.parent)
     down_results: list[dict[str, object]] = []
     initial_focus: str | None = None
     down_focus: str | None = None
@@ -561,7 +540,7 @@ def probe_native_menu(port: int, deadline: float) -> dict[str, object]:
 
 
 def probe_native_menu_activation(port: int, deadline: float) -> dict[str, object]:
-    before_snapshot = menu_snapshot(port, "menu-activation-before.bmp")
+    before_snapshot = capture_menu_snapshot(port, "menu-activation-before.bmp", LOG_DIR.parent)
     status, source, detail = menu_action(port, "down")
     if status != 200 or source is None or source.get("menu") == "0x00000000" \
             or int(source.get("callback_count", 0)) == 0:
@@ -607,6 +586,8 @@ def main() -> int:
                         help="prove activation on a single-item menu; requires --statefile")
     parser.add_argument("--probe-native-menu-pointer", action="store_true",
                         help="prove native menu hover and pointer activation; requires --statefile")
+    parser.add_argument("--probe-native-menu-pointer-dispatch", action="store_true",
+                        help="prove dispatched native menu hover; requires --statefile")
     parser.add_argument("--probe-native-camera", action="store_true",
                         help="prove native camera, selector, and minimap input; requires --statefile")
     parser.add_argument("--probe-native-assets", action="store_true",
@@ -663,6 +644,7 @@ def main() -> int:
         args.probe_native_menu,
         args.probe_native_menu_activate,
         args.probe_native_menu_pointer,
+        args.probe_native_menu_pointer_dispatch,
         args.probe_native_camera,
     ))
     if native_input_probe_requested and args.statefile is None:
@@ -830,6 +812,7 @@ def main() -> int:
     menu_proof: dict[str, object] | None = None
     menu_activation_proof: dict[str, object] | None = None
     menu_pointer_proof: dict[str, object] | None = None
+    menu_pointer_dispatch_proof: dict[str, object] | None = None
     camera_proof: dict[str, object] | None = None
     native_assets_proof: dict[str, object] | None = None
     native_asset_cache_proof: dict[str, object] | None = None
@@ -996,6 +979,12 @@ def main() -> int:
                 if args.probe_native_menu_pointer and probe_error is None:
                     try:
                         menu_pointer_proof = probe_native_menu_pointer(port, deadline)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_menu_pointer_dispatch and probe_error is None:
+                    try:
+                        menu_pointer_dispatch_proof = probe_native_menu_pointer_dispatch(
+                            port, deadline, LOG_DIR.parent)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_camera and probe_error is None:
@@ -1180,6 +1169,8 @@ def main() -> int:
     if not report_json_probe(args.probe_native_menu_activate, menu_activation_proof, "native-menu-activation", probe_error, LOG_DIR):
         return 1
     if not report_json_probe(args.probe_native_menu_pointer, menu_pointer_proof, "native-menu-pointer", probe_error, LOG_DIR):
+        return 1
+    if not report_json_probe(args.probe_native_menu_pointer_dispatch, menu_pointer_dispatch_proof, "native-menu-pointer-dispatch", probe_error, LOG_DIR):
         return 1
     if args.probe_native_camera:
         if camera_proof is None:

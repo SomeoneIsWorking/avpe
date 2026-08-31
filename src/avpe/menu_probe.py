@@ -2,6 +2,7 @@
 
 import json
 import time
+from pathlib import Path
 
 from avpe.control_http import request_bytes, request_json
 
@@ -15,6 +16,42 @@ def menu_action(
 
 def menu_state(port: int) -> tuple[int, dict[str, object] | None, str]:
     status, body = request_bytes(port, "GET", "/input/menu")
+    detail = body.decode(errors="replace").strip()
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return status, None, detail
+    return status, parsed if isinstance(parsed, dict) else None, detail
+
+
+def menu_pointer_state(port: int) -> tuple[int, dict[str, object] | None, str]:
+    status, body = request_bytes(port, "GET", "/input/menu-pointer")
+    detail = body.decode(errors="replace").strip()
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return status, None, detail
+    return status, parsed if isinstance(parsed, dict) else None, detail
+
+
+def capture_menu_snapshot(port: int, name: str, output_dir: Path) -> str:
+    import hashlib
+
+    status = 503
+    bitmap = b""
+    for _ in range(20):
+        status, bitmap = request_bytes(port, "GET", "/snap")
+        if status == 200:
+            break
+        time.sleep(0.05)
+    if status != 200:
+        raise RuntimeError(f"menu snapshot {name} returned HTTP {status}")
+    (output_dir / name).write_bytes(bitmap)
+    return hashlib.sha256(bitmap).hexdigest()
+
+
+def input_dispatch_state(port: int) -> tuple[int, dict[str, object] | None, str]:
+    status, body = request_bytes(port, "GET", "/input/dispatch")
     detail = body.decode(errors="replace").strip()
     try:
         parsed = json.loads(body)
@@ -49,6 +86,40 @@ def await_deferred_call(
         )
     assert completion is not None
     return completion
+
+
+def await_dispatched_pointer_follow_up(
+    port: int,
+    deadline: float,
+    pointer_id: int,
+) -> tuple[dict[str, object], dict[str, object]]:
+    last_dispatch: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, dispatch, detail = input_dispatch_state(port)
+        if status != 200 or dispatch is None:
+            raise RuntimeError(
+                f"input dispatch state returned HTTP {status}: {detail}"
+            )
+        last_dispatch = dispatch
+        if int(dispatch.get("rejected_pointer_id", 0)) == pointer_id:
+            raise RuntimeError(
+                f"dispatched pointer motion {pointer_id} was rejected: {dispatch}"
+            )
+        if int(dispatch.get("rejected_pointer_follow_up_id", 0)) == pointer_id:
+            raise RuntimeError(
+                f"dispatched pointer follow-up {pointer_id} was rejected: {dispatch}"
+            )
+        if int(dispatch.get("injected_pointer_id", 0)) == pointer_id:
+            follow_up_id = int(dispatch.get("pointer_follow_up_id", 0))
+            if follow_up_id > 0:
+                return dispatch, await_deferred_call(
+                    port, deadline, follow_up_id, "dispatched menu pointer hover"
+                )
+        time.sleep(0.05)
+    raise RuntimeError(
+        "dispatched pointer motion did not inject and complete its follow-up: "
+        f"pointer_id={pointer_id}, last_dispatch={last_dispatch}"
+    )
 
 
 def run_deferred_menu_action(
