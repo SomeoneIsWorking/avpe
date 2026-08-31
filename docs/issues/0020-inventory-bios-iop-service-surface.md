@@ -190,6 +190,19 @@ pacify menu and its matching profile/card until this deferred shell handoff;
 a direct profile call or an arbitrary load-confirmation dialog is not the
 game-owned path.
 
+### Finding (2026-08-31, title-to-profile transition)
+
+The live `title-real.p2s` title action opens `GProfileMenu`, not the normal
+`GLoadPacifyMenu` path. Its callback-registry menu vtable was `0x00343750`
+(`GProfileMenu` destructor at `0x0020B320`); its focused item vtable was
+`0x00331610` (`GMenuButton` destructor at `0x001216B0`). The focused item's
+original action remains `LoadMenu` (`0xCA788CFB`). Static
+`GProfileMenu::ItemActivated` at `0x002076C0` delegates the selected action to
+another embedded menu and does not call `CProfile::LoadGame`. Consequently the
+title probe is service-inventory evidence only: a normal game-load capture
+still requires the independently observed `GLoadPacifyMenu` fixture and shell
+handoff above.
+
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v5 validator
 and groups only events actually present in each capture. Schema v5 separately
