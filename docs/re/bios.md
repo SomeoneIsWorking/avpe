@@ -84,6 +84,32 @@ the statically decoded call numbers is 63 candidates:
 runtime census remains the evidence for execution and handled-HLE results,
 while BIOS/oracle results require a separate return seam.
 
+## Static IOP module candidates
+
+`tools/analyze_iop_modules.py` scans user-supplied PS2 IRX ELF modules. It
+reads the `.iopmod` module header and executable import tables, preserving
+each imported library's version, encoded ordinal, stub address, and symbol
+name when a non-stripped module contains one. The ordinal comes from the
+stub's `addiu v0, $zero, ordinal` instruction, not the table position. It
+accepts a file or directory, refuses a
+missing or empty corpus, and rejects malformed headers, unterminated names,
+truncated tables, and excessive table/entry counts. It does not treat an IRX
+being present on the disc as proof that the module loaded or that an import
+executed.
+
+Running it over the validated, ignored `IRX/` files extracted from the supplied
+disc produced seven module headers, 61 library tables, 260 import stubs, and
+19 distinct library identities:
+`cdvdman`, `dmacman`, `intrman`, `ioman`, `libsd`, `loadcore`, `mcman`,
+`modload`, `secrman`, `sifcmd`, `sifman`, `sio2man`, `stdio`, `sysclib`,
+`sysmem`, `thbase`, `thevent`, `thsemap`, and `vblank`. The preserved module
+set is `FSpikeSound`, `Sound_Device_Library`, `mcman`, `mcserv`, `padman`,
+`sdr_driver`, and `sio2man`. Only FSSOUND retains 41 named import symbols;
+the other six modules are stripped, so their 219 entries remain
+library/ordinal candidates. The report is static input to the service census,
+not positive runtime evidence; corresponding module-load, interrupt, and
+import execution traces still need to be captured by phase.
+
 ## Boot and savestate captures
 
 `tools/run_control_test.py --probe-bios-trace` starts a fresh BIOS-backed,

@@ -33,6 +33,9 @@ result. Static reachability proves that `GsGetIMR` belongs only to a dead
 player-two screen-capture branch, so it is not a normal-title service
 requirement. The remaining work is the complete menu, save/load, shutdown, and
 service-level negative-path inventory.
+Static IRX analysis now narrows the IOP candidate surface to seven retained
+modules, 61 import tables, 260 import stubs, and 19 library identities; it is
+explicitly not runtime coverage.
 Current focus is attention, not a separate state.
 
 ## Capability inventory
@@ -722,6 +725,11 @@ EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
 import surface, and service-level negative-path semantics remain incomplete;
 S025 cannot become verified from this mission census alone.
+The static IRX scan separately found seven extracted module headers, 61 library
+tables, 260 import stubs, and 19 library identities. Six modules are stripped,
+so 219 entries have no symbol name and remain library/ordinal candidates.
+Static presence does not prove module load or runtime execution; phase traces
+still need to cover the remaining services and negative paths.
 
 Evidence: claims C035–C037, instruments I021–I023, [`re/bios.md`](re/bios.md), issue #20,
 the `NativeBiosTraceTest` production tests, and ignored repeated artifacts

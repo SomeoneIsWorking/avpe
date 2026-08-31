@@ -629,6 +629,22 @@ hot-path totals are not a repeatability contract.
 
 ## Remaining work
 
+### Finding (2026-08-31, static IRX import census)
+
+The new `tools/analyze_iop_modules.py` parser reads the `.iopmod` header and
+bounded import tables from user-supplied IRX ELF modules, taking each ordinal
+from the stub's encoded `addiu v0, $zero, ordinal` instruction rather than
+table position. The validated disc's
+seven extracted IRX files contain 61 library tables and 260 import stubs across
+19 library identities: `cdvdman`, `dmacman`, `intrman`, `ioman`, `libsd`,
+`loadcore`, `mcman`, `modload`, `secrman`, `sifcmd`, `sifman`, `sio2man`,
+`stdio`, `sysclib`, `sysmem`, `thbase`, `thevent`, `thsemap`, and `vblank`.
+Only FSSOUND retains 41 named symbols; the other six modules are stripped, so
+their 219 entries are library/ordinal candidates. This narrows the missing
+service inventory and supplies negative evidence for absent names, but it does
+not prove that any module loaded or that an import executed. Runtime module,
+interrupt, and service traces remain required.
+
 ### Finding (2026-08-31, pause Quit confirmation is not `CShell::Quit`)
 
 The live pause-menu row labelled `Quit` is not the generic `QuitGame` action.
