@@ -87,6 +87,18 @@ It therefore cannot supply a title-menu completion boundary. That probe needs
 an independently grounded title-owned transition; a host delay, VSync edge, or
 synthetic menu callback would not establish one.
 
+### Finding (2026-08-31, title activation repeatability control)
+
+The phase runner now presses Start through the diagnostic controller seam,
+waits for a live callback-registry menu, starts a fresh sink, activates that
+title menu through `NativeMenuInput`, waits for the deferred call, and captures
+on the CPU thread. Two runs reached the same phase and operation with zero
+overflow, but the first retained 150 events with 524/524 paired EE calls and
+51/51 paired IOP oracle calls while the second retained 51 events with 15/15
+paired EE calls and no IOP calls. Title activation is a grounded transition but
+not yet a repeatable service completion boundary; a later title-owned state
+signal is required.
+
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
 and groups only events actually present in each capture. Schema v4 separately

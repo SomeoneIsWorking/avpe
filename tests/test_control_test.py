@@ -655,6 +655,43 @@ class ControlTestPolicyTests(unittest.TestCase):
         )
         capture.assert_called_once_with(31234, at_guest_boundary=False)
 
+    def test_title_bios_phase_waits_for_title_menu_then_activates(self) -> None:
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [make_bios_import_event(1)],
+        }
+        with patch(
+            "avpe.native_bios_probe._reach_title_menu"
+        ) as reach, patch(
+            "avpe.native_bios_probe.start_bios_trace"
+        ) as start, patch(
+            "avpe.native_bios_probe.menu_action",
+            return_value=(202, {"deferred_call_id": 19}, "queued"),
+        ) as menu, patch(
+            "avpe.native_bios_probe.await_deferred_call"
+        ) as await_call, patch(
+            "avpe.native_bios_probe.capture_bios_trace", return_value=trace
+        ) as capture:
+            result = run_bios_phase(
+                31234, 99.0, "title", Path("scratch/states/title-real.p2s"),
+                Path("scratch/control-test/bios-phase-state.p2s"),
+            )
+
+        self.assertEqual(
+            result,
+            (trace, "zono_splash_to_title_menu_action", "start_then_title_activate"),
+        )
+        reach.assert_called_once_with(31234, 99.0)
+        start.assert_called_once_with(31234)
+        menu.assert_called_once_with(31234, "activate")
+        await_call.assert_called_once_with(31234, 99.0, 19, "BIOS phase title activate")
+        capture.assert_called_once_with(31234, at_guest_boundary=False)
+
     def test_bios_mission_phase_uses_grounded_boundary_routes(self) -> None:
         with patch(
             "avpe.native_bios_probe.request_bytes",
