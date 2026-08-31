@@ -203,6 +203,13 @@ title probe is service-inventory evidence only: a normal game-load capture
 still requires the independently observed `GLoadPacifyMenu` fixture and shell
 handoff above.
 
+The class-validated follow-up activation reaches `GLoadProfileMenu` (vtable
+`0x00343350`, destructor `0x0020AEB0`) with a profile-row `GMenuButton`; it
+does not reach `GLoadPacifyMenu`. The title flow thus establishes profile-list
+selection separately from the normal game-load seam. The next valid operation
+must observe the selected profile row and any resulting pacify owner before it
+can be treated as a game-load candidate.
+
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v5 validator
 and groups only events actually present in each capture. Schema v5 separately
