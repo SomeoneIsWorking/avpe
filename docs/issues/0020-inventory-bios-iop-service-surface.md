@@ -142,6 +142,17 @@ guest-owned request and completion pair: validate `CShell::Quit` against the
 live shell singleton at `0x003672F0`, then observe that main-loop return. The
 control channel's VM shutdown route is not evidence for this game path.
 
+### Finding (2026-08-31, normal game-load owner)
+
+`GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears
+game statistics, selects profile target zero, and calls `CShell::LoadGame` with
+the selected slot. That shell function schedules the load bit; the next
+`CShell::MainLoop` pass calls `CProfile::LoadGame` at `0x00130000` from
+`0x0016F7CC`. A normal game-load fixture must therefore restore a live load
+pacify menu and its matching profile/card until this deferred shell handoff;
+a direct profile call or an arbitrary load-confirmation dialog is not the
+game-owned path.
+
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
 and groups only events actually present in each capture. Schema v4 separately
