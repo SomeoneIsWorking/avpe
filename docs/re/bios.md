@@ -207,6 +207,13 @@ future state/card fixture must preserve a live pacify menu, matching profile,
 and enough normal process execution to reach that handoff; direct invocation
 or a generic save menu would bypass the boundary being inventoried.
 
+The game-save proof additionally requires a positive observation at
+`GSavePacifyMenu::Process` (`0x00202F40`) before it accepts the save entry and
+return. The corrected native `ActivateFocused` probe completed on
+`save-menu.p2s` but recorded zero such calls, zero save entries, and no card
+delta, proving that state has the wrong focused item or menu level rather than
+an unproven save failure.
+
 The guest shutdown path has an equivalent static seam. `GMenu::ItemActivated`
 handles a `QuitGame` item by calling `CShell::Quit` (`0x0016F8D0`), which sets
 the shell quit bit at `+0x808`. `CShell::MainLoop` checks that bit after

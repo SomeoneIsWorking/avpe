@@ -132,6 +132,18 @@ must therefore restore a live `GSavePacifyMenu` with the matching profile/card
 and permit its process ticks to reach the handoff. A generic save-menu screen,
 synthetic direct call, or unrelated card cannot substitute for that boundary.
 
+### Finding (2026-08-31, save-menu activation discriminator)
+
+The game-save phase now invokes the live menu's grounded `ActivateFocused`
+action instead of emulating Cross and records the exact
+`GSavePacifyMenu::Process` PC (`0x00202F40`) before accepting a save boundary.
+On `save-menu.p2s` with the supplied profile card, the deferred activation
+completed but observed zero pacify-process calls, zero `CProfile::SaveGame`
+entries, and no card delta. This proves that the state has the wrong focused
+item or menu level for the normal save path; the prior Cross injection was not
+the root cause. Future evidence must include a positive pacify-process count,
+so a direct or unrelated save cannot certify the menu-owned operation.
+
 ### Finding (2026-08-31, guest shutdown seam)
 
 The generic menu action `QuitGame` reaches `CShell::Quit` at `0x0016F8D0`
