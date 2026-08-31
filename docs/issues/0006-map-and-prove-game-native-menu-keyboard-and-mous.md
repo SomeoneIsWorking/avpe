@@ -75,13 +75,15 @@ callback 114 times. The menu pointer is registered separately with virtual
 descriptor `{0, 0xd8, 0}` but does not fire while the backend is neutral. The
 dispatch-bound queue now selects that registered pointer definition at this
 seam. `POST /input/menu-pointer-dispatch` proved it updates the Save Game
-pointer through the ordinary callback. Its callback-return hook at `0x001147d8`
-then queues the validated `MenuCheck` through the scheduler and restores the
-interrupted callback continuation exactly. A focused run moved `GPosRot::GetPos`
-from `(447.30,178.80)` to `(431.33,178.80)` and completed the follow-up safely.
-That menu's hit test cleared its prior focus instead of selecting an item, so
-activation remains ungrounded; the route is diagnostic and the product host
-retains the verified direct pause-menu path.
+pointer through the ordinary callback. Static decompilation of that callback
+shows it invokes its virtual `MenuCheck` twice itself: in
+`GAvPPointer::Input_UpdatePosition` and again in the base
+`GfsPointer::Input_UpdatePosition`. The former post-return third check was
+therefore redundant and removed. A focused run moved `GPosRot::GetPos` from
+`(447.30,178.80)` to `(431.33,178.80)` through the native callback. Its built-in
+hit tests cleared the prior focus instead of selecting an item, so activation
+remains ungrounded; the route is diagnostic and the product host retains the
+verified direct pause-menu path.
 
 Remaining work: verify the real windowed key/mouse path in a user-visible run,
 determine why Save Game hit-testing clears focus, ground activation after the
