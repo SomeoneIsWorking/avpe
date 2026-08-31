@@ -224,6 +224,17 @@ uses this dispatch-bound movement path for every discovered menu; the direct
 absolute-motion route remains diagnostic-only. Real-window delivery is still
 unobserved.
 
+The visible Save Game slot rows are not a basis for retargeting this control.
+`GfsPointer::GetMenuItem` iterates `CRender::SelectedList` from `0x003B40B0`
+and admits only handles that dynamically cast to `GMenuItem`. In the saved
+state, the measured item is the `GMenuButton` at list entry 21; the visible
+first-row entry has a different vtable and does not acquire pointer focus when
+its listed rectangle is supplied directly. Thus the rendered 640×480 image is
+not a coordinate oracle for this guest hit-test. With a copied formatted card
+mounted, activating the measured item still returns to the pause menu without
+entering `CProfile::SaveGame`; it proves dispatch and activation, not a normal
+game-save fixture.
+
 ## Native bridge
 
 - `NativePointerMotion::MoveAbsolute` accepts normalized coordinates, validates
