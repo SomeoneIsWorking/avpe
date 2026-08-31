@@ -237,6 +237,14 @@ class ControlTestPolicyTests(unittest.TestCase):
                                 asset_load_timing_mode="oracle")
         self.assertEqual(env["AVPE_LOAD_TIMING"], "oracle")
 
+    def test_bios_trace_can_be_disabled_for_timing_runs(self) -> None:
+        env = build_environment({}, 31234, self.nonce, bios_trace_enabled=False)
+        self.assertEqual(env["AVPE_BIOS_TRACE"], "0")
+
+    def test_bios_trace_is_enabled_by_default_for_control_runs(self) -> None:
+        env = build_environment({"AVPE_BIOS_TRACE": "0"}, 31234, self.nonce)
+        self.assertNotIn("AVPE_BIOS_TRACE", env)
+
     def test_accepts_ordered_bounded_bios_trace(self) -> None:
         trace = {
             "schema": BIOS_TRACE_SCHEMA,

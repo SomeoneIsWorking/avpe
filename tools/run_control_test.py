@@ -666,6 +666,7 @@ def main() -> int:
         asset_byte_trace_mode=args.probe_asset_byte_trace,
         asset_load_timing_mode=args.probe_load_timing,
         asset_load_timing_target=args.load_timing_target if args.probe_load_timing and args.load_timing_target != "startup" else None,
+        bios_trace_enabled=args.probe_load_timing is None,
     )
     stdout = (LOG_DIR / "stdout.log").open("wb")
     try:
