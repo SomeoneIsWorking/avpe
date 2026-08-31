@@ -132,6 +132,16 @@ must therefore restore a live `GSavePacifyMenu` with the matching profile/card
 and permit its process ticks to reach the handoff. A generic save-menu screen,
 synthetic direct call, or unrelated card cannot substitute for that boundary.
 
+### Finding (2026-08-31, guest shutdown seam)
+
+The generic menu action `QuitGame` reaches `CShell::Quit` at `0x0016F8D0`
+through `GMenu::ItemActivated`; it sets shell state `+0x808` to the quit bit
+`4`. `CShell::MainLoop` reads that bit immediately after `ProcessOSUpdates` and
+returns from its next loop iteration. This gives shutdown a guest-owned request
+and completion pair: activate a live `QuitGame` item, then observe the shell
+main-loop return. The control channel's VM shutdown route is not evidence for
+this game path.
+
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
 and groups only events actually present in each capture. Schema v4 separately
