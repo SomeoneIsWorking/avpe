@@ -29,6 +29,7 @@ MISSION_TRACE_ENTRY_PC = 0x0016F910
 MISSION_TRACE_RETURN_PC = 0x0016FA4C
 GAME_SAVE_TRACE_ENTRY_PC = 0x00130170
 GAME_SAVE_TRACE_RETURN_PC = 0x00130374
+GAME_SAVE_PACIFY_PROCESS_PC = 0x00202F40
 
 
 class BiosMissionCaptureError(RuntimeError):
@@ -413,6 +414,10 @@ def game_save_boundary_is_verified(trace: object) -> bool:
     if not isinstance(boundary, dict) or any((
         boundary.get("entry_pc") != GAME_SAVE_TRACE_ENTRY_PC,
         boundary.get("return_pc") != GAME_SAVE_TRACE_RETURN_PC,
+        boundary.get("pacify_process_pc") != GAME_SAVE_PACIFY_PROCESS_PC,
+        isinstance(boundary.get("pacify_process_calls"), bool),
+        not isinstance(boundary.get("pacify_process_calls"), int),
+        boundary.get("pacify_process_calls", 0) <= 0,
         boundary.get("complete") is not True,
         boundary.get("succeeded") is not True,
         boundary.get("result") != 0,
@@ -548,16 +553,18 @@ def _complete_menu_action(port: int, deadline: float, action: str, context: str)
         raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
 
 
-def _select_game_save_slot(port: int) -> dict[str, object]:
-    status, response, detail = request_json(
-        port, "POST", "/input/press", {"mask": 1 << 6, "ms": 250}
-    )
-    if status != 200 or response is None or response.get("pressed") is not True:
-        raise RuntimeError(
-            "game-save Cross input was not accepted by the title's input owner: "
-            f"HTTP {status}: {detail}"
-        )
-    return {"input": "cross", "response": response}
+def _select_game_save_slot(port: int, deadline: float) -> dict[str, object]:
+    """Use GSaveGameMenu's grounded ActivateFocused action, not pad emulation."""
+    status, response, detail = menu_action(port, "activate")
+    if status == 202 and response is not None:
+        call_id = response.get("deferred_call_id")
+        if not isinstance(call_id, int) or call_id <= 0:
+            raise RuntimeError(f"game-save activation returned invalid call: {detail}")
+        await_deferred_call(port, deadline, call_id, "BIOS phase game-save activate")
+        return {"action": "activate", "deferred_call_id": call_id}
+    if status == 200 and response is not None:
+        return {"action": "activate", "response": response}
+    raise RuntimeError(f"game-save activation failed: HTTP {status}: {detail}")
 
 
 def _reach_title_menu(port: int, deadline: float) -> None:
@@ -645,7 +652,7 @@ def run_bios_phase(
         )
     if phase == "game-save":
         start_bios_game_save_phase(port)
-        selection = _select_game_save_slot(port)
+        selection = _select_game_save_slot(port, deadline)
         try:
             trace = capture_bios_game_save_boundary(port)
         except BiosGameSaveCaptureError as error:

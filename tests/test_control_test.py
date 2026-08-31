@@ -713,6 +713,8 @@ class ControlTestPolicyTests(unittest.TestCase):
             "game_save_boundary": {
                 "entry_pc": GAME_SAVE_TRACE_ENTRY_PC,
                 "return_pc": GAME_SAVE_TRACE_RETURN_PC,
+                "pacify_process_pc": 0x00202F40,
+                "pacify_process_calls": 3,
                 "complete": True,
                 "succeeded": True,
                 "result": 0,
@@ -738,7 +740,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         trace["game_save_boundary"]["result"] = 1
         self.assertFalse(game_save_boundary_is_verified(trace))
 
-    def test_game_save_bios_phase_uses_the_title_cross_input(self) -> None:
+    def test_game_save_bios_phase_uses_the_native_menu_activation(self) -> None:
         trace = {
             "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
@@ -749,9 +751,9 @@ class ControlTestPolicyTests(unittest.TestCase):
             "events": [make_bios_import_event(1)],
         }
         with patch("avpe.native_bios_probe.start_bios_game_save_phase") as start, patch(
-            "avpe.native_bios_probe.request_json",
-            return_value=(200, {"pressed": True}, "accepted"),
-        ) as press, patch(
+            "avpe.native_bios_probe.menu_action",
+            return_value=(202, {"deferred_call_id": 17}, "queued"),
+        ) as activate, patch("avpe.native_bios_probe.await_deferred_call") as await_call, patch(
             "avpe.native_bios_probe.capture_bios_game_save_boundary",
             return_value=trace,
         ) as capture:
@@ -768,8 +770,9 @@ class ControlTestPolicyTests(unittest.TestCase):
             (trace, "statefile_to_game_save", "slot_select_to_cprofile_save_game"),
         )
         start.assert_called_once_with(31234)
-        press.assert_called_once_with(
-            31234, "POST", "/input/press", {"mask": 1 << 6, "ms": 250}
+        activate.assert_called_once_with(31234, "activate")
+        await_call.assert_called_once_with(
+            31234, 99.0, 17, "BIOS phase game-save activate"
         )
         capture.assert_called_once_with(31234)
 
