@@ -199,6 +199,14 @@ events rather than attributing pre-selection or resumed traffic to a game save.
 This state is not a normal `GSavePacifyMenu::Process` completion; a fixture
 that reaches that guest-owned path is still required.
 
+Static RE grounds that path: `GSavePacifyMenu::Process` (`0x00202F40`) waits
+for its third process tick, selects profile target zero, conditionally creates
+and saves the profile, then calls `CShell::SaveGame` (`0x0016FAE0`). Its call
+at `0x0016FAE8` is the only direct caller of `CProfile::SaveGame`. Thus the
+future state/card fixture must preserve a live pacify menu, matching profile,
+and enough normal process execution to reach that handoff; direct invocation
+or a generic save menu would bypass the boundary being inventoried.
+
 Two clean schema-v3 mission captures pair every return-capable BIOS entry at
 the exact instruction after its syscall. The runs recorded 13,566/13,566 and
 13,565/13,565 entries/returns, with zero pending calls, sequence errors,

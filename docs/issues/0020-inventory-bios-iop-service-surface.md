@@ -121,6 +121,17 @@ game-save probes require a state/card pair that restores the same live profile
 and mission rather than treating independently captured artifacts as
 interchangeable.
 
+### Finding (2026-08-31, normal game-save owner)
+
+`GSavePacifyMenu::Process` at `0x00202F40` increments its process counter and
+only on its third pass calls `CShell::SaveGame` at `0x0016FAE0`; that routine's
+call at `0x0016FAE8` is the sole direct caller of the grounded
+`CProfile::SaveGame` entry. Before that handoff the menu selects profile target
+zero and, when needed, creates and saves the profile. A valid game-save fixture
+must therefore restore a live `GSavePacifyMenu` with the matching profile/card
+and permit its process ticks to reach the handoff. A generic save-menu screen,
+synthetic direct call, or unrelated card cannot substitute for that boundary.
+
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
 and groups only events actually present in each capture. Schema v4 separately
