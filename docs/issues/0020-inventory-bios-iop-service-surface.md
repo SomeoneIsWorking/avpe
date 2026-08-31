@@ -112,6 +112,15 @@ after dispatch-bound pointer activation or title Cross input; generic native
 save evidence: the normal `GSavePacifyMenu::Process` path still needs a
 guest-owned state fixture.
 
+Pairing the historical `mission1-current.p2s` with `after-slot0.ps2` is also
+not that fixture. The restored screen entered the title's load-failure and
+load-confirmation dialogs; its menu transitions never reached the grounded
+observer, whose bounded capture remained empty. A 128-byte card delta from one
+traversal is metadata activity, not evidence of `CProfile::SaveGame`. Future
+game-save probes require a state/card pair that restores the same live profile
+and mission rather than treating independently captured artifacts as
+interchangeable.
+
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
 and groups only events actually present in each capture. Schema v4 separately
