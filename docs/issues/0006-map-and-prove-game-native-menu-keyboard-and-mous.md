@@ -79,13 +79,14 @@ pointer through the ordinary callback. Static decompilation of that callback
 shows it invokes its virtual `MenuCheck` twice itself: in
 `GAvPPointer::Input_UpdatePosition` and again in the base
 `GfsPointer::Input_UpdatePosition`. The former post-return third check was
-therefore redundant and removed. A focused run moved `GPosRot::GetPos` from
-`(447.30,178.80)` to `(431.33,178.80)` through the native callback. Its built-in
-hit tests cleared the prior focus instead of selecting an item, so activation
-remains ungrounded; the route is diagnostic and the product host retains the
-verified direct pause-menu path.
+therefore redundant and removed. The formerly tested `(431.33,178.80)` point
+intersects a `GMiner` render rectangle, so `GetMenuItem` correctly rejects it.
+The measured `GMenuButton` rectangle `(268,366)`–`(292,390)` instead focused
+`0x015AFD10` at `(280,378)` through the native callback. The original
+`GfsPointer::Input_Action` then completed through the deferred scheduler with
+exact stack restoration. The route is diagnostic; product-host integration and
+real windowed delivery remain unverified.
 
 Remaining work: verify the real windowed key/mouse path in a user-visible run,
-determine why Save Game hit-testing clears focus, ground activation after the
-dispatch-bound pointer callback, then integrate that route into the product
-host and cover title and broader in-game menu variants.
+integrate this dispatch-bound pointer route into the product host, then cover
+title and broader in-game menu variants.
