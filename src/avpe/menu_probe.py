@@ -114,23 +114,52 @@ def await_dispatched_pointer_motion(
     )
 
 
-def run_deferred_menu_action(
+def await_dispatched_menu_action(
+    port: int,
+    deadline: float,
+    action_id: int,
+) -> dict[str, object]:
+    last_dispatch: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, dispatch, detail = input_dispatch_state(port)
+        if status != 200 or dispatch is None:
+            raise RuntimeError(
+                f"input dispatch state returned HTTP {status}: {detail}"
+            )
+        last_dispatch = dispatch
+        if int(dispatch.get("rejected_menu_action_id", 0)) == action_id:
+            raise RuntimeError(
+                f"dispatched menu action {action_id} was rejected: {dispatch}"
+            )
+        if int(dispatch.get("completed_menu_action_id", 0)) == action_id:
+            return dispatch
+        time.sleep(0.05)
+    raise RuntimeError(
+        "dispatched menu action did not inject: "
+        f"action_id={action_id}, last_dispatch={last_dispatch}"
+    )
+
+
+def run_menu_action(
     port: int,
     deadline: float,
     action: str,
 ) -> tuple[dict[str, object], dict[str, object]]:
     status, response, detail = menu_action(port, action)
-    if (
-        status != 202
-        or response is None
-        or response.get("deferred") is not True
-        or _integer(response.get("deferred_call_id")) <= 0
-    ):
+    if status != 202 or response is None or response.get("deferred") is not True:
         raise RuntimeError(
-            f"native menu {action} was not queued through deferred execution: "
+            f"native menu {action} was not queued through guest input dispatch: "
             f"HTTP {status}: {detail}"
         )
-    call_id = _integer(response["deferred_call_id"])
+    action_id = _integer(response.get("dispatch_action_id"))
+    if action_id > 0:
+        completion = await_dispatched_menu_action(port, deadline, action_id)
+        return response, completion
+    call_id = _integer(response.get("deferred_call_id"))
+    if call_id <= 0:
+        raise RuntimeError(
+            f"native menu {action} returned no dispatch or deferred completion id: {detail}"
+        )
     completion = await_deferred_call(port, deadline, call_id, f"menu {action}")
     return response, completion
 

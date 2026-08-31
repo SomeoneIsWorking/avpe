@@ -5,11 +5,9 @@ import time
 from pathlib import Path
 
 from avpe.menu_probe import (
-    await_deferred_call,
     capture_menu_snapshot,
-    menu_action,
     menu_state,
-    run_deferred_menu_action,
+    run_menu_action,
 )
 
 
@@ -38,7 +36,7 @@ def probe_native_menu(port: int, deadline: float, output_dir: Path) -> dict[str,
     source_menu = str(down_results[-1].get("menu"))
     activation_proof = _activate_menu(
         port, deadline, source_menu, before_snapshot, "menu-activated.bmp", output_dir)
-    cancel, cancel_completion = run_deferred_menu_action(port, deadline, "cancel")
+    cancel, cancel_completion = run_menu_action(port, deadline, "cancel")
     canceled_menu = str(cancel.get("menu"))
     cancel_destination: dict[str, object] | None = None
     cancel_candidate: dict[str, object] | None = None
@@ -81,15 +79,7 @@ def _complete_directional_action(
     deadline: float,
     action: str,
 ) -> dict[str, object]:
-    status, response, detail = menu_action(port, action)
-    if status == 200 and response is not None:
-        return response
-    if status != 202 or response is None:
-        raise RuntimeError(f"native menu {action} returned HTTP {status}: {detail}")
-    call_id = response.get("deferred_call_id")
-    if not isinstance(call_id, int) or call_id <= 0:
-        raise RuntimeError(f"native menu {action} returned invalid deferred action: {detail}")
-    completion = await_deferred_call(port, deadline, call_id, f"menu {action}")
+    response, completion = run_menu_action(port, deadline, action)
     state_status, state, state_detail = menu_state(port)
     if state_status != 200 or state is None:
         raise RuntimeError(
@@ -108,7 +98,7 @@ def _complete_directional_action(
 
 def probe_native_menu_activation(port: int, deadline: float, output_dir: Path) -> dict[str, object]:
     before_snapshot = capture_menu_snapshot(port, "menu-activation-before.bmp", output_dir)
-    status, source, detail = menu_action(port, "down")
+    status, source, detail = menu_state(port)
     if status != 200 or source is None or source.get("menu") == "0x00000000" \
             or int(source.get("callback_count", 0)) == 0:
         raise RuntimeError(f"could not inspect source menu through native action: {detail}")
@@ -133,7 +123,7 @@ def _activate_menu(
     require_destination: bool = True,
     require_render_change: bool = True,
 ) -> dict[str, object]:
-    activation, completion = run_deferred_menu_action(port, deadline, "activate")
+    activation, completion = run_menu_action(port, deadline, "activate")
     destination: dict[str, object] | None = None
     last_status = 0
     last_detail = ""

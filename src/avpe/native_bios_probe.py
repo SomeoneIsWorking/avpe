@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from avpe.control_http import request_bytes, request_json
-from avpe.menu_probe import await_deferred_call, menu_action, menu_state
+from avpe.menu_probe import await_deferred_call, await_dispatched_menu_action, menu_action, menu_state
 from avpe.native_asset_probe import await_native_stream_reads
 from avpe.native_mission_probe import probe_marine_m1_transition
 from avpe.native_menu_pointer_dispatch_probe import (
@@ -567,9 +567,13 @@ def prepare_bios_trace_for_native_stream(port: int, enabled: bool) -> None:
 def _complete_menu_action(port: int, deadline: float, action: str, context: str) -> None:
     status, response, detail = menu_action(port, action)
     if status == 202 and response is not None:
+        action_id = response.get("dispatch_action_id")
+        if isinstance(action_id, int) and action_id > 0:
+            await_dispatched_menu_action(port, deadline, action_id)
+            return
         call_id = response.get("deferred_call_id")
         if not isinstance(call_id, int) or call_id <= 0:
-            raise RuntimeError(f"{context} returned invalid call: {detail}")
+            raise RuntimeError(f"{context} returned no dispatch or deferred completion id: {detail}")
         await_deferred_call(port, deadline, call_id, context)
     elif status != 200 or response is None:
         raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
@@ -631,10 +635,11 @@ def _reach_title_menu(port: int, deadline: float) -> None:
 
 def _activate_title_menu(port: int, deadline: float) -> dict[str, object]:
     _reach_title_menu(port, deadline)
+    _, before = _await_settled_menu_state(port, deadline, "BIOS phase title pre-action menu discovery")
     start_bios_trace(port)
     _complete_menu_action(port, deadline, "activate", "BIOS phase title activate")
-    status, title_menu = _await_settled_menu_state(
-        port, deadline, "BIOS phase title post-action menu discovery"
+    status, title_menu = _await_menu_transition(
+        port, deadline, before, "BIOS phase title post-action menu transition"
     )
     return {"status": status, "state": title_menu}
 
@@ -655,6 +660,41 @@ def _await_settled_menu_state(
         last_status, last_detail = status, detail
         time.sleep(0.05)
     raise RuntimeError(f"{context} did not settle: HTTP {last_status}: {last_detail}")
+
+
+def _menu_identity(state: dict[str, object]) -> tuple[object, ...]:
+    return tuple(
+        state.get(field)
+        for field in ("menu", "menu_vtable", "focus_object", "focused_item_action")
+    )
+
+
+def _await_menu_transition(
+    port: int,
+    deadline: float,
+    before: dict[str, object],
+    context: str,
+) -> tuple[int, dict[str, object]]:
+    before_identity = _menu_identity(before)
+    last_status = 0
+    last_detail = ""
+    last_state: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, state, detail = menu_state(port)
+        if status == 409 and state is not None:
+            return status, state
+        if status == 200 and state is not None:
+            last_state = state
+            if _menu_identity(state) != before_identity:
+                return status, state
+        elif status not in (409, 500):
+            raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
+        last_status, last_detail = status, detail
+        time.sleep(0.05)
+    raise RuntimeError(
+        f"{context} did not change game-owned menu state: HTTP {last_status}: {last_detail}; "
+        f"last_state={last_state}"
+    )
 
 
 def run_bios_phase(
@@ -692,10 +732,18 @@ def run_bios_phase(
         _reach_title_menu(port, deadline)
         states: list[dict[str, object]] = []
         for action in title_actions:
-            _complete_menu_action(port, deadline, action, f"BIOS phase title {action}")
-            status, title_menu = _await_settled_menu_state(
-                port, deadline, f"BIOS phase title post-{action} menu discovery"
+            _, before = _await_settled_menu_state(
+                port, deadline, f"BIOS phase title pre-{action} menu discovery"
             )
+            _complete_menu_action(port, deadline, action, f"BIOS phase title {action}")
+            if action == "activate":
+                status, title_menu = _await_menu_transition(
+                    port, deadline, before, f"BIOS phase title post-{action} menu transition"
+                )
+            else:
+                status, title_menu = _await_settled_menu_state(
+                    port, deadline, f"BIOS phase title post-{action} menu discovery"
+                )
             states.append({"action": action, "status": status, "state": title_menu})
         start_bios_trace(port)
         trace = capture_bios_trace(port, at_guest_boundary=False)
@@ -719,8 +767,8 @@ def run_bios_phase(
         )
         start_bios_trace(port)
         _complete_menu_action(port, deadline, "activate", "BIOS phase title down activation")
-        status, title_menu = _await_settled_menu_state(
-            port, deadline, "BIOS phase title post-down activation menu discovery"
+        status, title_menu = _await_menu_transition(
+            port, deadline, down_menu, "BIOS phase title post-down activation menu transition"
         )
         trace = capture_bios_trace(port, at_guest_boundary=False)
         trace["title_menu_after_down"] = {"status": down_status, "state": down_menu}
@@ -736,8 +784,8 @@ def run_bios_phase(
                 f"{title_menu}"
             )
         _complete_menu_action(port, deadline, "activate", "BIOS phase profile activate")
-        status, next_menu = _await_settled_menu_state(
-            port, deadline, "BIOS phase profile post-action menu discovery"
+        status, next_menu = _await_menu_transition(
+            port, deadline, profile_state, "BIOS phase profile post-action menu transition"
         )
         trace = capture_bios_trace(port, at_guest_boundary=False)
         trace["title_menu_after_action"] = title_menu
