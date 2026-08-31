@@ -246,7 +246,10 @@ ticks, `GLoadPacifyMenu::Process` (`0x00202C20`) selects the profile and calls
 that bit and calls `CProfile::LoadGame` from `0x0016F7CC`. The load census must
 therefore use a live load-pacify fixture and observe this shell handoff, rather
 than invoke `CProfile::LoadGame` directly or treat a load-confirmation dialog
-as completion.
+as completion. `NativeGameLoadBoundary` scopes BIOS/IOP capture from the
+profile-validated entry `0x00130000` to its final `jr $ra` at `0x00130168`; the
+load-pacify process PC `0x00202C20` is reported as a denominator, not used as
+a substitute for the profile call.
 
 Two clean schema-v3 mission captures pair every return-capable BIOS entry at
 the exact instruction after its syscall. The runs recorded 13,566/13,566 and
