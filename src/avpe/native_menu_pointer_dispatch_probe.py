@@ -26,11 +26,14 @@ def _move_through_dispatch(
     status, response, detail = request_json(
         port, "POST", "/input/menu-pointer-dispatch", {"x": normalized_x, "y": normalized_y}
     )
+    pointer_id = response.get("dispatch_pointer_id") if response is not None else None
     if (
         status != 202
         or response is None
         or response.get("deferred") is not True
-        or int(response.get("deferred_call_id", 0)) <= 0
+        or not isinstance(pointer_id, int)
+        or isinstance(pointer_id, bool)
+        or pointer_id <= 0
     ):
         raise RuntimeError(
             "native menu pointer dispatch was not queued through game input: "
@@ -45,7 +48,7 @@ def _move_through_dispatch(
                 f"native menu pointer dispatch returned unexpected {field}: {response}"
             )
 
-    dispatch = await_dispatched_pointer_motion(port, deadline, int(response["deferred_call_id"]))
+    dispatch = await_dispatched_pointer_motion(port, deadline, pointer_id)
     state_status, state, state_detail = menu_pointer_state(port)
     if state_status != 200 or state is None:
         raise RuntimeError(

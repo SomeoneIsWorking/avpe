@@ -206,7 +206,8 @@ all to menu owner `0x015afa70` and direct descriptor `{0, -1, 0x00125230}`
 registered at callback index 0: owner `0x015fe940`, input-definition list
 `0x015dd7f4`, and virtual descriptor `{0, 0xd8, 0}`. It did not fire while the
 backend was neutral. The diagnostic `POST /input/menu-pointer-dispatch` route
-now queues exactly one relative vector, revalidates the live owner and virtual
+now queues exactly one relative vector, returns its distinct dispatch identity,
+revalidates the live owner and virtual
 descriptor, and replaces only that dispatch's game-owned `CInputData` and
 member descriptor. Static decompilation shows that the selected
 `GAvPPointer::Input_UpdatePosition` callback calls its `MenuCheck` virtual slot
