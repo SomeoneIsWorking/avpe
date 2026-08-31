@@ -52,6 +52,7 @@ from avpe.pcsx2_config import (
     timing_config_identity,
 )
 from avpe.native_asset_cache_probe import cache_snapshot_is_verified
+from avpe.native_menu_pointer_dispatch_probe import _move_through_dispatch
 
 
 def make_bios_import_event(sequence: int) -> dict[str, object]:
@@ -111,6 +112,39 @@ def make_iop_import_pairing(
 
 
 class ControlTestPolicyTests(unittest.TestCase):
+    def test_dispatched_pointer_probe_waits_for_the_queue_identity(self) -> None:
+        response = {
+            "deferred": True,
+            "deferred_call_id": 17,
+            "dispatch_pointer_id": 71,
+            "pointer": "0x015FE940",
+            "screen_x": 280.0,
+            "screen_y": 378.0,
+        }
+        state = {
+            "pointer": "0x015FE940",
+            "menu_x": 280.0,
+            "menu_y": 378.0,
+        }
+        with patch(
+            "avpe.native_menu_pointer_dispatch_probe.request_json",
+            return_value=(202, response, "queued"),
+        ), patch(
+            "avpe.native_menu_pointer_dispatch_probe.await_dispatched_pointer_motion",
+            return_value={"injected_pointer_id": 71},
+        ) as await_dispatch, patch(
+            "avpe.native_menu_pointer_dispatch_probe.menu_pointer_state",
+            return_value=(200, state, "state"),
+        ):
+            move, dispatch, observed = _move_through_dispatch(
+                31234, 99.0, 280.0 / 639.0, 378.0 / 447.0
+            )
+
+        self.assertEqual(move, response)
+        self.assertEqual(dispatch, {"injected_pointer_id": 71})
+        self.assertEqual(observed, state)
+        await_dispatch.assert_called_once_with(31234, 99.0, 71)
+
     def setUp(self) -> None:
         self.nonce = "different-every-run"
         self.status = {
