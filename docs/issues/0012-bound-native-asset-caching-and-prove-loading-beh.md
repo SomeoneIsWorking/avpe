@@ -270,3 +270,14 @@ environment or identity errors occurred. The medians still show a 74.34%
 EE-cycle reduction, but this is not admissible timing evidence until the
 optical-oracle variation is explained or the run becomes stable under the
 same policy.
+
+The next bounded repeat became admissible: three alternating clean
+oracle/native mission pairs completed with stable `1→2` boundary ordinals and
+zero spread beyond the policy limits. Oracle medians were 1,799,787,694 EE
+cycles, 224,973,420 IOP cycles, and 366 frames; native medians were 461,714,639
+EE cycles, 57,714,287 IOP cycles, and 94 frames. The reductions were 74.35%
+for EE/IOP cycles and 74.32% for frames (74.49% by host elapsed time). Both
+ordinal-drift and no-reduction controls were rejected, all six cards remained
+byte-identical, and there were no environment errors. The timing comparison is
+now verified; the issue remains open only for proving zero original IOP/CDVD
+fallthrough and zero optical waits across the full native interval.

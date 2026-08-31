@@ -572,13 +572,17 @@ call. Stack-aware initializer and object-factory observations identified
 evidence then grounded a synchronous `GMissionGoalsMenu` load modal, not
 unfinished storage work. The native mission probe now waits until the exact
 Exit object exists, focuses it through its title virtual, invokes
-`GMenu::Input(Activate)` synchronously, and clears the modal. A valid run
-reached `0x0016FA4C` with all 24 post-read rounds, 2,638/2,638 initializer
-calls, 942/942 factory calls, and zero sequence errors. The M1 boundary is
-therefore captured on the native leg. Gap: demonstrate zero original
-fallthrough and zero emulated optical wait for supported operations through
-that interval, capture the same completed boundary on the oracle leg, and run
-three alternating clean oracle/native mission-timing pairs. Title-observed failure tracing
+`GMenu::Input(Activate)` synchronously, and clears the modal. Clean oracle and
+native runs reached `0x0016FA4C` with all 24 post-read rounds, 2,638/2,638
+initializer calls, 942/942 factory calls, and zero sequence errors. Three
+alternating clean oracle/native mission pairs then passed the timing comparator
+at stable `1→2` boundary ordinals: oracle medians were 1,799,787,694 EE cycles,
+224,973,420 IOP cycles, and 366 frames; native medians were 461,714,639 EE
+cycles, 57,714,287 IOP cycles, and 94 frames. The reductions were 74.35% for
+EE/IOP cycles and 74.32% for frames; the ordinal-drift and no-reduction
+controls rejected their mutations. Gap: demonstrate zero original fallthrough
+and zero emulated optical wait for supported operations through that interval.
+Title-observed failure tracing
 remains separate hardening in issue #16; it does not substitute for this
 timing proof. Live guest reset cleanup is now verified in issue #15. Evidence:
 claims C024 through C029,
