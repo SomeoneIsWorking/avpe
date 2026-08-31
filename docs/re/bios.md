@@ -10,12 +10,13 @@ that the observed services are the complete firmware contract.
 surfaceless control-test mode enables it and exposes its snapshot at
 `GET /bios/trace`. It records, in one sequence-ordered stream:
 
-- every recognized HLE/debug IOP import identity with library, ordinal,
-  resolved name, first four input arguments, handler availability, actual
-  `hle` or `oracle` outcome, result validity, and an occurrence count. A
-  handled HLE outcome carries its immediate signed `v0`; an oracle outcome
-  records the entry stack/return boundary and emits a separate paired return
-  event with the eventual signed `v0`;
+- every IOP import identity reached while the census is enabled, with library,
+  ordinal, resolved name (or `unknown` when no debug symbol resolves it), first
+  four input arguments, handler availability, actual `hle` or `oracle`
+  outcome, result validity, and an occurrence count. A handled HLE outcome
+  carries its immediate signed `v0`; an oracle outcome records the entry
+  stack/return boundary and emits a separate paired return event with the
+  eventual signed `v0`;
 - every EE `SYSCALL` identity through the shared interpreter implementation,
   with the normalized syscall number, BIOS name, first four argument registers,
   actual `direct` or `bios` outcome, return/result expectations, result validity,
@@ -33,13 +34,16 @@ surfaceless control-test mode enables it and exposes its snapshot at
 - `sceSifRegisterRpc` RPC ID.
 
 The sink retains at most 4096 events across all event kinds and reports
-overflow explicitly. Repeated recognized imports are coalesced by service
+overflow explicitly. Repeated imports are coalesced by service
 identity, outcome, and valid result and carry a `calls` count so hot polling
 cannot consume the census with duplicate events. The retained
 `first_arguments` belong to the first call in that coalesced group. It does not
-change dispatch, return values, scheduling, or fallback behavior. Unknown
-imports remain on PCSX2's existing
-unhandled/oracle path and are not counted as recognized service observations.
+change dispatch, return values, scheduling, or fallback behavior. Imports with
+no HLE or debug handler are retained as unresolved oracle observations, using
+their library and ordinal plus the `unknown` name when necessary, while
+remaining on PCSX2's existing unhandled/oracle path. A clean boot currently
+observes no such unresolved import, so that negative result is explicit rather
+than indistinguishable from an instrumentation blind spot.
 Both the interpreter and dynarec route the EE `SYSCALL` opcode through the
 same implementation, so
 the syscall observation is not engine-specific. Schema v1 sampled `v0` before
