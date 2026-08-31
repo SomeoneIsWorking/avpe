@@ -22,7 +22,7 @@ for the complete required firmware contract.
 
 ## Current work
 
-`NativeBiosTrace` v4 retains the v3 EE `SYSCALL` contract through the shared
+`NativeBiosTrace` v5 retains the v3 EE `SYSCALL` contract through the shared
 interpreter implementation, including their four argument registers and
 whether PCSX2 returned directly or dispatched into the BIOS. Return-capable
 BIOS entries pair by guest stack pointer and exact post-syscall PC. A ps2sdk-
@@ -191,8 +191,8 @@ a direct profile call or an arbitrary load-confirmation dialog is not the
 game-owned path.
 
 The retained trace set is mechanically summarized by
-`tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
-and groups only events actually present in each capture. Schema v4 separately
+`tools/analyze_bios_traces.py`, which reuses the runner's strict v5 validator
+and groups only events actually present in each capture. Schema v5 separately
 counts grounded results, returned oracle calls, returned void calls, unobserved
 results, and non-returning transfers. The earlier seven
 v1 captures remain phase-boundary and service-identity evidence, but their

@@ -586,7 +586,7 @@ completion, live state-recovery, and guest-reset cleanup seams.
 ### S025 — required firmware service inventory: partial
 
 Observed subset: the BIOS-backed IOP import boundary now emits a bounded,
-sequence-ordered v4 diagnostic census containing each recognized HLE/debug
+sequence-ordered v5 diagnostic census containing each recognized HLE/debug
 dispatch's module, ordinal, resolved name, first four input arguments, handler
 availability, actual outcome, and occurrence count. A handled HLE call carries
 its grounded signed `v0` result. An oracle fallback records its exact stack and
@@ -595,8 +595,9 @@ signed `v0`. The same census records shared EE `SYSCALL` dispatches with their
 normalized number, BIOS name, four argument registers, and whether the call
 returned directly from PCSX2 or continued into the BIOS. Return-capable BIOS
 calls pair by stack pointer and exact post-syscall PC. ABI disposition is
-independent of ownership: supported 32-bit results carry signed `v0`, void and
-non-returning calls carry none, and 64-bit/unknown results remain explicitly
+independent of ownership: supported 32-bit results carry signed `v0`, declared
+64-bit results carry the full unsigned `v0` as `result_u64`, void and
+non-returning calls carry none, and unknown results remain explicitly
 unobserved. The census also records loadcore module registration/release,
 intrman interrupt registration, and sifcmd RPC registration. EE and IOP
 exception-entry boundaries also record the domain, cause code, pre-entry PC,
@@ -639,9 +640,9 @@ zero-overflow runs reached the same action but retained 150 versus 51 events,
 with 524/524 versus 15/15 paired EE calls and 51/51 versus 0/0 paired IOP calls.
 That is another negative repeatability control, not title service coverage.
 
-`tools/analyze_bios_traces.py` now turns retained v4 captures into a
+`tools/analyze_bios_traces.py` now turns retained v5 captures into a
 deterministic inventory report using the same strict trace validator as the
-runner. Its v4 summary separates observed results, returned oracle calls,
+runner. Its v5 summary separates observed results, returned oracle calls,
 returned void calls, unobserved results, and non-returning transfers. The
 earlier seven-capture v1
 set still proves
@@ -711,8 +712,9 @@ game-load and shutdown phase boundaries, and separate
 archive/service operations from resumed execution.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
-import surface, 64-bit results, and service-level negative-path semantics
-remain incomplete; S025 cannot become verified from this mission census alone.
+import surface, live execution of the declared 64-bit GS result path, and
+service-level negative-path semantics remain incomplete; S025 cannot become
+verified from this mission census alone.
 
 Evidence: claims C035–C037, instruments I021–I023, [`re/bios.md`](re/bios.md), issue #20,
 the `NativeBiosTraceTest` production tests, and ignored repeated artifacts
