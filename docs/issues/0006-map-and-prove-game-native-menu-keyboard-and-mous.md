@@ -84,9 +84,12 @@ intersects a `GMiner` render rectangle, so `GetMenuItem` correctly rejects it.
 The measured `GMenuButton` rectangle `(268,366)`–`(292,390)` instead focused
 `0x015AFD10` at `(280,378)` through the native callback. The original
 `GfsPointer::Input_Action` then completed through the deferred scheduler with
-exact stack restoration. The route is diagnostic; product-host integration and
-real windowed delivery remain unverified.
+exact stack restoration. Product-host live-window delivery remains unverified.
+
+`HostInputRouter` now uses `MovePointerThroughDispatch` for every discovered
+menu rather than the synchronous absolute-motion route. The same dispatch probe
+preserves the pause-menu Save focus/activation contract and the Save Game
+button contract; real-window delivery remains the unproven product boundary.
 
 Remaining work: verify the real windowed key/mouse path in a user-visible run,
-integrate this dispatch-bound pointer route into the product host, then cover
-title and broader in-game menu variants.
+then cover title and broader in-game menu variants.

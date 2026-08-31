@@ -212,8 +212,9 @@ pointer movement and activation on that ordinary callback path. Its measured
 `GMenuButton` center `(280,378)` focused `0x015AFD10`; the original pointer
 action then completed through the deferred scheduler with exact stack
 restoration. The former target `(431.33,178.80)` intersects only a `GMiner`
-rectangle and correctly clears focus. The product host route remains
-unverified (issue #6).
+rectangle and correctly clears focus. `HostInputRouter` now uses the grounded
+dispatch-bound movement path for every discovered menu; real-window delivery
+remains unverified (issue #6).
 
 Gap: real window key/mouse delivery remains unobserved because agent tests must
 be windowless. Title and broader in-game menu coverage remains incomplete.

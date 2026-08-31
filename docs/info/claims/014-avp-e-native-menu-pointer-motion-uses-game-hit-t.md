@@ -21,6 +21,8 @@ callback instead. Its measured `GMenuButton` center `(280,378)` focused
 `0x015AFD10`; the original `GfsPointer::Input_Action` then completed through
 the ordinary deferred scheduler with exact stack restoration. The earlier
 `(431.33,178.80)` target is a `GMiner` render rectangle, not a menu item.
+The same callback route preserved the pause-menu Save focus and activation
+contract before `HostInputRouter` adopted it for every discovered menu.
 
 ## What would falsify it
 

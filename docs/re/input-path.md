@@ -218,8 +218,10 @@ the ordinary callback path. The earlier `(431.33,178.80)` target lay inside a
 `GMiner` render rectangle, which `GetMenuItem` correctly rejects. The Save Game
 `GMenuButton` rectangle is `(268,366)`–`(292,390)`; its measured center focused
 `0x015AFD10`, and the original `GfsPointer::Input_Action` completed through the
-ordinary deferred scheduler with exact stack restoration. The route remains
-diagnostic until product-host integration is grounded.
+ordinary deferred scheduler with exact stack restoration. The product host now
+uses this dispatch-bound movement path for every discovered menu; the direct
+absolute-motion route remains diagnostic-only. Real-window delivery is still
+unobserved.
 
 ## Native bridge
 
