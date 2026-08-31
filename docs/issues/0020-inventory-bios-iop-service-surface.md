@@ -217,6 +217,22 @@ reported an unreadable focused item rather than a live `QuitGame` action. The
 pause route is consequently an input/scheduler proof only. A guest-owned menu
 that actually exposes `QuitGame` remains required for shutdown evidence.
 
+### Finding (2026-08-31, title-menu branch discriminator)
+
+`GProfileMenu::ItemActivated` loads its selected successor through
+`GMenu::Load` and destroys itself, so an immediate callback-registry read can
+observe a transient owner with no valid focus. The BIOS phase probe now waits
+for the game to publish a settled `200` or `409` menu state instead of treating
+that transient `500` as a title result.
+
+On `title-real.p2s`, Start followed by one deferred native Down focuses action
+`0x807F1E5F`, the title's `LoadMenuKillMe` CRC. Activating that exact focused
+item settles at a new `GProfileMenu` (`0x0147D230`, vtable `0x00343750`) whose
+focused action is `LoadMenu` (`0xCA788CFB`). This is a grounded title-to-profile
+transition, not a `QuitGame` fixture. The next shutdown candidate must be
+discovered from another settled title/menu action rather than assuming this
+profile branch exits the game.
+
 ### Finding (2026-08-31, normal game-load owner)
 
 `GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears
