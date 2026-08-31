@@ -1,5 +1,6 @@
 import json
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from struct import pack
@@ -112,7 +113,7 @@ def make_iop_import_pairing(
 
 
 class ControlTestPolicyTests(unittest.TestCase):
-    def test_dispatched_pointer_probe_waits_for_the_queue_identity(self) -> None:
+    def test_dispatched_pointer_probe_waits_for_injection_and_applied_coordinates(self) -> None:
         response = {
             "deferred": True,
             "deferred_call_id": 17,
@@ -120,6 +121,11 @@ class ControlTestPolicyTests(unittest.TestCase):
             "pointer": "0x015FE940",
             "screen_x": 280.0,
             "screen_y": 378.0,
+        }
+        stale_state = {
+            "pointer": "0x015FE940",
+            "menu_x": 363.65,
+            "menu_y": 278.40,
         }
         state = {
             "pointer": "0x015FE940",
@@ -134,16 +140,17 @@ class ControlTestPolicyTests(unittest.TestCase):
             return_value={"injected_pointer_id": 71},
         ) as await_dispatch, patch(
             "avpe.native_menu_pointer_dispatch_probe.menu_pointer_state",
-            return_value=(200, state, "state"),
+            side_effect=((200, stale_state, "stale"), (200, state, "state")),
         ):
+            deadline = time.monotonic() + 1.0
             move, dispatch, observed = _move_through_dispatch(
-                31234, 99.0, 280.0 / 639.0, 378.0 / 447.0
+                31234, deadline, 280.0 / 639.0, 378.0 / 447.0
             )
 
         self.assertEqual(move, response)
         self.assertEqual(dispatch, {"injected_pointer_id": 71})
         self.assertEqual(observed, state)
-        await_dispatch.assert_called_once_with(31234, 99.0, 71)
+        await_dispatch.assert_called_once_with(31234, deadline, 71)
 
     def setUp(self) -> None:
         self.nonce = "different-every-run"
