@@ -15,7 +15,7 @@ def make_artifact() -> dict[str, object]:
         "operation": "menu_down",
         "statefile": "pause-menu.p2s",
         "trace": {
-            "schema": "avpe-bios-trace-v4",
+            "schema": "avpe-bios-trace-v5",
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
@@ -309,6 +309,37 @@ class BiosInventoryTests(unittest.TestCase):
         unknown_summary = summarize_bios_artifact(unknown_artifact)["services"]["ee_syscall"][0]
         self.assertEqual(unknown_summary["resultless_calls"], 0)
         self.assertEqual(unknown_summary["unobserved_result_calls"], 1)
+
+    def test_summarizes_returned_u64_result(self) -> None:
+        artifact = make_artifact()
+        entry = artifact["trace"]["events"][0]
+        entry.update(
+            {
+                "number": 112,
+                "name": "GsGetIMR",
+                "outcome": "bios",
+                "result_valid": False,
+            }
+        )
+        del entry["result"]
+        artifact["trace"]["events"].append(
+            {
+                "sequence": 8,
+                "kind": "ee_syscall_return",
+                "number": 112,
+                "name": "GsGetIMR",
+                "result_expected": True,
+                "result_valid": True,
+                "result_u64": (1 << 63) + 1,
+                "first_stack_pointer": 0x01FFF000,
+                "first_resume_pc": 0x00102004,
+            }
+        )
+        artifact["trace"]["ee_syscall_pairing"].update({"entries": 1, "returns": 1})
+
+        syscall_summary = summarize_bios_artifact(artifact)["services"]["ee_syscall"][0]
+        self.assertEqual(syscall_summary["observed_result_calls"], 1)
+        self.assertEqual(syscall_summary["results"], [(1 << 63) + 1])
 
     def test_counts_nonreturning_bios_control_transfers_separately(self) -> None:
         artifact = make_artifact()

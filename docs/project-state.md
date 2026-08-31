@@ -23,12 +23,14 @@ the modal and reached `ShellLoadLevel` return with 2,638/2,638 initializer calls
 942/942 factory calls, all 24 post-read rounds complete, and zero sequence
 errors at those ownership boundaries. The older single-frame load-timing
 observer separately reports 10 nesting errors and is not timing evidence for
-this path. Two schema-v4 service captures pair every return-capable EE BIOS
-call and all 527 IOP oracle imports at exact stack/return-PC boundaries with
-zero pending calls, pairing errors, or overflow. They repeat the same syscall
-and import identity sets, including grounded result 0 for
-`cdvdman.sceCdGetError`. Remaining work is the complete menu, save/load,
-shutdown, 64-bit-result, and service-level negative-path inventory.
+this path. Two earlier schema-v4 service captures pair every return-capable EE
+BIOS call and all 527 IOP oracle imports at exact stack/return-PC boundaries
+with zero pending calls, pairing errors, or overflow. Schema v5 preserves that
+pairing contract and adds a non-truncating `result_u64` encoding for declared
+GS calls, proven by native and Python discriminators; the current mission
+probe has not yet reached a live GS-result call. The remaining work is the
+complete menu, save/load, shutdown, live 64-bit-result, and service-level
+negative-path inventory.
 Current focus is attention, not a separate state.
 
 ## Capability inventory

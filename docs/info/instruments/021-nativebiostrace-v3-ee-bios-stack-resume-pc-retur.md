@@ -7,11 +7,11 @@ created: 2026-08-30
 
 ## Instrument
 
-NativeBiosTrace v3 EE BIOS stack/resume-PC return pairer, ABI disposition table, strict validator, and deterministic inventory analyzer
+NativeBiosTrace v5 EE BIOS stack/resume-PC return pairer, ABI disposition table, strict validator, and deterministic inventory analyzer
 
 ## Validated by
 
-The v3-a live capture rejected 1,705 superseded ResumeIntrDispatch frames and one pending frame; mismatched-resume and malformed-result tests force rejection; void/unobserved-result tests force both non-result branches; clean mission captures v3-d and v3-e each completed with exact entry/return totals and zero pending, sequence errors, or overflow while preserving stable identity/disposition classes.
+The v3-a live capture rejected 1,705 superseded ResumeIntrDispatch frames and one pending frame; mismatched-resume and malformed-result tests force rejection; void/unobserved-result tests force both non-result branches; clean mission captures v3-d and v3-e each completed with exact entry/return totals and zero pending, sequence errors, or overflow while preserving stable identity/disposition classes. The v5 native and Python tests inject a value above 32 bits for `GsGetIMR`, require `result_u64`, and reject the ambiguous dual encoding.
 
 ## Known failure modes
 
@@ -19,9 +19,10 @@ The v3-a live capture rejected 1,705 superseded ResumeIntrDispatch frames and on
   syscall with the same stack pointer. It does not independently explain a
   service's semantics beyond the ABI declaration and program-visible return
   register.
-- Only declared scalar results that fit the signed 32-bit trace field are
-  captured. Declared 64-bit and unknown/reserved result types are retained as
-  unobserved results, never truncated into evidence.
+- Declared scalar results use the signed 32-bit `result` field; declared
+  `u64` results use `result_u64`. Unknown/reserved result types remain
+  unobserved, never truncated into evidence. No AVP:E phase has yet exercised
+  the declared GS 64-bit result path live.
 - Hot-path call totals and SIF DMA transaction IDs vary with scheduling. Stable
   identity/result-disposition classes are the repeatability contract; exact
   whole-trace equality is not.

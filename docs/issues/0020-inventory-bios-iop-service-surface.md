@@ -12,12 +12,13 @@ updated: 2026-08-31
 ## Root cause
 
 The project began with only selected asset-import/debug hooks and no bounded
-firmware census. The remaining root gap is now narrower: the v4 mission census
+firmware census. The remaining root gap is now narrower: the v5 mission census
 has grounded EE BIOS and IOP oracle return owners with ABI-aware result
-validity, each confirmed by repeated mission evidence. 64-bit EE results,
-stable guest-owned save/load and shutdown boundaries, and service negative
-paths are still absent. One mission slice cannot substitute for the complete
-required firmware contract.
+validity, each confirmed by repeated mission evidence. Schema v5 now captures
+declared 64-bit EE results without truncation, but a live title exercise of
+those GS calls, stable guest-owned save/load and shutdown boundaries, and
+service negative paths are still absent. One mission slice cannot substitute
+for the complete required firmware contract.
 
 ## Current work
 
@@ -353,14 +354,17 @@ superseded frames and one pending frame. Current ps2sdk syscall identities and
 declarations establish that control return, result existence, and result width
 are independent ABI facts.
 
-Schema v3 observes the instruction immediately after a syscall through the
+Schema v5 observes the instruction immediately after a syscall through the
 shared EE execution hook and pairs it to a pending BIOS entry by stack pointer
 and exact resume PC. `NativeBiosEventStore` owns bounded admission,
 coalescing, serialization, and pairing separately from trace lifecycle. Its
 disposition table classifies supported 32-bit results, void returns,
-unobserved 64-bit/unknown results, and non-returning calls. Validator and
-inventory tests reject wrong resume PCs, malformed result fields, legacy
-schemas, and overflow, and force both returned-void and unobserved-result paths.
+declared unsigned 64-bit results, unobserved unknown results, and non-returning
+calls. The 64-bit result is the full EE `v0`, serialized as `result_u64` rather
+than a signed/truncated `result`; `GsGetIMR` and `GsPutIMR` are the grounded
+ps2sdk declarations. Validator and inventory tests reject wrong resume PCs,
+ambiguous scalar encodings, malformed result fields, legacy schemas, and
+overflow, and force returned-void, returned-64-bit, and unobserved-result paths.
 
 Two Clang-built clean mission captures completed the grounded mission boundary.
 They paired 13,566/13,566 and 13,565/13,565 return-capable BIOS calls with zero
@@ -427,8 +431,9 @@ the grounded `CProfile::SaveGame` observer, then cover game-load and shutdown.
 Add a separate grounded
 observation seam for remaining interrupt
 delivery, kernel primitives outside the mission slice, executable loading, IOP
-module loads and services outside the recognized import surface, and 64-bit EE
-results, then capture service negative paths before designing the HLE
+module loads and services outside the recognized import surface, and a live
+title exercise of the declared 64-bit GS result path, then capture service
+negative paths before designing the HLE
 implementation.
 
 ## Resolution

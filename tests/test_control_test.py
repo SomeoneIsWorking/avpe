@@ -373,6 +373,37 @@ class ControlTestPolicyTests(unittest.TestCase):
 
         self.assertTrue(bios_trace_is_verified(trace))
 
+    def test_accepts_exactly_paired_u64_bios_syscall_return(self) -> None:
+        entry = make_bios_syscall_event(1)
+        entry.update({"number": 112, "name": "GsGetIMR", "outcome": "bios"})
+        entry["result_valid"] = False
+        del entry["result"]
+        returned = {
+            "sequence": 2,
+            "kind": "ee_syscall_return",
+            "number": 112,
+            "name": "GsGetIMR",
+            "result_expected": True,
+            "result_valid": True,
+            "result_u64": (1 << 63) + 1,
+            "first_stack_pointer": 0x01FFF000,
+            "first_resume_pc": 0x00102004,
+            "calls": 1,
+        }
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(1, 1, 0),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [entry, returned],
+        }
+
+        self.assertTrue(bios_trace_is_verified(trace))
+        returned["result"] = 1
+        self.assertFalse(bios_trace_is_verified(trace))
+
     def test_accepts_nonreturning_bios_control_transfer(self) -> None:
         event = make_bios_syscall_event(1)
         event.update(

@@ -21,8 +21,9 @@ surfaceless control-test mode enables it and exposes its snapshot at
   actual `direct` or `bios` outcome, return/result expectations, result validity,
   and an occurrence count. Return-capable BIOS calls pair by guest stack pointer
   and exact post-syscall PC, and emit a separate return event. Declared 32-bit
-  results carry the program-visible signed `v0`; void returns omit it;
-  declared 64-bit and unknown result types remain explicitly unobserved;
+  results carry the program-visible signed `v0`; declared `u64` results carry
+  the full unsigned `v0` as `result_u64`; void returns omit a result; unknown
+  result types remain explicitly unobserved;
 - the first EE/IOP exception-entry observation for each domain, cause code,
   pre-entry PC, and branch-delay shape, with an occurrence count;
 - the first EE/IOP counter observation for each domain, counter, overflow, and
@@ -300,6 +301,7 @@ explicit game-load, and shutdown boundaries.
 The mission slice now has grounded EE BIOS and IOP oracle-return seams, but
 kernel primitives outside that slice, executable loading, timers, interrupt
 delivery, IOP module loads and services outside the recognized import surface,
-64-bit results, and required negative paths still need separate evidence. A
+live title exercise of the declared 64-bit GS results, and required negative
+paths still need separate evidence. A
 BIOS-free HLE path and paired success/error comparisons are S026–S028 work and
 remain blocked.

@@ -15,7 +15,7 @@ from avpe.native_menu_pointer_dispatch_probe import (
     focus_dispatched_menu_pointer,
 )
 
-BIOS_TRACE_SCHEMA = "avpe-bios-trace-v4"
+BIOS_TRACE_SCHEMA = "avpe-bios-trace-v5"
 BIOS_EVENT_KINDS = frozenset(
     {
         "ee_syscall",
@@ -179,12 +179,7 @@ def _service_event_is_verified(event: dict[str, object]) -> bool:
             or not isinstance(result_valid, bool) \
             or (event["kind"] == "ee_syscall" and not isinstance(result_expected, bool)):
         return False
-    if result_valid:
-        result = event.get("result")
-        if isinstance(result, bool) or not isinstance(result, int) \
-                or not -(1 << 31) <= result < (1 << 31):
-            return False
-    elif "result" in event:
+    if not _event_result_is_verified(event, result_valid, event["kind"] == "ee_syscall"):
         return False
 
     if event["kind"] == "ee_syscall":
@@ -239,12 +234,28 @@ def _is_u32(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and 0 <= value < (1 << 32)
 
 
+def _event_result_is_verified(
+        event: dict[str, object], result_valid: bool, allows_u64: bool) -> bool:
+    has_result = "result" in event
+    has_result_u64 = "result_u64" in event
+    if not result_valid:
+        return not has_result and not has_result_u64
+    if has_result == has_result_u64:
+        return False
+    if has_result:
+        result = event["result"]
+        return isinstance(result, int) and not isinstance(result, bool) \
+            and -(1 << 31) <= result < (1 << 31)
+    result_u64 = event["result_u64"]
+    return allows_u64 and isinstance(result_u64, int) and not isinstance(result_u64, bool) \
+        and 0 <= result_u64 < (1 << 64)
+
+
 def _syscall_return_event_is_verified(event: dict[str, object]) -> bool:
     number = event.get("number")
     name = event.get("name")
     result_expected = event.get("result_expected")
     result_valid = event.get("result_valid")
-    result = event.get("result")
     return bool(
         isinstance(number, int)
         and not isinstance(number, bool)
@@ -254,15 +265,7 @@ def _syscall_return_event_is_verified(event: dict[str, object]) -> bool:
         and isinstance(result_expected, bool)
         and isinstance(result_valid, bool)
         and (not result_valid or result_expected)
-        and (
-            (not result_valid and "result" not in event)
-            or (
-                result_valid
-                and isinstance(result, int)
-                and not isinstance(result, bool)
-                and -(1 << 31) <= result < (1 << 31)
-            )
-        )
+        and _event_result_is_verified(event, result_valid, True)
         and _is_u32(event.get("first_stack_pointer"))
         and _is_u32(event.get("first_resume_pc"))
     )
