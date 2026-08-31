@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import math
 import struct
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from avpe.save_message_types import MessageTypeEntry
+    from avpe.save_stream import SaveClassMetadata
 
 
 OUTER_RECORD_SIZE = 0x118
@@ -99,14 +104,16 @@ def decode_bwj(stream: bytes, max_output_bytes: int) -> BwjDecoded:
 def parse_game_save_record(
     record: bytes,
     max_decompressed_bytes: int = DEFAULT_MAX_DECOMPRESSED_BYTES,
+    class_metadata: Mapping[int, "SaveClassMetadata"] | None = None,
+    message_types: Sequence["MessageTypeEntry | None"] | None = None,
 ) -> dict[str, Any]:
-    """Parse the grounded outer record and opaque game-object stream summary."""
+    """Parse the outer record, prefix, and optionally its typed object stream."""
 
     if len(record) < OUTER_RECORD_SIZE + 4:
         raise ValueError("game-save record is shorter than its outer record")
     outer_values = struct.unpack_from("<6I", record, OUTER_FIELDS_OFFSET)
     decoded = decode_bwj(record[OUTER_RECORD_SIZE:], max_decompressed_bytes)
-    stream = _parse_game_save_stream(decoded.data)
+    stream = _parse_game_save_stream(decoded.data, class_metadata, message_types)
     return {
         "record_size": len(record),
         "outer": {
@@ -128,7 +135,11 @@ def parse_game_save_record(
     }
 
 
-def _parse_game_save_stream(data: bytes) -> dict[str, Any]:
+def _parse_game_save_stream(
+    data: bytes,
+    class_metadata: Mapping[int, "SaveClassMetadata"] | None,
+    message_types: Sequence["MessageTypeEntry | None"] | None,
+) -> dict[str, Any]:
     if len(data) < OBJECT_STREAM_OFFSET:
         raise ValueError("decoded game-save stream is missing its fixed prefix")
     level_bytes = data[GAME_LEVEL_OFFSET:GAME_LEVEL_OFFSET + GAME_LEVEL_SIZE]
@@ -183,7 +194,7 @@ def _parse_game_save_stream(data: bytes) -> dict[str, Any]:
     if not object_summary["structure_balanced"]:
         raise ValueError("game-save object stream is unbalanced")
 
-    return {
+    result = {
         "level": level,
         "level_suffix_hex": level_bytes[terminator + 1:].hex(),
         "game_time": game_time,
@@ -200,6 +211,17 @@ def _parse_game_save_stream(data: bytes) -> dict[str, Any]:
         "object_marker_counts": marker_counts,
         "object_stream_summary": object_summary,
     }
+    if class_metadata is not None:
+        from avpe.save_stream import (
+            parse_serialized_object_stream,
+            serialize_object_stream,
+        )
+
+        parsed_objects = parse_serialized_object_stream(
+            bytes(object_words), class_metadata, message_types
+        )
+        result["serialized_objects"] = serialize_object_stream(parsed_objects)
+    return result
 
 
 def _observe_object_marker(

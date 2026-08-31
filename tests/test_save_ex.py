@@ -25,11 +25,11 @@ class SaveExTests(unittest.TestCase):
         )
 
     def test_reads_gfow_bitmap_with_expected_count(self) -> None:
-        data = struct.pack("<III", 33, 0x80000001, 0x00000001) + b"tail"
+        data = struct.pack("<III", 2, 0x80000001, 0x00000001) + b"tail"
 
         parsed = parse_gfow_saver_payload(data, expected_word_count=2)
 
-        self.assertEqual(parsed.bit_count, 33)
+        self.assertEqual(parsed.word_count, 2)
         self.assertEqual(parsed.words, (0x80000001, 1))
         self.assertEqual(parsed.consumed_bytes, 12)
 
@@ -70,9 +70,9 @@ class SaveExTests(unittest.TestCase):
 
     def test_rejects_truncated_and_inconsistent_variable_payloads(self) -> None:
         with self.assertRaisesRegex(ValueError, "bitmap is truncated"):
-            parse_gfow_saver_payload(struct.pack("<I", 33))
+            parse_gfow_saver_payload(struct.pack("<I", 2))
         with self.assertRaisesRegex(ValueError, "expected count"):
-            parse_gfow_saver_payload(struct.pack("<III", 33, 0, 0), expected_word_count=3)
+            parse_gfow_saver_payload(struct.pack("<III", 2, 0, 0), expected_word_count=3)
         with self.assertRaisesRegex(ValueError, "message is truncated"):
             parse_gobject_ai_payload(struct.pack("<II", 1, 0x10), lambda _: 4)
         with self.assertRaisesRegex(ValueError, "fixed payload is truncated"):

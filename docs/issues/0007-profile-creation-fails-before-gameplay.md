@@ -6,7 +6,7 @@ symptom: The windowed product reaches profile creation but cannot create a profi
 state_items: S013,S014,S016
 tags: profile,save,memory-card,playability
 created: 2026-08-27
-updated: 2026-08-29
+updated: 2026-08-31
 ---
 
 ## Root cause
@@ -92,19 +92,35 @@ nonzero. The reusable splitter now validates scalar widths and pointer-field
 wire descriptions, extracts saved-object identities, and reports the exact
 byte boundary before a class-specific `SaveEx` payload.
 
-The remaining schema blocker is real: `SaveAll` invokes virtual `SaveEx` after
-each object's descriptor body. The live parent chains now select `GObject` for
-47 observed classes, `GUnit` for 9, `GObjectAI` for 6, `GPlayerManager` for 3,
-`GDropShip` for 1, and `GFOWSaver` for 1. The binary also contains grounded
-serializers for other classes (`GHiveNode`, `GAlienCarrier`, `GChestBurster`,
-`GHugger`, `GDropPod`, and `GAlarm`) that were not selected by these 67 saves.
-Their payloads are not descriptor fields: `GObjectAI` has a variable message
-queue and `GPlayerManager` has conditional counted state. Bounded readers in
-`src/avpe/save_ex.py` now cover the selected fixed, bitmap, message-queue, and
-conditional group layouts. The AI reader now consumes the grounded message-type
-table, including its dynamic-size fallback; the player-manager reader still
-requires its active-state predicate. Integrate those readers with the recursive
-object stream before claiming a whole-record reader or native writer.
+`SaveAll` emits each root's complete recursive object structure before walking
+the saved-object handle array and writing virtual `SaveEx` payloads in that
+order. The live parent chains select `GObject` for 47 observed classes,
+`GUnit` for 9, `GObjectAI` for 6, `GPlayerManager` for 3, `GDropShip` for 1,
+and `GFOWSaver` for 1. The binary also contains grounded serializers for other
+classes (`GHiveNode`, `GAlienCarrier`, `GChestBurster`, `GHugger`, `GDropPod`,
+and `GAlarm`) that were not selected by these 67 saves. Their payloads are not
+descriptor fields: `GObjectAI` has a variable message queue and
+`GPlayerManager` has conditional counted state. Bounded readers in
+`src/avpe/save_ex.py` plus `src/avpe/save_stream.py` now cover the selected
+fixed, bitmap, message-queue, and conditional group layouts. The AI reader
+consumes the grounded message-type table, including its dynamic-size fallback;
+the player-manager reader uses the saved state word's grounded active
+predicate. The typed analyzer parses both retained records completely: 1,262
+objects, 189 roots, and the exact top-level terminator in each record. The
+selected payload counts are 109 `GUnit`, one `GDropShip`, 107 `GObjectAI`, ten
+active `GPlayerManager`, and one `GFOWSaver`, with 1,034 base `GObject`
+records. This is wire-boundary evidence only; editable field meanings, load
+round-trip, and the native writer remain open.
+
+### Finding (2026-08-31, complete retained-record stream boundaries)
+
+The production typed parser was run with the live 67-class descriptor inventory
+and 256-slot message-type inventory against `slot0.bin` and `slot1.bin`. Both
+records consumed all 1,262 serialized objects and their delayed SaveEx payloads
+through the top-level terminator, with eight zero padding bytes remaining.
+The focused parser tests include nested structure, delayed SaveEx ordering, and
+unknown-class rejection. The raw records remain ignored user-supplied evidence;
+no derived game bytes are tracked.
 
 ### Finding (2026-08-29, message type table)
 

@@ -316,14 +316,16 @@ The 16-byte object headers are therefore not enough to decode editable fields;
 the 67 observed class IDs require descriptor extraction before a native writer
 can preserve the loader contract. A BIOS-backed live probe now resolves all 67
 IDs to 6,304 descriptor fields and the production splitter validates their
-scalar/pointer wire boundaries. `SaveAll` then invokes class-specific virtual
-`SaveEx` payloads. Live parent-chain evidence maps the 67 observed classes to
-six selected implementations (`GObject`, `GUnit`, `GObjectAI`,
-`GPlayerManager`, `GDropShip`, and `GFOWSaver`), but whole-record decoding still
-requires decoding their variable and conditional payloads. Bounded readers now
-cover the selected payload layouts, and the production AI reader supplies the
-live fixed-size message table plus its dynamic message-size fallback. Recursive
-stream integration still needs the player-manager active-state predicate.
+scalar/pointer wire boundaries. `SaveAll` emits each root's complete recursive
+structure before its handle-ordered class-specific virtual `SaveEx` queue.
+Live parent-chain evidence maps the 67 observed classes to six selected
+implementations (`GObject`, `GUnit`, `GObjectAI`, `GPlayerManager`, `GDropShip`,
+and `GFOWSaver`). Bounded readers and the production recursive parser now
+consume the selected payload layouts, the live fixed-size message table and
+dynamic message-size fallback, and the grounded player-manager active-state
+predicate; both retained records parse through their exact top-level
+terminators. Editable field meanings, a produced-save load, and native
+interception remain open.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.
