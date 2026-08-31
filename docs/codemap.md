@@ -32,6 +32,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | BIOS/IOP trace proof policy | Clean-boot polling, strict bounded/ordered census acceptance, grounded mission-boundary validation, and phase-labelled artifact writing | `src/avpe/native_bios_probe.py` | `bios_trace_is_verified()`, `mission_boundary_is_verified()`, `run_bios_phase()` | [BIOS/IOP contract](re/bios.md) |
 | BIOS/IOP inventory analysis | Deterministic grouping of captured trace events by service and runtime category; no inferred calls | `src/avpe/bios_inventory.py`, `tools/analyze_bios_traces.py` | `summarize_bios_artifact()`, `combine_bios_inventories()` | [BIOS/IOP contract](re/bios.md) |
 | Static EE syscall inventory | Bounded executable-segment scan of direct BIOS wrapper callsites and direct syscall instructions; static candidates only | `src/avpe/ee_syscalls.py`, `tools/analyze_ee_syscalls.py` | `scan_ee_syscalls()` | [BIOS/IOP contract](re/bios.md) |
+| Static IOP import inventory | Bounded IRX `.iopmod` and import-table scan with library/ordinal identity; static candidates only | `src/avpe/iop_imports.py`, `tools/analyze_iop_modules.py` | `scan_iop_module()` | [BIOS/IOP contract](re/bios.md) |
 | Save-format evidence parser | Grounded BWJ decoding and fixed game-save prefix/marker summaries; no native backend ownership | `src/avpe/save_format.py`, `tools/analyze_save_records.py` | `decode_bwj()`, `parse_game_save_record()` | [save-path RE contract](re/save-path.md) |
 | Save descriptor evidence parser | Bounded live class-type/descriptor extraction and descriptor-defined wire-body splitting; leaves class-specific `SaveEx` payloads to RE | `src/avpe/save_descriptor_probe.py`, `tools/inspect_save_descriptors.py` | `inspect_class_type_database()`, `parse_serialized_descriptor_body()` | [save-path RE contract](re/save-path.md) |
 | SaveEx payload evidence parser | Bounded readers for selected fixed, bitmap, message-queue, and conditional class payloads; no recursive stream ownership | `src/avpe/save_ex.py` | `parse_gunit_payload()`, `parse_gobject_ai_payload_from_database()` | [save-path RE contract](re/save-path.md) |
@@ -96,6 +97,7 @@ src/avpe/                      host-side product orchestration
 ├── native_menu_pointer_dispatch_probe.py dispatch-bound menu pointer proof policy
 ├── native_pause_quit_probe.py  grounded pause Quit confirmation discovery
 ├── bios_inventory.py           deterministic BIOS/IOP trace summaries
+├── iop_imports.py              static IRX IOP import-table parser
 ├── save_format.py              grounded BWJ/save-prefix parser
 ├── asset_byte_compare.py      strict native/ISO chunk comparator
 ├── load_timing.py             strict symmetric timing comparison policy
@@ -106,6 +108,7 @@ tools/                         project automation and control clients
 ├── compare_native_asset_bytes.py  byte differential and OTHER-answer control
 ├── compare_native_load_timing.py  alternating timing differential and controls
 ├── analyze_bios_traces.py       captured BIOS/IOP inventory report
+├── analyze_iop_modules.py       static IRX IOP import inventory
 ├── analyze_save_records.py      extracted game-save record report
 ├── raw2352.py                 disc-sector conversion
 └── ghidra_scripts/            maintainer-only RE extraction

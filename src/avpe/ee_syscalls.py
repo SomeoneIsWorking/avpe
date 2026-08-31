@@ -48,7 +48,7 @@ class EeSyscallInventory:
 def scan_ee_syscalls(data: bytes) -> EeSyscallInventory:
     """Find embedded syscall wrappers, direct wrapper calls, and direct syscalls."""
 
-    segments = tuple(_parse_executable_segments(data))
+    segments = tuple(parse_executable_segments(data))
     words_by_segment = [(_words(data, segment), segment) for segment in segments]
     wrappers_by_address: dict[int, SyscallWrapper] = {}
     wrapper_syscall_addresses: set[int] = set()
@@ -92,7 +92,7 @@ def scan_ee_syscalls(data: bytes) -> EeSyscallInventory:
     )
 
 
-def _parse_executable_segments(data: bytes) -> list[ExecutableSegment]:
+def parse_executable_segments(data: bytes) -> list[ExecutableSegment]:
     if len(data) < ELF_HEADER_SIZE or data[:4] != b"\x7fELF":
         raise ValueError("input is not an ELF file")
     if data[4] != 1 or data[5] != 1:
