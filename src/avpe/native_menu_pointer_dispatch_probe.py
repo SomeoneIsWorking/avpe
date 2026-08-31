@@ -4,11 +4,7 @@ import json
 from pathlib import Path
 
 from avpe.control_http import request_json
-from avpe.menu_probe import (
-    await_dispatched_pointer_follow_up,
-    menu_pointer_state,
-    menu_state,
-)
+from avpe.menu_probe import await_dispatched_pointer_motion, menu_pointer_state, menu_state
 
 
 def _move_through_dispatch(
@@ -16,7 +12,7 @@ def _move_through_dispatch(
     deadline: float,
     normalized_x: float,
     normalized_y: float,
-) -> tuple[dict[str, object], dict[str, object], dict[str, object], dict[str, object]]:
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     status, response, detail = request_json(
         port, "POST", "/input/menu-pointer-dispatch", {"x": normalized_x, "y": normalized_y}
     )
@@ -39,9 +35,7 @@ def _move_through_dispatch(
                 f"native menu pointer dispatch returned unexpected {field}: {response}"
             )
 
-    dispatch, completion = await_dispatched_pointer_follow_up(
-        port, deadline, int(response["deferred_call_id"])
-    )
+    dispatch = await_dispatched_pointer_motion(port, deadline, int(response["deferred_call_id"]))
     state_status, state, state_detail = menu_pointer_state(port)
     if state_status != 200 or state is None:
         raise RuntimeError(
@@ -60,7 +54,7 @@ def _move_through_dispatch(
             raise RuntimeError(
                 f"dispatched menu pointer state returned unexpected {field}: {state}"
             )
-    return response, dispatch, completion, state
+    return response, dispatch, state
 
 
 def probe_native_menu_pointer_dispatch(
@@ -72,12 +66,11 @@ def probe_native_menu_pointer_dispatch(
             "native dispatched menu pointer source menu returned "
             f"HTTP {source_status}: {source_detail}"
         )
-    move, dispatch, completion, state = _move_through_dispatch(port, deadline, 0.675, 0.4)
+    move, dispatch, state = _move_through_dispatch(port, deadline, 0.675, 0.4)
     proof = {
         "source_menu": source_menu,
         "move": move,
         "dispatch": dispatch,
-        "completion": completion,
         "state": state,
     }
     (output_dir / "menu-pointer-dispatch-proof.json").write_text(

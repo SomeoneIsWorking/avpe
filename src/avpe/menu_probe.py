@@ -88,11 +88,11 @@ def await_deferred_call(
     return completion
 
 
-def await_dispatched_pointer_follow_up(
+def await_dispatched_pointer_motion(
     port: int,
     deadline: float,
     pointer_id: int,
-) -> tuple[dict[str, object], dict[str, object]]:
+) -> dict[str, object]:
     last_dispatch: dict[str, object] | None = None
     while time.monotonic() < deadline:
         status, dispatch, detail = input_dispatch_state(port)
@@ -105,19 +105,11 @@ def await_dispatched_pointer_follow_up(
             raise RuntimeError(
                 f"dispatched pointer motion {pointer_id} was rejected: {dispatch}"
             )
-        if int(dispatch.get("rejected_pointer_follow_up_id", 0)) == pointer_id:
-            raise RuntimeError(
-                f"dispatched pointer follow-up {pointer_id} was rejected: {dispatch}"
-            )
         if int(dispatch.get("injected_pointer_id", 0)) == pointer_id:
-            follow_up_id = int(dispatch.get("pointer_follow_up_id", 0))
-            if follow_up_id > 0:
-                return dispatch, await_deferred_call(
-                    port, deadline, follow_up_id, "dispatched menu pointer hover"
-                )
+            return dispatch
         time.sleep(0.05)
     raise RuntimeError(
-        "dispatched pointer motion did not inject and complete its follow-up: "
+        "dispatched pointer motion did not inject: "
         f"pointer_id={pointer_id}, last_dispatch={last_dispatch}"
     )
 
