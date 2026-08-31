@@ -704,7 +704,8 @@ relinked repeat 1,353,
 so exact hot-path event totals remain outside the repeatability contract.
 
 Gap: extend the restored-menu completion pattern to title and mission states,
-add game-save, game-load, and shutdown phase boundaries, and separate
+add a fixture that reaches the grounded `CProfile::SaveGame` observer, then
+game-load and shutdown phase boundaries, and separate
 archive/service operations from resumed execution.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized

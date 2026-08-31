@@ -99,6 +99,19 @@ paired EE calls and no IOP calls. Title activation is a grounded transition but
 not yet a repeatable service completion boundary; a later title-owned state
 signal is required.
 
+### Finding (2026-08-31, game-save fixture discriminator)
+
+`NativeGameSaveBoundary` now scopes the census from the validated live
+`CProfile::SaveGame` entry `0x00130170` to its final `jr ra` at `0x00130374`,
+capturing its signed `v0` before control returns to the caller. It disables the
+general control-test trace until that exact entry, so a failure cannot be
+misreported as menu or resumed execution traffic. The available
+`save-menu.p2s` did not enter `CProfile::SaveGame` or change its isolated card
+after dispatch-bound pointer activation or title Cross input; generic native
+`down` left its focus empty. This is a fixture/input-path discriminator, not
+save evidence: the normal `GSavePacifyMenu::Process` path still needs a
+guest-owned state fixture.
+
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
 and groups only events actually present in each capture. Schema v4 separately
@@ -332,8 +345,9 @@ hot-path totals are not a repeatability contract.
 
 ## Remaining work
 
-Next extend the restored-menu completion pattern to title and mission states,
-then cover game-save, game-load, and shutdown. Add a separate grounded
+Next obtain a guest-owned normal `GSavePacifyMenu::Process` fixture that reaches
+the grounded `CProfile::SaveGame` observer, then cover game-load and shutdown.
+Add a separate grounded
 observation seam for remaining interrupt
 delivery, kernel primitives outside the mission slice, executable loading, IOP
 module loads and services outside the recognized import surface, and 64-bit EE

@@ -188,6 +188,17 @@ only one timer event. Both captures passed the bounded-trace validator, but
 their different lengths make them negative repeatability evidence rather than
 a mission-service inventory.
 
+The game-save observer is grounded at `CProfile::SaveGame` entry `0x00130170`
+and its final `jr ra` at `0x00130374`; it validates the live `CProfile`
+singleton before starting the census and captures the returned signed `v0`
+before the jump. Its first fixture discriminator is negative: `save-menu.p2s`
+did not enter that owner or change the isolated card after either the
+dispatch-bound pointer activation or title Cross input. Generic menu `down`
+also returned with no focused object. The observer deliberately retained zero
+events rather than attributing pre-selection or resumed traffic to a game save.
+This state is not a normal `GSavePacifyMenu::Process` completion; a fixture
+that reaches that guest-owned path is still required.
+
 Two clean schema-v3 mission captures pair every return-capable BIOS entry at
 the exact instruction after its syscall. The runs recorded 13,566/13,566 and
 13,565/13,565 entries/returns, with zero pending calls, sequence errors,
@@ -236,7 +247,8 @@ firmware contract or an HLE implementation.
 ## Required evidence before S025 can be verified
 
 The census still needs this restored-menu completion pattern extended to title
-and mission states, plus explicit game-save, game-load, and shutdown boundaries.
+and mission states, plus a fixture that reaches the grounded game-save observer,
+explicit game-load, and shutdown boundaries.
 The mission slice now has grounded EE BIOS and IOP oracle-return seams, but
 kernel primitives outside that slice, executable loading, timers, interrupt
 delivery, IOP module loads and services outside the recognized import surface,

@@ -27,9 +27,17 @@ BIOS_EVENT_KINDS = frozenset(
 )
 MISSION_TRACE_ENTRY_PC = 0x0016F910
 MISSION_TRACE_RETURN_PC = 0x0016FA4C
+GAME_SAVE_TRACE_ENTRY_PC = 0x00130170
+GAME_SAVE_TRACE_RETURN_PC = 0x00130374
 
 
 class BiosMissionCaptureError(RuntimeError):
+    def __init__(self, message: str, trace: dict[str, object] | None = None) -> None:
+        super().__init__(message)
+        self.trace = trace
+
+
+class BiosGameSaveCaptureError(RuntimeError):
     def __init__(self, message: str, trace: dict[str, object] | None = None) -> None:
         super().__init__(message)
         self.trace = trace
@@ -40,8 +48,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="capture the bounded BIOS/IOP census from boot or a savestate")
     parser.add_argument(
         "--probe-bios-phase",
-        choices=("title", "menu", "save-load", "mission"),
-        help="capture a bounded BIOS/IOP phase after a title/menu action, save/load, or clean-boot mission load",
+        choices=("title", "menu", "save-load", "game-save", "mission"),
+        help="capture a bounded BIOS/IOP phase after a title/menu action, control save/load, normal game save, or clean-boot mission load",
     )
     parser.add_argument("--bios-trace-output", type=Path,
                         help="write --probe-bios-trace JSON to this scratch path")
@@ -54,8 +62,10 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
         parser.error("--bios-trace-output requires a BIOS trace probe")
     if args.probe_bios_trace and args.probe_bios_phase is not None:
         parser.error("choose either --probe-bios-trace or --probe-bios-phase")
-    if args.probe_bios_phase in ("title", "menu", "save-load") and args.statefile is None:
+    if args.probe_bios_phase in ("title", "menu", "save-load", "game-save") and args.statefile is None:
         parser.error("--probe-bios-phase requires --statefile")
+    if args.probe_bios_phase == "game-save" and getattr(args, "memory_card_source", None) is None:
+        parser.error("--probe-bios-phase game-save requires --memory-card-source")
     if args.probe_bios_phase == "mission":
         if args.statefile is not None:
             parser.error("--probe-bios-phase mission requires a clean boot without --statefile")
@@ -396,6 +406,42 @@ def mission_boundary_is_verified(trace: object) -> bool:
     )
 
 
+def game_save_boundary_is_verified(trace: object) -> bool:
+    if not bios_trace_is_verified(trace) or not isinstance(trace, dict):
+        return False
+    boundary = trace.get("game_save_boundary")
+    if not isinstance(boundary, dict) or any((
+        boundary.get("entry_pc") != GAME_SAVE_TRACE_ENTRY_PC,
+        boundary.get("return_pc") != GAME_SAVE_TRACE_RETURN_PC,
+        boundary.get("complete") is not True,
+        boundary.get("succeeded") is not True,
+        boundary.get("result") != 0,
+        boundary.get("sequence_errors") != 0,
+    )):
+        return False
+    entry = boundary.get("entry")
+    returned = boundary.get("return")
+    if not isinstance(entry, dict) or not isinstance(returned, dict) or any((
+        entry.get("pc") != GAME_SAVE_TRACE_ENTRY_PC,
+        returned.get("pc") != GAME_SAVE_TRACE_RETURN_PC,
+    )):
+        return False
+    for field in ("ee_cycle", "iop_cycle", "frame", "host_time_ns"):
+        if any((
+            isinstance(entry.get(field), bool),
+            not isinstance(entry.get(field), int),
+            isinstance(returned.get(field), bool),
+            not isinstance(returned.get(field), int),
+        )):
+            return False
+    return bool(
+        returned["ee_cycle"] > entry["ee_cycle"]
+        and returned["iop_cycle"] >= entry["iop_cycle"]
+        and returned["frame"] >= entry["frame"]
+        and returned["host_time_ns"] > entry["host_time_ns"]
+    )
+
+
 def capture_bios_trace(port: int, at_guest_boundary: bool = True) -> dict[str, object]:
     route = "/bios/trace/capture-at-guest-boundary" if at_guest_boundary else "/bios/trace/capture"
     status, body = request_bytes(port, "POST", route, {}, timeout=7.0)
@@ -423,6 +469,15 @@ def start_bios_mission_phase(port: int) -> None:
     if status != 200:
         raise RuntimeError(
             "BIOS mission trace start returned HTTP "
+            f"{status}: {body.decode(errors='replace').strip()}"
+        )
+
+
+def start_bios_game_save_phase(port: int) -> None:
+    status, body = request_bytes(port, "POST", "/bios/trace/start-game-save", {})
+    if status != 200:
+        raise RuntimeError(
+            "BIOS game-save trace start returned HTTP "
             f"{status}: {body.decode(errors='replace').strip()}"
         )
 
@@ -455,6 +510,28 @@ def capture_bios_mission_boundary(port: int) -> dict[str, object]:
     return trace
 
 
+def capture_bios_game_save_boundary(port: int) -> dict[str, object]:
+    status, body = request_bytes(port, "POST", "/bios/trace/capture-game-save", {}, timeout=22.0)
+    try:
+        trace = json.loads(body)
+    except json.JSONDecodeError:
+        trace = None
+    if status != 200:
+        raise BiosGameSaveCaptureError(
+            f"BIOS game-save trace capture returned HTTP {status}: "
+            f"{bios_trace_failure_detail(trace)}",
+            trace if isinstance(trace, dict) else None,
+        )
+    if not game_save_boundary_is_verified(trace):
+        raise BiosGameSaveCaptureError(
+            "complete grounded game-save boundary was not observed: "
+            f"{bios_trace_failure_detail(trace)}",
+            trace if isinstance(trace, dict) else None,
+        )
+    assert isinstance(trace, dict)
+    return trace
+
+
 def prepare_bios_trace_for_native_stream(port: int, enabled: bool) -> None:
     if enabled:
         start_bios_trace(port)
@@ -469,6 +546,18 @@ def _complete_menu_action(port: int, deadline: float, action: str, context: str)
         await_deferred_call(port, deadline, call_id, context)
     elif status != 200 or response is None:
         raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
+
+
+def _select_game_save_slot(port: int) -> dict[str, object]:
+    status, response, detail = request_json(
+        port, "POST", "/input/press", {"mask": 1 << 6, "ms": 250}
+    )
+    if status != 200 or response is None or response.get("pressed") is not True:
+        raise RuntimeError(
+            "game-save Cross input was not accepted by the title's input owner: "
+            f"HTTP {status}: {detail}"
+        )
+    return {"input": "cross", "response": response}
 
 
 def _reach_title_menu(port: int, deadline: float) -> None:
@@ -554,6 +643,17 @@ def run_bios_phase(
             "save_load_to_menu_action",
             "state_save_load_then_menu_down",
         )
+    if phase == "game-save":
+        start_bios_game_save_phase(port)
+        selection = _select_game_save_slot(port)
+        try:
+            trace = capture_bios_game_save_boundary(port)
+        except BiosGameSaveCaptureError as error:
+            if error.trace is not None:
+                error.trace["game_save_menu_selection"] = selection
+            raise
+        trace["game_save_menu_selection"] = selection
+        return trace, "statefile_to_game_save", "slot_select_to_cprofile_save_game"
     raise ValueError(f"unsupported BIOS phase: {phase}")
 
 
@@ -589,6 +689,13 @@ def run_requested_bios_probe(
                 error.trace,
                 "clean_boot_to_mission",
                 "shell_set_next_level",
+                str(error),
+            )
+        except BiosGameSaveCaptureError as error:
+            return (
+                error.trace,
+                "statefile_to_game_save",
+                "slot_select_to_cprofile_save_game",
                 str(error),
             )
         except (RuntimeError, ValueError, json.JSONDecodeError) as error:
