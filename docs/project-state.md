@@ -27,9 +27,10 @@ this path. Two earlier schema-v4 service captures pair every return-capable EE
 BIOS call and all 527 IOP oracle imports at exact stack/return-PC boundaries
 with zero pending calls, pairing errors, or overflow. Schema v5 preserves that
 pairing contract and adds a non-truncating `result_u64` encoding for declared
-GS calls, proven by native and Python discriminators; the current mission
-probe has not yet reached a live GS-result call. The remaining work is the
-complete menu, save/load, shutdown, live 64-bit-result, and service-level
+GS calls, proven by native and Python discriminators. A clean boot held through
+the ordinary `TBD/TBF.TBF` open now captures `GsPutIMR` and its full 64-bit
+result; `GsGetIMR` remains unobserved. The remaining work is the complete menu,
+save/load, shutdown, remaining live 64-bit-result, and service-level
 negative-path inventory.
 Current focus is attention, not a separate state.
 
@@ -594,7 +595,8 @@ caller return PC, then emits a separate paired return event with the eventual
 signed `v0`. The same census records shared EE `SYSCALL` dispatches with their
 normalized number, BIOS name, four argument registers, and whether the call
 returned directly from PCSX2 or continued into the BIOS. Return-capable BIOS
-calls pair by stack pointer and exact post-syscall PC. ABI disposition is
+calls pair by stack pointer and exact post-syscall PC, retaining bounded nested
+calls with the same stack pointer until their exact return boundary. ABI disposition is
 independent of ownership: supported 32-bit results carry signed `v0`, declared
 64-bit results carry the full unsigned `v0` as `result_u64`, void and
 non-returning calls carry none, and unknown results remain explicitly
@@ -712,7 +714,7 @@ game-load and shutdown phase boundaries, and separate
 archive/service operations from resumed execution.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
-import surface, live execution of the declared 64-bit GS result path, and
+import surface, live execution of the declared 64-bit `GsGetIMR` path, and
 service-level negative-path semantics remain incomplete; S025 cannot become
 verified from this mission census alone.
 
@@ -731,9 +733,12 @@ Static candidate evidence now complements the runtime census: the bounded
 user-supplied target ELF, 158 BIOS wrapper definitions, 458 direct wrapper
 callsites, 8 direct syscall instructions, and 63 candidate syscall numbers.
 This does not prove execution, indirect dispatch, or service results. The
-grounded mission return is now available for a stable service slice; the early
-world pointer and generic frame boundary remain insufficient substitutes for
-other phases.
+clean-boot asset-open boundary now separately proves one normal `GsPutIMR`
+return with `result_u64=0x000000000000ff00`, with zero EE pairing errors after
+the nested pending-call fix; it does not exercise `GsGetIMR`. The grounded
+mission return is now available for a stable service slice; the early world
+pointer and generic frame boundary remain insufficient substitutes for other
+phases.
 
 ### S026 — AVP:E-specific HLE implementation: blocked
 
