@@ -57,7 +57,7 @@ from avpe.pcsx2_config import (
     timing_config_identity,
 )
 from avpe.native_asset_cache_probe import cache_snapshot_is_verified
-from avpe.native_menu_pointer_dispatch_probe import _move_through_dispatch
+from avpe.native_menu_pointer_dispatch_probe import _move_through_dispatch, focus_dispatched_menu_pointer_at
 
 
 def make_bios_import_event(sequence: int) -> dict[str, object]:
@@ -155,6 +155,20 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(dispatch, {"injected_pointer_id": 71})
         self.assertEqual(observed, state)
         await_dispatch.assert_called_once_with(31234, deadline, 71)
+
+    def test_coordinate_pointer_focus_uses_the_dispatch_owner(self) -> None:
+        proof_state = {"before": {"focus_object": "0x015DFB60"}}
+        with patch(
+            "avpe.native_menu_pointer_dispatch_probe.menu_state",
+            return_value=(200, {"menu": "0x012e85a0"}, "OK"),
+        ), patch(
+            "avpe.native_menu_pointer_dispatch_probe._move_through_dispatch",
+            return_value=({"move": True}, {"dispatch": True}, proof_state),
+        ) as move:
+            proof = focus_dispatched_menu_pointer_at(31234, time.monotonic() + 1.0, 500.0, 390.0)
+
+        self.assertEqual(proof["state"], proof_state)
+        self.assertEqual(move.call_args.args[2:], (500.0 / 639.0, 390.0 / 447.0))
 
     def setUp(self) -> None:
         self.nonce = "different-every-run"
@@ -879,6 +893,8 @@ class ControlTestPolicyTests(unittest.TestCase):
         deadline = time.monotonic() + 1.0
         candidate = {"focused_item_action": "0xCA788CFB"}
         with patch("avpe.native_bios_probe.probe_gameplay_pause_menu") as pause, patch(
+            "avpe.native_bios_probe._pause_selection_rectangles", return_value=[]
+        ), patch(
             "avpe.native_bios_probe._complete_menu_action"
         ) as action, patch(
             "avpe.native_bios_probe._await_settled_menu_state",
@@ -895,6 +911,50 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(action.call_count, 1)
         self.assertEqual(settled.call_count, 2)
         start.assert_not_called()
+
+    def test_shutdown_pointer_phase_arms_only_the_live_quit_confirmation(self) -> None:
+        deadline = time.monotonic() + 1.0
+        quit_row = [{"handle": 1, "xmin": 402, "ymin": 372, "xmax": 598, "ymax": 409}]
+        confirmation_row = [{"handle": 2, "xmin": 402, "ymin": 212, "xmax": 598, "ymax": 249}]
+        load_menu = {"state": {"before": {"focus_object": "0x015D0001"}, "focused_item_action": "0xCA788CFB"}}
+        confirmation = {"state": {"before": {"focus_object": "0x015D0002"}, "focused_item_action": "0x0B36B742"}}
+        trace = {"shell_shutdown_boundary": {"complete": True}}
+        with patch("avpe.native_bios_probe.probe_gameplay_pause_menu", return_value={"menu": "pause"}), patch(
+            "avpe.native_bios_probe._pause_selection_rectangles", side_effect=(quit_row, confirmation_row)
+        ), patch(
+            "avpe.native_pause_quit_probe.dispatch_dispatched_menu_pointer_at",
+            side_effect=(load_menu, confirmation),
+        ) as move, patch(
+            "avpe.native_pause_quit_probe.menu_item_text", side_effect=("Quit", "Yes")
+        ), patch(
+            "avpe.native_pause_quit_probe.menu_item_action_target", side_effect=(0x142DB54, 0)
+        ), patch(
+            "avpe.native_bios_probe._await_settled_menu_state", return_value=(200, {"menu": "confirm"})
+        ), patch(
+            "avpe.native_bios_probe._menu_parent", return_value=0x015EFA70
+        ), patch(
+            "avpe.native_bios_probe._menu_parent_action_handler",
+            return_value={"item_activated_handler": "0x002073b0"},
+        ), patch(
+            "avpe.native_bios_probe.start_bios_shell_shutdown_phase"
+        ) as start, patch(
+            "avpe.native_bios_probe.activate_focused_dispatched_menu_pointer",
+            return_value={"activation": "complete"},
+        ) as activate, patch(
+            "avpe.native_bios_probe.capture_bios_shell_shutdown_boundary", return_value=trace
+        ):
+            result = run_bios_phase(
+                31234, deadline, "shutdown-pointer", Path("scratch/states/mission1.p2s"),
+                Path("scratch/control-test/bios-phase-state.p2s"),
+            )
+
+        self.assertEqual(result[1:], ("mission_to_pause_quit_confirmation", "pad_start_then_quit_then_confirmation"))
+        self.assertEqual(move.call_args_list[0].args[2:], (500.0, 390.5))
+        self.assertEqual(move.call_args_list[1].args[2:], (500.0, 230.5))
+        start.assert_called_once_with(31234)
+        self.assertEqual(activate.call_count, 2)
+        self.assertEqual(trace["quit_confirmation"]["focused_item_text"], "Yes")
+        self.assertEqual(trace["quit_menu_parent_action_handler"]["item_activated_handler"], "0x002073b0")
 
     def test_title_bios_phase_waits_for_title_menu_then_activates(self) -> None:
         deadline = time.monotonic() + 1.0

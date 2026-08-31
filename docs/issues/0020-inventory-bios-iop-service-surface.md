@@ -591,8 +591,28 @@ hot-path totals are not a repeatability contract.
 
 ## Remaining work
 
+### Finding (2026-08-31, pause Quit confirmation is not `CShell::Quit`)
+
+The live pause-menu row labelled `Quit` is not the generic `QuitGame` action.
+Its verified action is `LoadMenu` (`0xCA788CFB`), which opens the `GBaseMenu`
+confirmation. The live `Yes` row has custom action `0x0B36B742`; deferred
+`GfsPointer::Input_Action` completed it with a restored guest stack, but the
+armed shell boundary observed neither `CShell::Quit` at `0x0016F8D0` nor the
+`CShell::MainLoop` return at `0x0016F8C8`, and the quit bit remained clear.
+It is therefore not shutdown evidence.
+
+This also corrected a diagnostic validator defect. `CShell`'s confirmed
+singleton is `0x003672F0`, but its first word is level-path data rather than a
+`GObject` vtable. `NativeShellShutdownBoundary` now validates the exact
+MainLoop request field (`+0x808`, known bits 1, 2, and 4) instead of applying a
+polymorphic-object predicate. The route successfully armed before the `Yes`
+activation, so the absent boundary is a real action-path falsifier, not a
+rejected probe. The confirmation menu's generic fallback resolves through its
+`GPhysical::GetAttachPos` slot at `0x00104C10`, not a shell shutdown handler.
+
 Next obtain a guest-owned normal `GSavePacifyMenu::Process` fixture that reaches
-the grounded `CProfile::SaveGame` observer, then cover game-load and shutdown.
+the grounded `CProfile::SaveGame` observer, then separately identify the
+guest action that reaches `CShell::Quit` before calling shutdown covered.
 Add a separate grounded
 observation seam for remaining interrupt
 delivery, kernel primitives outside the mission slice, executable loading, IOP
