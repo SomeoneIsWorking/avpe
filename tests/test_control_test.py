@@ -877,7 +877,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         start.assert_called_once_with(31234)
         menu.assert_called_once_with(31234, "activate")
         await_call.assert_called_once_with(31234, deadline, 19, "BIOS phase title activate")
-        state.assert_called_once_with(31234)
+        self.assertEqual(state.call_count, 2)
         capture.assert_called_once_with(31234, at_guest_boundary=False)
         self.assertEqual(trace["title_menu_after_action"]["status"], 409)
         self.assertEqual(trace["title_menu_after_action"]["state"]["menu"], "0x00123456")
@@ -908,6 +908,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         ) as await_call, patch(
             "avpe.native_bios_probe.menu_state",
             side_effect=[
+                (200, {"menu_vtable": "0x00342A50"}, "title"),
                 (200, {"menu_vtable": PROFILE_MENU_VTABLE}, "profile"),
                 (500, None, "transitional focus"),
                 (409, {"menu": "0x00123456", "callback_count": 2}, "ambiguous"),
@@ -930,7 +931,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(menu.call_args_list[1].args, (31234, "activate"))
         self.assertEqual(await_call.call_args_list[0].args, (31234, deadline, 19, "BIOS phase title activate"))
         self.assertEqual(await_call.call_args_list[1].args, (31234, deadline, 20, "BIOS phase profile activate"))
-        self.assertEqual(state.call_count, 3)
+        self.assertEqual(state.call_count, 4)
         capture.assert_called_once_with(31234, at_guest_boundary=False)
         self.assertEqual(trace["profile_menu_after_action"]["status"], 409)
 
@@ -1043,6 +1044,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "ee_syscall_pairing": make_ee_syscall_pairing(),
             "iop_import_pairing": make_iop_import_pairing(), "events": [make_bios_import_event(1)],
         }
+        initial_state = {"menu": "0x01346590", "focused_item_action": "0x95DF2577"}
         first_state = {"menu": "0x01346590", "focused_item_action": "0x807F1E5F"}
         second_state = {"menu": "0x01346590", "focused_item_action": "0x95DF2577"}
         with patch("avpe.native_bios_probe._reach_title_menu") as reach, patch(
@@ -1052,7 +1054,12 @@ class ControlTestPolicyTests(unittest.TestCase):
             side_effect=[(202, {"deferred_call_id": 19}, "down"), (202, {"deferred_call_id": 20}, "down")],
         ), patch("avpe.native_bios_probe.await_deferred_call") as await_call, patch(
             "avpe.native_bios_probe.menu_state",
-            side_effect=[(200, first_state, "first"), (200, second_state, "second")],
+            side_effect=[
+                (200, initial_state, "initial"),
+                (200, first_state, "first"),
+                (200, first_state, "before-second"),
+                (200, second_state, "second"),
+            ],
         ), patch("avpe.native_bios_probe.capture_bios_trace", return_value=trace):
             result = run_bios_phase(
                 31234, deadline, "title-actions", Path("scratch/states/title-real.p2s"),
@@ -1084,7 +1091,10 @@ class ControlTestPolicyTests(unittest.TestCase):
             "avpe.native_bios_probe.await_deferred_call"
         ), patch(
             "avpe.native_bios_probe.menu_state",
-            return_value=(200, {"menu_vtable": "0x00000000"}, "another menu"),
+            side_effect=[
+                (200, {"menu_vtable": "0x00342A50"}, "title"),
+                (200, {"menu_vtable": "0x00000000"}, "another menu"),
+            ],
         ), patch(
             "avpe.native_bios_probe.capture_bios_trace"
         ) as capture, self.assertRaisesRegex(RuntimeError, "grounded GProfileMenu"):

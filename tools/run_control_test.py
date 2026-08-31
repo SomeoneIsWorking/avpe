@@ -52,7 +52,6 @@ from avpe.menu_probe import (
     menu_action,
     menu_pointer_state,
     menu_state,
-    run_deferred_menu_action,
 )
 from avpe.native_menu_pointer_dispatch_probe import probe_native_menu_pointer_dispatch
 from avpe.native_menu_probe import probe_native_menu, probe_native_menu_activation

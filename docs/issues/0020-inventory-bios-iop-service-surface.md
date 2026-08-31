@@ -237,9 +237,22 @@ The generic title-action sequencer also falsified using callback discovery as a
 deferred-action queue boundary: a `down,activate,down` sequence was refused
 before its first action because the interrupted guest stack was unaligned. The
 earlier one-action probes happened to run from an aligned CPU event, but that
-does not establish a general contract. The proper next shutdown/input step is
-to queue title actions at a grounded aligned game scheduler boundary, not to
-insert a diagnostic trace request or retry until the stack happens to align.
+does not establish a general contract. The proper queue boundary is AVP:E's
+ordinary `GInputDevice::Process` callback dispatch at `0x001147CC`, not a
+diagnostic trace request or retry until the stack happens to align.
+
+The `0x001147CC` hook now preserves the active callback's exact member-function
+descriptor and owner. Menus with no registered `InputActivate` binding stage
+only its direct function word in the preceding `CInputData` slot, because
+`GInputDevice::Process` overwrites the current slot's first word immediately
+after the hook. The hook restores that three-word slot at the verified
+post-dispatch PC `0x001147D8` and reports completion only after byte-for-byte
+restoration. A surfaceless/null-muted `title-real.p2s` probe completed
+`down,activate,down`: the first Down focused `LoadMenuKillMe`, activation
+settled at `GProfileMenu` (`0x0147D230`, vtable `0x00343750`), and the next
+Profile-menu Down completed without an EE shuttle or stack-alignment failure.
+This proves title action dispatch and its guest transition boundary; it still
+does not expose `QuitGame` or prove a shell return.
 
 ### Finding (2026-08-31, normal game-load owner)
 
