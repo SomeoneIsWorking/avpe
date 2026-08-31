@@ -588,9 +588,10 @@ completion, live state-recovery, and guest-reset cleanup seams.
 ### S025 — required firmware service inventory: partial
 
 Observed subset: the BIOS-backed IOP import boundary now emits a bounded,
-sequence-ordered v5 diagnostic census containing each recognized HLE/debug
-dispatch's module, ordinal, resolved name, first four input arguments, handler
-availability, actual outcome, and occurrence count. A handled HLE call carries
+sequence-ordered v5 diagnostic census containing each reached import's module,
+ordinal, resolved name (or `unknown` when unresolved), first four input
+arguments, handler availability, actual outcome, and occurrence count. A
+handled HLE call carries
 its grounded signed `v0` result. An oracle fallback records its exact stack and
 caller return PC, then emits a separate paired return event with the eventual
 signed `v0`. The same census records shared EE `SYSCALL` dispatches with their
@@ -659,8 +660,10 @@ identities with zero overflow, including 11 recognized IOP import identities
 (`ioman.read`, `cdvdman.sceCdRead`, `sceCdSeek`, `sceCdGetError`, and
 `sceCdSearchFile` among them) with occurrence counts. The same run completed
 the native `MENU01.ZIV` proof with two sector reads and two consumed CDVD
-completion records. Unknown import-looking probes remain uncounted and on the
-original oracle path.
+completion records. Imports without an HLE or debug handler are now retained
+as unresolved oracle observations, but this clean boot encountered none; the
+zero count is therefore a measured negative rather than an instrumentation
+blind spot.
 
 The mission BIOS phase waits for native `MENU01.ZIV` readiness and arms a
 one-shot shared-EE observer around `CShell::ShellLoadLevel` entry `0x0016F910`

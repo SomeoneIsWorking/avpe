@@ -41,8 +41,24 @@ registration. EE and IOP counter target/overflow paths now record the counter
 state, cycle, and whether the interrupt was delivered. All observations use
 narrow calls at the existing owners, remain observation-only, and are exposed at
 `GET /bios/trace` for control-test diagnostics. Repeated import, syscall,
-exception, and timer identities are coalesced with occurrence counts; unknown
-import-looking probes remain on the original oracle path.
+exception, and timer identities are coalesced with occurrence counts. Every
+reached IOP import is now admitted to the census while it is enabled, including
+imports without an HLE or debug handler; unresolved names are recorded as
+`unknown` with their library and ordinal, while dispatch remains on the
+original oracle path.
+
+### Finding (2026-08-31, unresolved IOP import admission)
+
+The interpreter and dynarec previously skipped IOP imports with neither an HLE
+nor debug handler, making a missing service indistinguishable from a census
+blind spot. The diagnostic path now records those imports as oracle entries
+with their exact library, ordinal, arguments, stack, and caller return PC, and
+the existing return observer pairs the eventual signed `v0`. The change is
+trace-enabled only and leaves normal dispatch untouched. The focused native
+test proves an unresolved identity and paired return; a fresh clean boot and
+card control remained zero-overflow and encountered no unresolved import, so
+this finding expands observability but does not complete the required service
+inventory.
 
 The surfaceless runner now captures the sink atomically at the verified
 `Running` boundary through `POST /bios/trace/capture`. Three repeated clean
