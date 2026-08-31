@@ -591,7 +591,8 @@ overflow behavior, wrong return pairing, and malformed result dispositions.
 A successful `Host::OnSaveStateLoaded()` reset now separates post-savestate
 execution from restore-time scheduler traffic. Three different BIOS-backed
 savestate resumes produced ordered traces of 220, 251, and 71 events
-respectively, all with zero overflow; their event mixes differ (`title-real`:
+respectively, all with zero overflow; their event mixes differ (Zono-splash
+`title-real`:
 EE syscalls/exceptions, `pause-menu`: EE syscalls/exceptions/timers,
 `mission1`: EE exceptions/timers).
 

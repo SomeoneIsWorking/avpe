@@ -51,7 +51,7 @@ does not claim to cover later EE or game-service activity.
 
 Successful savestate restoration is now an explicit phase boundary: the
 standalone frontend resets the sink from `Host::OnSaveStateLoaded()` before the
-emulation thread enters `Running`. The `title-real.p2s`, `pause-menu.p2s`, and
+emulation thread enters `Running`. The Zono-splash `title-real.p2s`, `pause-menu.p2s`, and
 `mission1.p2s` resumes produced 220, 251, and 71 ordered events respectively,
 all with zero overflow and different event mixes. This proves the bounded
 instrument can observe post-restore execution without retaining the high-rate
@@ -77,14 +77,15 @@ not a completion condition. The restored menu-action boundary now covers the
 pause-menu slice; title and mission restore states still need their own
 guest-owned completion evidence.
 
-### Finding (2026-08-31, title-state boundary discriminator)
+### Finding (2026-08-31, Zono-splash boundary discriminator)
 
-`title-real.p2s` reached the verified surfaceless `Running` state but rejected
-the typed native `down` action with HTTP 409: no active game menu owned
-navigation callbacks. It therefore cannot reuse the pause-menu action as a
-title completion boundary. A title-state probe needs an independently grounded
-title-owned transition; a host delay, VSync edge, or a synthetic menu callback
-would not establish that boundary.
+Despite its filename, `title-real.p2s` resumes on the Zono splash: its
+screenshot contains the Zono logo and the live `GVideoPlayer` singleton is
+present. It reached verified surfaceless `Running` but rejected the typed native
+`down` action with HTTP 409 because no game menu owned navigation callbacks.
+It therefore cannot supply a title-menu completion boundary. That probe needs
+an independently grounded title-owned transition; a host delay, VSync edge, or
+synthetic menu callback would not establish one.
 
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
