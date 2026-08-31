@@ -160,6 +160,14 @@ pacify calls, save entries, and card delta. Pointer focus and menu focus are
 therefore distinct owners; neither may be treated as a normal save fixture
 without the pacify boundary.
 
+`CCRC32::GetCRC` uses a reflected CRC-32 table with initial value
+`0xFFFFFFFF` and no final XOR (equivalently `zlib.crc32(name) ^ 0xFFFFFFFF`).
+This resolves the pointer evidence: its inherited focus was `LoadMenu`
+(`0xCA788CFB`), while the measured button was `CancelKillMe`
+(`0x95DF2577`). The available save-menu state has a cancellation path, not a
+save-slot action, which explains the zero pacify-process count without
+speculating about profile or card failure.
+
 ### Finding (2026-08-31, guest shutdown seam)
 
 The generic menu action `QuitGame` reaches `CShell::Quit` at `0x0016F8D0`
