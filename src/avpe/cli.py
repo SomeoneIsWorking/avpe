@@ -117,8 +117,8 @@ def doctor() -> int:
         )
 
     # 4. Built binary
-    binary = ROOT / "scratch" / "build" / "bin" / "avpe"
-    deps_dir = ROOT / "scratch" / "deps"
+    binary = ROOT / "build" / "bin" / "avpe"
+    deps_dir = ROOT / "build" / "deps"
     if binary.exists():
         print(f"pass  built binary: {binary}")
     else:

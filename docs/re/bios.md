@@ -12,8 +12,10 @@ surfaceless control-test mode enables it and exposes its snapshot at
 
 - every recognized HLE/debug IOP import identity with library, ordinal,
   resolved name, first four input arguments, handler availability, actual
-  `hle` or `oracle` outcome, result validity, and an occurrence count; only a
-  handled HLE outcome carries its signed `v0` result;
+  `hle` or `oracle` outcome, result validity, and an occurrence count. A
+  handled HLE outcome carries its immediate signed `v0`; an oracle outcome
+  records the entry stack/return boundary and emits a separate paired return
+  event with the eventual signed `v0`;
 - every EE `SYSCALL` identity through the shared interpreter implementation,
   with the normalized syscall number, BIOS name, first four argument registers,
   actual `direct` or `bios` outcome, return/result expectations, result validity,
@@ -44,8 +46,16 @@ BIOS dispatch and before IOP oracle fallback completed; those fields were stale
 register values. Schema v2 made outcome/result validity explicit but still
 mistakenly equated every direct path with a result and had no BIOS return seam.
 Schema v3 classifies returning-result, returning-void, unobserved-result, and
-non-returning syscalls independently of BIOS/direct ownership. The runner
-rejects v1/v2 artifacts rather than presenting them as current return evidence.
+non-returning syscalls independently of BIOS/direct ownership. Schema v4 adds
+bounded IOP oracle entry/return pairing. `NativeBiosTrace` admits only exact
+caller return PCs through the fixed `NativeIopReturnSites` registry; a newly
+registered PC invalidates its existing IOP block so the recompiler emits
+`NativeIopExecutionHooks` at that block's entry, while the interpreter uses one
+pending-call atomic before consulting the exact registry
+after a delay slot. Entry and return pair by stack pointer and exact resume PC.
+The recompiler adds no work to unrelated blocks, and the interpreter performs
+no registry scan outside an active oracle call. The runner rejects v1–v3
+artifacts rather than presenting them as current IOP return evidence.
 
 ## Static EE syscall candidates
 
@@ -189,7 +199,7 @@ not claimed.
 ## Inventory analysis
 
 `tools/analyze_bios_traces.py` consumes one or more captured artifact files and
-emits `avpe-bios-inventory-report-v3`. Its summaries preserve the phase and
+emits `avpe-bios-inventory-report-v4`. Its summaries preserve the phase and
 statefile labels, count retained event identities, group observed EE syscalls
 and IOP imports by identity with occurrence counts, and group module,
 interrupt, and RPC registrations. Exception domains/codes/PCs and timer
@@ -209,7 +219,11 @@ captures supersede their EE return evidence. Both completed the exact mission
 boundary, repeated the same 11 syscall identity/disposition classes, and paired
 every return-capable BIOS call. The fixed thread/semaphore result sets repeated;
 SIF DMA transaction IDs and hot call totals are scheduling-sensitive.
-`cdvdman.sceCdGetError` remains oracle-owned and unobserved. Handled
+Two clean v4 captures supersede the remaining IOP result gap. Both paired
+527/527 `cdvdman.sceCdGetError` oracle entries/returns with result 0 at stack
+`0x001FA510` and caller PC `0x0003CB2C`, zero pending calls, and zero overflow.
+Their import and syscall identity sets match; retained event totals differ, so
+exact hot-path counts remain outside the repeatability contract. Handled
 `ioman.read`, `ioman.lseek`, and `sysmem.Kprintf` retain their grounded HLE
 results. This is a stable mission service-semantics slice, not an exhaustive
 firmware contract or an HLE implementation.
@@ -218,9 +232,10 @@ firmware contract or an HLE implementation.
 
 The census still needs a guest-owned completion boundary for save/load and
 then repeated BIOS-backed traces through stable title/menu paths, plus explicit
-service-level save, load, and shutdown boundaries. The mission slice now has a
-grounded EE BIOS return seam, but kernel primitives outside that slice,
-executable loading, timers, interrupt delivery, IOP oracle returns, 64-bit
-results, and required negative paths still need separate evidence. A
+service-level save, load, and shutdown boundaries. The mission slice now has
+grounded EE BIOS and IOP oracle-return seams, but kernel primitives outside
+that slice, executable loading, timers, interrupt delivery, IOP module loads
+and services outside the recognized import surface, 64-bit results, and
+required negative paths still need separate evidence. A
 BIOS-free HLE path and paired success/error comparisons are S026–S028 work and
 remain blocked.

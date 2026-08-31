@@ -15,7 +15,7 @@ def make_artifact() -> dict[str, object]:
         "operation": "menu_down",
         "statefile": "pause-menu.p2s",
         "trace": {
-            "schema": "avpe-bios-trace-v3",
+            "schema": "avpe-bios-trace-v4",
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
@@ -24,6 +24,12 @@ def make_artifact() -> dict[str, object]:
                 "returns": 0,
                 "pending": 0,
                 "sequence_errors": 0,
+                "overflow": 0,
+            },
+            "iop_import_pairing": {
+                "entries": 0,
+                "returns": 0,
+                "pending": 0,
                 "overflow": 0,
             },
             "events": [
@@ -141,6 +147,12 @@ class BiosInventoryTests(unittest.TestCase):
         imported["outcome"] = "oracle"
         imported["result_valid"] = False
         del imported["result"]
+        imported.update(
+            {"first_stack_pointer": 0x001FF000, "first_resume_pc": 0x00010200}
+        )
+        artifact["trace"]["iop_import_pairing"].update(
+            {"entries": 1, "pending": 1}
+        )
 
         summary = summarize_bios_artifact(artifact)
 
@@ -151,6 +163,42 @@ class BiosInventoryTests(unittest.TestCase):
         self.assertEqual(syscall_summary["unobserved_result_calls"], 1)
         self.assertEqual(import_summary["outcomes"], {"oracle": 1})
         self.assertEqual(import_summary["unobserved_result_calls"], 1)
+
+    def test_pairs_iop_oracle_return_results_with_the_entry_identity(self) -> None:
+        artifact = make_artifact()
+        imported = artifact["trace"]["events"][1]
+        imported["outcome"] = "oracle"
+        imported["result_valid"] = False
+        del imported["result"]
+        imported.update(
+            {"first_stack_pointer": 0x001FF000, "first_resume_pc": 0x00010200}
+        )
+        artifact["trace"]["events"].append(
+            {
+                "sequence": 8,
+                "kind": "iop_import_return",
+                "library": "ioman",
+                "ordinal": 6,
+                "function": "open",
+                "result_valid": True,
+                "result": -5,
+                "hle_available": True,
+                "debug_available": False,
+                "first_stack_pointer": 0x001FF000,
+                "first_resume_pc": 0x00010200,
+            }
+        )
+        artifact["trace"]["iop_import_pairing"].update(
+            {"entries": 1, "returns": 1}
+        )
+
+        summary = summarize_bios_artifact(artifact)
+
+        imported_summary = summary["services"]["import"][0]
+        self.assertEqual(imported_summary["returned_oracle_calls"], 1)
+        self.assertEqual(imported_summary["observed_result_calls"], 1)
+        self.assertEqual(imported_summary["unobserved_result_calls"], 0)
+        self.assertEqual(imported_summary["results"], [-5])
 
     def test_distinguishes_resultless_direct_calls_from_pending_bios_calls(self) -> None:
         artifact = make_artifact()

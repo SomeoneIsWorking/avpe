@@ -31,6 +31,28 @@ def owned_sources() -> list[Path]:
 
 
 class ProjectStructureTests(unittest.TestCase):
+    def test_build_outputs_do_not_live_under_scratch(self) -> None:
+        forbidden = (
+            '"scratch" / "build"',
+            '"scratch" / "deps"',
+            "'scratch' / 'build'",
+            "'scratch' / 'deps'",
+            "scratch/build",
+            "scratch/deps",
+        )
+        violations: list[Path] = []
+        for source_root in PYTHON_ROOTS:
+            for source in source_root.rglob("*.py"):
+                text = source.read_text(encoding="utf-8")
+                if any(value in text for value in forbidden):
+                    violations.append(source.relative_to(ROOT))
+
+        self.assertFalse(
+            violations,
+            "build output path is still owned by scratch/: "
+            + ", ".join(str(path) for path in sorted(violations)),
+        )
+
     def test_first_party_source_files_do_not_exceed_line_cap(self) -> None:
         violations: list[tuple[Path, int]] = []
         for source in owned_sources():

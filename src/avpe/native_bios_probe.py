@@ -10,13 +10,14 @@ from avpe.menu_probe import await_deferred_call, menu_action
 from avpe.native_asset_probe import await_native_stream_reads
 from avpe.native_mission_probe import probe_marine_m1_transition
 
-BIOS_TRACE_SCHEMA = "avpe-bios-trace-v3"
+BIOS_TRACE_SCHEMA = "avpe-bios-trace-v4"
 BIOS_EVENT_KINDS = frozenset(
     {
         "ee_syscall",
         "ee_syscall_return",
         "exception",
         "import",
+        "iop_import_return",
         "interrupt",
         "module",
         "rpc",
@@ -83,6 +84,10 @@ def bios_trace_is_verified(trace: object) -> bool:
     bios_result_expectations: dict[tuple[int, str], bool] = {}
     return_identities: dict[tuple[int, str], int] = {}
     return_calls = 0
+    oracle_import_calls = 0
+    oracle_import_identities: dict[tuple[object, ...], int] = {}
+    oracle_return_calls = 0
+    oracle_return_identities: dict[tuple[object, ...], int] = {}
     for expected_sequence, event in enumerate(events, start=1):
         if not isinstance(event, dict) \
                 or event.get("sequence") != expected_sequence \
@@ -115,11 +120,34 @@ def bios_trace_is_verified(trace: object) -> bool:
             if identity not in bios_entry_identities \
                     or event["result_expected"] != bios_result_expectations[identity]:
                 return False
+        if event["kind"] == "import" and event.get("outcome") == "oracle":
+            identity = _iop_oracle_pair_identity(event)
+            oracle_import_calls += calls
+            oracle_import_identities[identity] = (
+                oracle_import_identities.get(identity, 0) + calls
+            )
+        if event["kind"] == "iop_import_return":
+            if not _iop_import_return_event_is_verified(event):
+                return False
+            identity = _iop_oracle_pair_identity(event)
+            if identity not in oracle_import_identities:
+                return False
+            oracle_return_calls += calls
+            oracle_return_identities[identity] = (
+                oracle_return_identities.get(identity, 0) + calls
+            )
+            if oracle_return_identities[identity] > oracle_import_identities[identity]:
+                return False
     if any(calls > bios_entry_identities[identity]
            for identity, calls in return_identities.items()):
         return False
-    return _syscall_pairing_is_verified(
-        trace.get("ee_syscall_pairing"), bios_entry_calls, return_calls
+    return bool(
+        _syscall_pairing_is_verified(
+            trace.get("ee_syscall_pairing"), bios_entry_calls, return_calls
+        )
+        and _iop_import_pairing_is_verified(
+            trace.get("iop_import_pairing"), oracle_import_calls, oracle_return_calls
+        )
     )
 
 
@@ -181,6 +209,13 @@ def _service_event_is_verified(event: dict[str, object]) -> bool:
         and outcome in {"hle", "oracle"}
         and result_valid == (outcome == "hle")
         and (outcome != "hle" or hle_available)
+        and (
+            outcome != "oracle"
+            or (
+                _is_u32(event.get("first_stack_pointer"))
+                and _is_u32(event.get("first_resume_pc"))
+            )
+        )
     )
 
 
@@ -217,6 +252,48 @@ def _syscall_return_event_is_verified(event: dict[str, object]) -> bool:
     )
 
 
+def _iop_import_identity(event: dict[str, object]) -> tuple[object, ...]:
+    return (
+        event.get("library"),
+        event.get("ordinal"),
+        event.get("function"),
+        event.get("hle_available"),
+        event.get("debug_available"),
+    )
+
+
+def _iop_oracle_pair_identity(event: dict[str, object]) -> tuple[object, ...]:
+    return _iop_import_identity(event) + (
+        event.get("first_stack_pointer"),
+        event.get("first_resume_pc"),
+    )
+
+
+def _iop_import_return_event_is_verified(event: dict[str, object]) -> bool:
+    library, ordinal, function, hle_available, debug_available = (
+        _iop_import_identity(event)
+    )
+    result = event.get("result")
+    return bool(
+        isinstance(library, str)
+        and library
+        and isinstance(ordinal, int)
+        and not isinstance(ordinal, bool)
+        and 0 <= ordinal <= 0xffff
+        and isinstance(function, str)
+        and function
+        and isinstance(hle_available, bool)
+        and isinstance(debug_available, bool)
+        and (hle_available or debug_available)
+        and event.get("result_valid") is True
+        and isinstance(result, int)
+        and not isinstance(result, bool)
+        and -(1 << 31) <= result < (1 << 31)
+        and _is_u32(event.get("first_stack_pointer"))
+        and _is_u32(event.get("first_resume_pc"))
+    )
+
+
 def _syscall_pairing_is_verified(
     pairing: object, bios_entry_calls: int, return_calls: int
 ) -> bool:
@@ -238,6 +315,26 @@ def _syscall_pairing_is_verified(
     )
 
 
+def _iop_import_pairing_is_verified(
+    pairing: object, oracle_entry_calls: int, return_calls: int
+) -> bool:
+    if not isinstance(pairing, dict):
+        return False
+    values = {
+        key: pairing.get(key)
+        for key in ("entries", "returns", "pending", "overflow")
+    }
+    if any(isinstance(value, bool) or not isinstance(value, int) or value < 0
+           for value in values.values()):
+        return False
+    return bool(
+        values["overflow"] == 0
+        and values["entries"] == oracle_entry_calls
+        and values["returns"] == return_calls
+        and values["pending"] == oracle_entry_calls - return_calls
+    )
+
+
 def bios_trace_failure_detail(trace: object) -> str:
     if not isinstance(trace, dict):
         return f"response is not an object ({type(trace).__name__})"
@@ -255,6 +352,14 @@ def bios_trace_failure_detail(trace: object) -> str:
             f" syscall_pending={pairing.get('pending')!r}"
             f" syscall_sequence_errors={pairing.get('sequence_errors')!r}"
             f" syscall_overflow={pairing.get('overflow')!r}"
+        )
+    iop_pairing = trace.get("iop_import_pairing")
+    if isinstance(iop_pairing, dict):
+        detail += (
+            f" iop_import_entries={iop_pairing.get('entries')!r}"
+            f" iop_import_returns={iop_pairing.get('returns')!r}"
+            f" iop_import_pending={iop_pairing.get('pending')!r}"
+            f" iop_import_overflow={iop_pairing.get('overflow')!r}"
         )
     boundary = trace.get("mission_boundary")
     if isinstance(boundary, dict):

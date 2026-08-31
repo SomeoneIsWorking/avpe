@@ -21,6 +21,12 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeEeExecutionHooks.*` composes AVPE's narrow EE instruction observers;
   the interpreter and recompiler call this owner rather than individual
   diagnostic modules.
+- `NativeIopExecutionHooks.*` composes the exact IOP caller-return observation
+  for oracle import result pairing. The recompiler instruments only return
+  blocks admitted by `NativeIopReturnSites`; the interpreter consults that
+  exact registry only while an oracle call is pending.
+- `NativeIopReturnSites.*` owns the fixed process-lifetime atomic registry of
+  exact IOP caller return PCs. It owns no trace events or import policy.
 - `NativeHostYield.*` owns demand-driven host CPU event pumping at the exact
   AVP:E mission-goals modal loop. It does not own menu policy or guest actions.
 - `NativeAssets.*` owns title gating, the AVP:E disc namespace, ioman host-file
@@ -47,9 +53,10 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   `AVPE.cpp` only exposes its snapshot route; timing runs keep byte tracing
   disabled.
 - `NativeBiosEventStore.*` owns bounded sequence-ordered BIOS/IOP event
-  admission, coalescing, serialization, and exact EE BIOS entry/return
-  pairing. `NativeBiosTrace.*` owns trace lifecycle and grounded mission
-  progress/boundary capture, and composes the event store under its trace lock.
+  admission, coalescing, serialization, and exact EE BIOS and IOP oracle
+  entry/return pairing. `NativeBiosTrace.*` owns trace lifecycle, pending-call
+  state, and grounded mission progress/boundary capture, and composes the event
+  store under its trace lock.
 - `src/avpe/native_assets.py`, `iso9660.py`, and `raw_sector.py` own native
   asset-store provisioning. Derived game bytes stay under ignored `scratch/`;
   only the schema, identity anchors, validation logic, and tests are tracked.

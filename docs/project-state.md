@@ -23,12 +23,12 @@ the modal and reached `ShellLoadLevel` return with 2,638/2,638 initializer calls
 942/942 factory calls, all 24 post-read rounds complete, and zero sequence
 errors at those ownership boundaries. The older single-frame load-timing
 observer separately reports 10 nesting errors and is not timing evidence for
-this path. Two schema-v3 service captures pair every return-capable EE BIOS
-call at the exact post-syscall PC, distinguish results from void/unobserved and
-non-returning calls, and repeat the same 11 syscall identity/disposition
-classes with zero pairing errors. Remaining work is the complete menu,
-save/load, shutdown, IOP-oracle-return, 64-bit-result, and service-level
-negative-path inventory.
+this path. Two schema-v4 service captures pair every return-capable EE BIOS
+call and all 527 IOP oracle imports at exact stack/return-PC boundaries with
+zero pending calls, pairing errors, or overflow. They repeat the same syscall
+and import identity sets, including grounded result 0 for
+`cdvdman.sceCdGetError`. Remaining work is the complete menu, save/load,
+shutdown, 64-bit-result, and service-level negative-path inventory.
 Current focus is attention, not a separate state.
 
 ## Capability inventory
@@ -242,20 +242,19 @@ recursively initialize the tracked PCSX2 fork, then configure and build the
 current standalone `avpe` target. An existing binary no longer bypasses the
 CMake build: a configured tree is incrementally rebuilt, while a missing build
 tree is configured first. The launcher now has a guarded path to provision the
-project-owned `scratch/deps`
+project-owned `build/deps`
 Qt/dependency prefix through the tracked PCSX2 workflow when it is absent. The
 project accepts GCC, Clang, or AppleClang rather than encoding the agent's
 Clang verification policy.
 
 Evidence: claim C013, the provisioning tests in `tests/test_dependencies.py`,
-the preparation tests in `tests/test_build.py`, and a successful
-`./run.sh prepare` on the configured checkout.
+the preparation tests in `tests/test_build.py`, and a successful real
+missing-prefix `avpe prepare` on Linux that rebuilt the complete multi-library
+dependency stack and standalone product under `build/` with Clang 22.1.8.
 
-Gap: the automatic dependency-prefix branch has only been exercised through
-the guarded command contract and mocked tests in this session; a full cold
-checkout download and multi-library build remains to be verified on each
-supported host platform. The current configured Linux checkout has a complete
-prefix and the real missing-product rebuild passed.
+Gap: that Linux run reused checksum-validated source archives already present
+in the checkout, so fresh-clone downloads remain unverified. The complete cold
+path also remains to be verified on every other supported host platform.
 
 ### S013 — playable native-input product: blocked
 
@@ -568,11 +567,12 @@ completion, live state-recovery, and guest-reset cleanup seams.
 ### S025 — required firmware service inventory: partial
 
 Observed subset: the BIOS-backed IOP import boundary now emits a bounded,
-sequence-ordered v3 diagnostic census containing each recognized HLE/debug
+sequence-ordered v4 diagnostic census containing each recognized HLE/debug
 dispatch's module, ordinal, resolved name, first four input arguments, handler
 availability, actual outcome, and occurrence count. A handled HLE call carries
-its grounded signed `v0` result; an oracle fallback explicitly has no observed
-result. The same census records shared EE `SYSCALL` dispatches with their
+its grounded signed `v0` result. An oracle fallback records its exact stack and
+caller return PC, then emits a separate paired return event with the eventual
+signed `v0`. The same census records shared EE `SYSCALL` dispatches with their
 normalized number, BIOS name, four argument registers, and whether the call
 returned directly from PCSX2 or continued into the BIOS. Return-capable BIOS
 calls pair by stack pointer and exact post-syscall PC. ABI disposition is
@@ -610,10 +610,11 @@ remaining boundary defect: one had 237 events and its immediate repeat had one
 timer event. Both were bounded valid traces, so the result is a negative
 repeatability control rather than mission-service coverage.
 
-`tools/analyze_bios_traces.py` now turns retained v3 captures into a
+`tools/analyze_bios_traces.py` now turns retained v4 captures into a
 deterministic inventory report using the same strict trace validator as the
-runner. Its v3 summary separates observed results, returned void calls,
-unobserved results, and non-returning transfers. The earlier seven-capture v1
+runner. Its v4 summary separates observed results, returned oracle calls,
+returned void calls, unobserved results, and non-returning transfers. The
+earlier seven-capture v1
 set still proves
 its phase boundaries and event identities, but its sampled `v0` fields were
 pre-dispatch values and are rejected by the current analyzer; its claimed
@@ -664,18 +665,29 @@ thread/semaphore result sets repeated. Hot totals did not: `sceSifSetDma`
 differed by one call and direct `FlushCache` by two, so exact syscall totals and
 SIF transaction IDs are not a repeatability contract. The v2 captures remain
 entry/import identity evidence only; C034 and I020 are falsified/distrusted.
-`cdvdman.sceCdGetError` still falls through to an unobserved oracle result.
+
+Two clean v4 captures supersede the remaining IOP result gap. Both completed
+the same grounded mission boundary and repeated the same import and syscall
+identity sets. They paired 527/527 IOP oracle entries/returns with zero pending
+calls or overflow; `cdvdman.sceCdGetError` returned grounded result 0 on all
+527 calls at stack `0x001FA510` and caller PC `0x0003CB2C`. Both traces paired
+13,565/13,565 EE BIOS entries/returns with zero pending calls, sequence errors,
+or overflow. The first trace retained 1,358 event identities and the current
+relinked repeat 1,353,
+so exact hot-path event totals remain outside the repeatability contract.
 
 Gap: define a guest-owned completion boundary before repeating save/load
 captures, add shutdown phase boundaries, and separate archive/service
 operations from resumed execution.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
-slice, executable loading, IOP module loads/oracle returns, 64-bit results, and
-service-level negative-path semantics remain incomplete; S025 cannot become
-verified from this mission census alone.
+slice, executable loading, IOP module loads and services outside the recognized
+import surface, 64-bit results, and service-level negative-path semantics
+remain incomplete; S025 cannot become verified from this mission census alone.
 
-Evidence: claim C035, instrument I021, [`re/bios.md`](re/bios.md), issue #20,
-and the `NativeBiosTraceTest` production tests. Claims C031/C034 are falsified
+Evidence: claims C035/C036, instruments I021/I022, [`re/bios.md`](re/bios.md), issue #20,
+the `NativeBiosTraceTest` production tests, and ignored repeated artifacts
+`scratch/control-test/bios-mission-service-v4.prev.json` and
+`scratch/control-test/bios-mission-service-v4.json`. Claims C031/C034 are falsified
 and I020 is distrusted; none is current result evidence. Three repeated
 surfaceless clean boots
 also captured the same 28-event `clean_boot_to_running` trace with zero

@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 from unittest.mock import Mock, call, patch
 
-from avpe.build import BuildError, install_hint, prepare_product
+from avpe.build import BuildError, BuildPaths, install_hint, prepare_product
 from avpe.dependency_prefix import DependencyPrefixError
 
 
@@ -29,6 +29,13 @@ class BuildHintTests(unittest.TestCase):
 
 
 class ProductPreparationTests(unittest.TestCase):
+    def test_build_paths_use_the_top_level_build_root(self) -> None:
+        paths = BuildPaths(Path("/repo"))
+
+        self.assertEqual(paths.build_dir, Path("/repo/build"))
+        self.assertEqual(paths.dependency_prefix, Path("/repo/build/deps"))
+        self.assertEqual(paths.product_binary, Path("/repo/build/bin/avpe"))
+
     @patch("avpe.launch.launch", return_value=0)
     @patch("avpe.cli.prepare_product")
     @patch("avpe.cli.load_env", return_value={"AVPE_CHD": "/game/test.chd"})
@@ -56,8 +63,8 @@ class ProductPreparationTests(unittest.TestCase):
     ) -> None:
         paths = paths_type.return_value
         paths.source_dir = Path("/repo/thirdparty/pcsx2")
-        paths.build_dir = Path("/repo/scratch/build")
-        paths.dependency_prefix = Path("/repo/scratch/deps")
+        paths.build_dir = Path("/repo/build")
+        paths.dependency_prefix = Path("/repo/build/deps")
         paths.product_binary = Mock()
         paths.product_binary.is_file.return_value = True
 
@@ -74,11 +81,11 @@ class ProductPreparationTests(unittest.TestCase):
                         "-S",
                         "/repo/thirdparty/pcsx2",
                         "-B",
-                        "/repo/scratch/build",
+                        "/repo/build",
                         "-G",
                         "Ninja",
                         "-DCMAKE_BUILD_TYPE=Release",
-                        "-DCMAKE_PREFIX_PATH=/repo/scratch/deps",
+                        "-DCMAKE_PREFIX_PATH=/repo/build/deps",
                         "-DENABLE_QT_UI=ON",
                         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
                         f"-DPython3_EXECUTABLE={sys.executable}",
@@ -90,7 +97,7 @@ class ProductPreparationTests(unittest.TestCase):
                     [
                         "cmake",
                         "--build",
-                        "/repo/scratch/build",
+                        "/repo/build",
                         "--target",
                         "avpe",
                         "--parallel",
@@ -116,7 +123,7 @@ class ProductPreparationTests(unittest.TestCase):
     ) -> None:
         paths = paths_type.return_value
         paths.product_binary.is_file.return_value = True
-        paths.dependency_prefix = Path("/repo/scratch/deps")
+        paths.dependency_prefix = Path("/repo/build/deps")
 
         with tempfile.TemporaryDirectory() as directory:
             paths.build_dir = Path(directory)
@@ -154,7 +161,7 @@ class ProductPreparationTests(unittest.TestCase):
         paths = paths_type.return_value
         paths.product_binary.is_file.return_value = True
         paths.source_dir = Path("/repo/thirdparty/pcsx2")
-        paths.dependency_prefix = Path("/repo/scratch/deps")
+        paths.dependency_prefix = Path("/repo/build/deps")
 
         with tempfile.TemporaryDirectory() as directory:
             paths.build_dir = Path(directory)
@@ -184,7 +191,7 @@ class ProductPreparationTests(unittest.TestCase):
     ) -> None:
         paths = paths_type.return_value
         paths.product_binary.is_file.return_value = False
-        paths.dependency_prefix = Path("/repo/scratch/deps")
+        paths.dependency_prefix = Path("/repo/build/deps")
 
         with self.assertRaisesRegex(BuildError, "self-built Qt/deps prefix incomplete"):
             prepare_product(Path("/repo"), {})

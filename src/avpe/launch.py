@@ -18,7 +18,7 @@ from avpe.pcsx2_config import ensure_product_config
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
-AVPE_BIN = ROOT / "scratch" / "build" / "bin" / "avpe"
+AVPE_BIN = ROOT / "build" / "bin" / "avpe"
 DATA_DIR = ROOT / "scratch" / "pcsx2-home"
 LOG_PATH = ROOT / "scratch" / "logs" / "emulog.txt"
 NATIVE_ASSET_DIR = ROOT / "scratch" / "native-assets"

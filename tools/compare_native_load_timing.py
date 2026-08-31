@@ -26,7 +26,7 @@ DEFAULT_OUTPUT_DIR = ROOT / "scratch" / "control-test" / "load-timing"
 DEFAULT_MISSION_OUTPUT_DIR = (
     ROOT / "scratch" / "control-test" / "mission-load-timing"
 )
-PCSX2 = ROOT / "scratch" / "build" / "bin" / "pcsx2-qt"
+PCSX2 = ROOT / "build" / "bin" / "pcsx2-qt"
 PCSX2_INI = ROOT / "scratch" / "control-test" / "pcsx2-home" / "PCSX2" / "inis" / "PCSX2.ini"
 NATIVE_MANIFEST = ROOT / "scratch" / "native-assets" / "avpe-native-assets-v1" / "manifest.json"
 
