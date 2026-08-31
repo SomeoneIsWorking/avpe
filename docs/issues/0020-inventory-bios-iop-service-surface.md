@@ -265,12 +265,14 @@ new shutdown phase reaches the existing gameplay pause menu through physical
 Start and refuses to arm unless its settled focused item has the measured
 `QuitGame` CRC (`0x3CF57571`).
 
-The known `mission1.p2s` supplies the negative answer: its first game-owned
-Down focuses `LoadMenu` (`0xCA788CFB`), not `QuitGame`, so the phase rejects it
-before activation. The previous disappearance of the pause owner after
+The known `mission1.p2s` supplies the negative answer: its game-owned Down
+route visits Resume plus six distinct `LoadMenu` (`0xCA788CFB`) controls, then
+repeats the final Options focus without ever exposing `QuitGame`. The probe
+fails immediately on that repeated non-quit focus rather than issuing more
+identical inputs. The previous disappearance of the pause owner after
 activation was therefore a `LoadMenu` transition and cannot certify a guest
-shutdown. A live menu fixture whose focused action is actually `QuitGame`
-remains required.
+shutdown. A live menu fixture whose callback-registry focus is actually
+`QuitGame` remains required.
 
 ### Finding (2026-08-31, normal game-load owner)
 
