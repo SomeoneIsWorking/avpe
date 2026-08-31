@@ -892,8 +892,8 @@ class ControlTestPolicyTests(unittest.TestCase):
             )
 
         pause.assert_called_once_with(31234, deadline)
-        action.assert_called_once_with(31234, deadline, "down", "BIOS phase shutdown down")
-        settled.assert_called_once_with(31234, deadline, "BIOS phase shutdown QuitGame menu discovery")
+        self.assertEqual(action.call_count, 1)
+        self.assertEqual(settled.call_count, 2)
         start.assert_not_called()
 
     def test_title_bios_phase_waits_for_title_menu_then_activates(self) -> None:

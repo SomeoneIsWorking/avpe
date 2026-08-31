@@ -39,6 +39,7 @@ GAME_SAVE_PACIFY_PROCESS_PC = 0x00202F40
 SHELL_SHUTDOWN_QUIT_ENTRY_PC = 0x0016F8D0
 SHELL_SHUTDOWN_MAIN_LOOP_RETURN_PC = 0x0016F8C8
 QUIT_GAME_ACTION = "0x3CF57571"
+MAX_QUIT_MENU_STEPS = 16
 PROFILE_MENU_VTABLE = "0x00343750"
 
 
@@ -763,6 +764,34 @@ def _await_menu_transition(
     )
 
 
+def _focus_quit_game(port: int, deadline: float) -> tuple[dict[str, object], list[dict[str, object]]]:
+    """Navigate only through observed menu actions until the live QuitGame item is focused."""
+    observed: list[dict[str, object]] = []
+    seen_focuses: set[tuple[object, object, object]] = set()
+    for step in range(MAX_QUIT_MENU_STEPS):
+        _, candidate = _await_settled_menu_state(
+            port, deadline, f"BIOS phase shutdown menu discovery at step {step}"
+        )
+        observed.append(candidate)
+        if candidate.get("focused_item_action") == QUIT_GAME_ACTION:
+            return candidate, observed
+        focus_identity = tuple(
+            candidate.get(field)
+            for field in ("focus_handle", "focus_object", "focused_item_action")
+        )
+        if focus_identity in seen_focuses:
+            raise RuntimeError(
+                "BIOS phase shutdown navigation repeated a non-QuitGame focus: "
+                f"{candidate}; observed={observed}"
+            )
+        seen_focuses.add(focus_identity)
+        _complete_menu_action(port, deadline, "down", f"BIOS phase shutdown down at step {step}")
+    raise RuntimeError(
+        "BIOS phase shutdown did not focus the grounded QuitGame item within "
+        f"{MAX_QUIT_MENU_STEPS} observed actions: {observed}"
+    )
+
+
 def run_bios_phase(
     port: int,
     deadline: float,
@@ -892,15 +921,7 @@ def run_bios_phase(
         return trace, "statefile_to_game_save", "slot_select_to_cprofile_save_game"
     if phase == "shutdown":
         pause = probe_gameplay_pause_menu(port, deadline)
-        _complete_menu_action(port, deadline, "down", "BIOS phase shutdown down")
-        _, candidate = _await_settled_menu_state(
-            port, deadline, "BIOS phase shutdown QuitGame menu discovery"
-        )
-        if candidate.get("focused_item_action") != QUIT_GAME_ACTION:
-            raise RuntimeError(
-                "BIOS phase shutdown did not focus the grounded QuitGame item: "
-                f"{candidate}"
-            )
+        candidate, navigation = _focus_quit_game(port, deadline)
         start_bios_shell_shutdown_phase(port)
         _complete_menu_action(port, deadline, "activate", "BIOS phase shutdown QuitGame activation")
         try:
@@ -909,9 +930,11 @@ def run_bios_phase(
             if error.trace is not None:
                 error.trace["pause_menu"] = pause
                 error.trace["quit_game_menu"] = candidate
+                error.trace["quit_game_navigation"] = navigation
             raise
         trace["pause_menu"] = pause
         trace["quit_game_menu"] = candidate
+        trace["quit_game_navigation"] = navigation
         return trace, "mission_to_shell_shutdown", "pad_start_then_quit_game"
     raise ValueError(f"unsupported BIOS phase: {phase}")
 
