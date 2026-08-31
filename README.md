@@ -76,7 +76,8 @@ an automatic provisioning target.
    ```
 
 The CHD and BIOS files must remain outside version control. Derived asset
-bytes and build outputs are kept under ignored `scratch/` directories.
+bytes are kept under ignored `scratch/` directories; generated build outputs
+belong under ignored `build/`.
 
 ## Running AVPE
 

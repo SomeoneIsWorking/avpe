@@ -16,6 +16,8 @@ MENU_POINTER_TARGETS = {
     "0x012e85a0": (0.7, 0.4),
     "0x015afa70": (280.0 / 639.0, 378.0 / 447.0),
 }
+MENU_SCREEN_WIDTH = 639.0
+MENU_SCREEN_HEIGHT = 447.0
 
 
 def _move_through_dispatch(
@@ -41,8 +43,8 @@ def _move_through_dispatch(
             f"HTTP {status}: {detail}"
         )
     for field, expected in (
-        ("screen_x", normalized_x * 639.0),
-        ("screen_y", normalized_y * 447.0),
+        ("screen_x", normalized_x * MENU_SCREEN_WIDTH),
+        ("screen_y", normalized_y * MENU_SCREEN_HEIGHT),
     ):
         if abs(float(response.get(field, float("inf"))) - expected) > 0.05:
             raise RuntimeError(
@@ -51,8 +53,8 @@ def _move_through_dispatch(
 
     dispatch = await_dispatched_pointer_motion(port, deadline, pointer_id)
     expected_position = {
-        "menu_x": normalized_x * 639.0,
-        "menu_y": normalized_y * 447.0,
+        "menu_x": normalized_x * MENU_SCREEN_WIDTH,
+        "menu_y": normalized_y * MENU_SCREEN_HEIGHT,
     }
     state: dict[str, object] | None = None
     last_detail = "not sampled"
@@ -97,7 +99,7 @@ def _activate_focused_pointer(
 def _target_for_menu(source_menu: dict[str, object]) -> tuple[float, float]:
     menu = source_menu.get("menu")
     if not isinstance(menu, str):
-        raise RuntimeError(f"dispatched menu pointer source has no menu identity: {source_menu}")
+        raise TypeError(f"dispatched menu pointer source has no menu identity: {source_menu}")
     target = MENU_POINTER_TARGETS.get(menu.lower())
     if target is None:
         raise RuntimeError(
@@ -106,26 +108,67 @@ def _target_for_menu(source_menu: dict[str, object]) -> tuple[float, float]:
     return target
 
 
-def focus_dispatched_menu_pointer(port: int, deadline: float) -> dict[str, object]:
+def _source_menu(port: int) -> dict[str, object]:
     source_status, source_menu, source_detail = menu_state(port)
     if source_status != 200 or source_menu is None:
         raise RuntimeError(
             "native dispatched menu pointer source menu returned "
             f"HTTP {source_status}: {source_detail}"
         )
-    move, dispatch, state = _move_through_dispatch(port, deadline, *_target_for_menu(source_menu))
+    return source_menu
+
+
+def _dispatch_dispatched_menu_pointer_at(
+    port: int, deadline: float, source_menu: dict[str, object] | None, screen_x: float, screen_y: float
+) -> dict[str, object]:
+    move, dispatch, state = _move_through_dispatch(
+        port, deadline, screen_x / MENU_SCREEN_WIDTH, screen_y / MENU_SCREEN_HEIGHT)
+    proof = {"move": move, "dispatch": dispatch, "state": state}
+    if source_menu is not None:
+        proof["source_menu"] = source_menu
+    return proof
+
+
+def dispatch_dispatched_menu_pointer_at(
+    port: int, deadline: float, screen_x: float, screen_y: float
+) -> dict[str, object]:
+    """Move through the game's input dispatch to one native render coordinate."""
+    if not 0.0 <= screen_x <= MENU_SCREEN_WIDTH or not 0.0 <= screen_y <= MENU_SCREEN_HEIGHT:
+        raise ValueError(
+            "dispatched menu pointer coordinate is outside the native render bounds: "
+            f"({screen_x}, {screen_y})")
+    return _dispatch_dispatched_menu_pointer_at(port, deadline, None, screen_x, screen_y)
+
+
+def _require_pointer_focus(proof: dict[str, object], description: str) -> dict[str, object]:
+    state = proof["state"]
+    assert isinstance(state, dict)
     focus = state.get("before")
     if not isinstance(focus, dict) or focus.get("focus_object") == "0x00000000":
         raise RuntimeError(
-            "dispatched menu pointer did not focus the measured Save Game button: "
-            f"move={move}, dispatch={dispatch}, state={state}"
+            f"dispatched menu pointer did not focus {description}: "
+            f"move={proof['move']}, dispatch={proof['dispatch']}, state={state}"
         )
-    return {
-        "source_menu": source_menu,
-        "move": move,
-        "dispatch": dispatch,
-        "state": state,
-    }
+    return proof
+
+
+def focus_dispatched_menu_pointer_at(
+    port: int, deadline: float, screen_x: float, screen_y: float
+) -> dict[str, object]:
+    """Focus a menu item at a measured native render coordinate."""
+    return _require_pointer_focus(
+        dispatch_dispatched_menu_pointer_at(port, deadline, screen_x, screen_y),
+        f"native render coordinate ({screen_x}, {screen_y})")
+
+
+def focus_dispatched_menu_pointer(port: int, deadline: float) -> dict[str, object]:
+    source_menu = _source_menu(port)
+    screen_x, screen_y = _target_for_menu(source_menu)
+    return _require_pointer_focus(
+        _dispatch_dispatched_menu_pointer_at(
+            port, deadline, source_menu,
+            screen_x * MENU_SCREEN_WIDTH, screen_y * MENU_SCREEN_HEIGHT),
+        "the measured Save Game button")
 
 
 def activate_focused_dispatched_menu_pointer(port: int, deadline: float) -> dict[str, object]:
