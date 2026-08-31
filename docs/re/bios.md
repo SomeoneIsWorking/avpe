@@ -240,6 +240,12 @@ A shutdown census must validate the shell singleton at `0x003672F0` and span
 that live-menu activation through this main-loop return; the diagnostic VM
 shutdown endpoint is unrelated host lifecycle evidence.
 
+`GsGetIMR` does not supply another title phase. Its only static caller is the
+SDK store-image helper used by `ps2_screen_capture_GetImage`; that path is
+guarded by poll index one in `CPS2Input::PollDevices`, but the input loop starts
+at index zero and returns immediately after that one iteration. It is dead
+player-two screen-capture support rather than a normal AVP:E renderer service.
+
 The normal game-load path is also deferred through the shell. After two process
 ticks, `GLoadPacifyMenu::Process` (`0x00202C20`) selects the profile and calls
 `CShell::LoadGame`; this sets the shell load bit. `CShell::MainLoop` consumes
