@@ -14,6 +14,7 @@ from avpe.native_menu_pointer_dispatch_probe import (
     activate_focused_dispatched_menu_pointer,
     focus_dispatched_menu_pointer,
 )
+from avpe.native_pause_probe import probe_gameplay_pause_menu
 
 BIOS_TRACE_SCHEMA = "avpe-bios-trace-v5"
 TITLE_MENU_ACTIONS = frozenset(("up", "down", "left", "right", "activate", "cancel"))
@@ -35,6 +36,9 @@ MISSION_TRACE_RETURN_PC = 0x0016FA4C
 GAME_SAVE_TRACE_ENTRY_PC = 0x00130170
 GAME_SAVE_TRACE_RETURN_PC = 0x00130374
 GAME_SAVE_PACIFY_PROCESS_PC = 0x00202F40
+SHELL_SHUTDOWN_QUIT_ENTRY_PC = 0x0016F8D0
+SHELL_SHUTDOWN_MAIN_LOOP_RETURN_PC = 0x0016F8C8
+QUIT_GAME_ACTION = "0x3CF57571"
 PROFILE_MENU_VTABLE = "0x00343750"
 
 
@@ -50,13 +54,19 @@ class BiosGameSaveCaptureError(RuntimeError):
         self.trace = trace
 
 
+class BiosShellShutdownCaptureError(RuntimeError):
+    def __init__(self, message: str, trace: dict[str, object] | None = None) -> None:
+        super().__init__(message)
+        self.trace = trace
+
+
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--probe-bios-trace", action="store_true",
                         help="capture the bounded BIOS/IOP census from boot or a savestate")
     parser.add_argument(
         "--probe-bios-phase",
-        choices=("title", "title-actions", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save", "mission"),
-        help="capture a bounded BIOS/IOP phase after a title or observed profile-menu action, control save/load, normal game save, or clean-boot mission load",
+        choices=("title", "title-actions", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save", "shutdown", "mission"),
+        help="capture a bounded BIOS/IOP phase after a title or observed profile-menu action, control save/load, game-owned shutdown, or clean-boot mission load",
     )
     parser.add_argument(
         "--bios-title-actions",
@@ -82,7 +92,7 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
             parser.error(f"unsupported --bios-title-actions value(s): {','.join(invalid)}")
     elif title_actions is not None:
         parser.error("--bios-title-actions requires --probe-bios-phase title-actions")
-    if args.probe_bios_phase in ("title", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save") and args.statefile is None:
+    if args.probe_bios_phase in ("title", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save", "shutdown") and args.statefile is None:
         parser.error("--probe-bios-phase requires --statefile")
     if args.probe_bios_phase == "game-save" and getattr(args, "memory_card_source", None) is None:
         parser.error("--probe-bios-phase game-save requires --memory-card-source")
@@ -559,6 +569,62 @@ def capture_bios_game_save_boundary(port: int) -> dict[str, object]:
     return trace
 
 
+def shell_shutdown_boundary_is_verified(trace: object) -> bool:
+    if not bios_trace_is_verified(trace) or not isinstance(trace, dict):
+        return False
+    boundary = trace.get("shell_shutdown_boundary")
+    if not isinstance(boundary, dict) or any((
+        boundary.get("complete") is not True,
+        boundary.get("quit_bit_observed") is not True,
+        boundary.get("sequence_errors") != 0,
+    )):
+        return False
+    entry = boundary.get("quit_entry")
+    returned = boundary.get("main_loop_return")
+    if not isinstance(entry, dict) or not isinstance(returned, dict) or any((
+        entry.get("pc") != SHELL_SHUTDOWN_QUIT_ENTRY_PC,
+        returned.get("pc") != SHELL_SHUTDOWN_MAIN_LOOP_RETURN_PC,
+    )):
+        return False
+    return all(
+        isinstance(entry.get(field), int) and not isinstance(entry.get(field), bool)
+        and isinstance(returned.get(field), int) and not isinstance(returned.get(field), bool)
+        for field in ("ee_cycle", "iop_cycle", "frame", "host_time_ns")
+    ) and returned["ee_cycle"] > entry["ee_cycle"] and returned["iop_cycle"] >= entry["iop_cycle"] \
+        and returned["frame"] >= entry["frame"] and returned["host_time_ns"] > entry["host_time_ns"]
+
+
+def start_bios_shell_shutdown_phase(port: int) -> None:
+    status, body = request_bytes(port, "POST", "/bios/trace/start-shell-shutdown", {})
+    if status != 200:
+        raise RuntimeError(
+            "BIOS shell-shutdown trace start returned HTTP "
+            f"{status}: {body.decode(errors='replace').strip()}"
+        )
+
+
+def capture_bios_shell_shutdown_boundary(port: int) -> dict[str, object]:
+    status, body = request_bytes(port, "POST", "/bios/trace/capture-shell-shutdown", {}, timeout=22.0)
+    try:
+        trace = json.loads(body)
+    except json.JSONDecodeError:
+        trace = None
+    if status != 200:
+        raise BiosShellShutdownCaptureError(
+            f"BIOS shell-shutdown trace capture returned HTTP {status}: "
+            f"{bios_trace_failure_detail(trace)}",
+            trace if isinstance(trace, dict) else None,
+        )
+    if not shell_shutdown_boundary_is_verified(trace):
+        raise BiosShellShutdownCaptureError(
+            "complete grounded shell-shutdown boundary was not observed: "
+            f"{bios_trace_failure_detail(trace)}",
+            trace if isinstance(trace, dict) else None,
+        )
+    assert isinstance(trace, dict)
+    return trace
+
+
 def prepare_bios_trace_for_native_stream(port: int, enabled: bool) -> None:
     if enabled:
         start_bios_trace(port)
@@ -824,6 +890,29 @@ def run_bios_phase(
             raise
         trace["game_save_menu_selection"] = selection
         return trace, "statefile_to_game_save", "slot_select_to_cprofile_save_game"
+    if phase == "shutdown":
+        pause = probe_gameplay_pause_menu(port, deadline)
+        _complete_menu_action(port, deadline, "down", "BIOS phase shutdown down")
+        _, candidate = _await_settled_menu_state(
+            port, deadline, "BIOS phase shutdown QuitGame menu discovery"
+        )
+        if candidate.get("focused_item_action") != QUIT_GAME_ACTION:
+            raise RuntimeError(
+                "BIOS phase shutdown did not focus the grounded QuitGame item: "
+                f"{candidate}"
+            )
+        start_bios_shell_shutdown_phase(port)
+        _complete_menu_action(port, deadline, "activate", "BIOS phase shutdown QuitGame activation")
+        try:
+            trace = capture_bios_shell_shutdown_boundary(port)
+        except BiosShellShutdownCaptureError as error:
+            if error.trace is not None:
+                error.trace["pause_menu"] = pause
+                error.trace["quit_game_menu"] = candidate
+            raise
+        trace["pause_menu"] = pause
+        trace["quit_game_menu"] = candidate
+        return trace, "mission_to_shell_shutdown", "pad_start_then_quit_game"
     raise ValueError(f"unsupported BIOS phase: {phase}")
 
 

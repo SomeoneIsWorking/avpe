@@ -254,6 +254,24 @@ Profile-menu Down completed without an EE shuttle or stack-alignment failure.
 This proves title action dispatch and its guest transition boundary; it still
 does not expose `QuitGame` or prove a shell return.
 
+### Finding (2026-08-31, shell-shutdown boundary discriminator)
+
+`NativeShellShutdownBoundary` is now a narrow observation-only owner for the
+live `CShell::Quit` entry (`0x0016F8D0`) through the exact
+`CShell::MainLoop` return (`0x0016F8C8`). It validates the supported shell
+singleton before arming, starts the BIOS/IOP census only at that guest entry,
+and requires the shell quit bit at `+0x808` before it reports completion. The
+new shutdown phase reaches the existing gameplay pause menu through physical
+Start and refuses to arm unless its settled focused item has the measured
+`QuitGame` CRC (`0x3CF57571`).
+
+The known `mission1.p2s` supplies the negative answer: its first game-owned
+Down focuses `LoadMenu` (`0xCA788CFB`), not `QuitGame`, so the phase rejects it
+before activation. The previous disappearance of the pause owner after
+activation was therefore a `LoadMenu` transition and cannot certify a guest
+shutdown. A live menu fixture whose focused action is actually `QuitGame`
+remains required.
+
 ### Finding (2026-08-31, normal game-load owner)
 
 `GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears
