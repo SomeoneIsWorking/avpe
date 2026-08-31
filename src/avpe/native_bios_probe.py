@@ -34,6 +34,7 @@ MISSION_TRACE_RETURN_PC = 0x0016FA4C
 GAME_SAVE_TRACE_ENTRY_PC = 0x00130170
 GAME_SAVE_TRACE_RETURN_PC = 0x00130374
 GAME_SAVE_PACIFY_PROCESS_PC = 0x00202F40
+PROFILE_MENU_VTABLE = "0x00343750"
 
 
 class BiosMissionCaptureError(RuntimeError):
@@ -53,8 +54,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="capture the bounded BIOS/IOP census from boot or a savestate")
     parser.add_argument(
         "--probe-bios-phase",
-        choices=("title", "menu", "save-load", "game-save", "mission"),
-        help="capture a bounded BIOS/IOP phase after a title/menu action, control save/load, normal game save, or clean-boot mission load",
+        choices=("title", "title-profile", "menu", "save-load", "game-save", "mission"),
+        help="capture a bounded BIOS/IOP phase after a title or observed profile-menu action, control save/load, normal game save, or clean-boot mission load",
     )
     parser.add_argument("--bios-trace-output", type=Path,
                         help="write --probe-bios-trace JSON to this scratch path")
@@ -67,7 +68,7 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
         parser.error("--bios-trace-output requires a BIOS trace probe")
     if args.probe_bios_trace and args.probe_bios_phase is not None:
         parser.error("choose either --probe-bios-trace or --probe-bios-phase")
-    if args.probe_bios_phase in ("title", "menu", "save-load", "game-save") and args.statefile is None:
+    if args.probe_bios_phase in ("title", "title-profile", "menu", "save-load", "game-save") and args.statefile is None:
         parser.error("--probe-bios-phase requires --statefile")
     if args.probe_bios_phase == "game-save" and getattr(args, "memory_card_source", None) is None:
         parser.error("--probe-bios-phase game-save requires --memory-card-source")
@@ -614,6 +615,16 @@ def _reach_title_menu(port: int, deadline: float) -> None:
     )
 
 
+def _activate_title_menu(port: int, deadline: float) -> dict[str, object]:
+    _reach_title_menu(port, deadline)
+    start_bios_trace(port)
+    _complete_menu_action(port, deadline, "activate", "BIOS phase title activate")
+    status, title_menu, detail = menu_state(port)
+    if status not in (200, 409) or title_menu is None:
+        raise RuntimeError(f"BIOS phase title post-action menu discovery failed: HTTP {status}: {detail}")
+    return {"status": status, "state": title_menu}
+
+
 def run_bios_phase(
     port: int,
     deadline: float,
@@ -638,15 +649,27 @@ def run_bios_phase(
         trace["mission_transition_proof"] = transition
         return trace, "clean_boot_to_mission", "shell_set_next_level"
     if phase == "title":
-        _reach_title_menu(port, deadline)
-        start_bios_trace(port)
-        _complete_menu_action(port, deadline, "activate", "BIOS phase title activate")
-        status, title_menu, detail = menu_state(port)
-        if status not in (200, 409) or title_menu is None:
-            raise RuntimeError(f"BIOS phase title post-action menu discovery failed: HTTP {status}: {detail}")
+        title_menu = _activate_title_menu(port, deadline)
         trace = capture_bios_trace(port, at_guest_boundary=False)
-        trace["title_menu_after_action"] = {"status": status, "state": title_menu}
+        trace["title_menu_after_action"] = title_menu
         return trace, "zono_splash_to_title_menu_action", "start_then_title_activate"
+    if phase == "title-profile":
+        title_menu = _activate_title_menu(port, deadline)
+        profile_state = title_menu["state"]
+        if title_menu["status"] != 200 or not isinstance(profile_state, dict) \
+                or profile_state.get("menu_vtable") != PROFILE_MENU_VTABLE:
+            raise RuntimeError(
+                "BIOS phase title did not settle at the grounded GProfileMenu before activation: "
+                f"{title_menu}"
+            )
+        _complete_menu_action(port, deadline, "activate", "BIOS phase profile activate")
+        status, next_menu, detail = menu_state(port)
+        if status not in (200, 409) or next_menu is None:
+            raise RuntimeError(f"BIOS phase profile post-action menu discovery failed: HTTP {status}: {detail}")
+        trace = capture_bios_trace(port, at_guest_boundary=False)
+        trace["title_menu_after_action"] = title_menu
+        trace["profile_menu_after_action"] = {"status": status, "state": next_menu}
+        return trace, "zono_splash_to_profile_menu_action", "start_then_title_and_profile_activate"
     if phase == "menu":
         start_bios_trace(port)
         _complete_menu_action(port, deadline, "down", "BIOS phase menu down")
