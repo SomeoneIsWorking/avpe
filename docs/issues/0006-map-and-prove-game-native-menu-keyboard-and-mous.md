@@ -73,11 +73,14 @@ resolved owner (`a0`), current `CInputDef` (`a2`), and callback member
 descriptor (`t9`). A live neutral Save Game run reached the normal menu analog
 callback 114 times. The menu pointer is registered separately with virtual
 descriptor `{0, 0xd8, 0}` but does not fire while the backend is neutral. The
-remaining implementation is therefore a bounded host-input queue that selects
-that registered pointer definition at this seam and proves the normal callback
-updates the Save Game pointer; it is not another direct-call variant.
+dispatch-bound queue now selects that registered pointer definition at this
+seam. `POST /input/menu-pointer-dispatch` proved it updates the Save Game
+pointer through the ordinary callback, with normalized `(0.6,0.4)` reaching
+`(383.4,178.8)`. It does not yet order `MenuCheck` after that yielding callback,
+so it remains a diagnostic route and the product host retains the verified
+direct pause-menu path.
 
 Remaining work: verify the real windowed key/mouse path in a user-visible run,
-determine the Press START state dependency, prove the dispatch-bound host
-pointer queue for yielding motion, and cover title and broader in-game menu
-variants.
+determine the Press START state dependency, order menu hit-testing/activation
+after the dispatch-bound pointer callback, then integrate that route into the
+product host and cover title and broader in-game menu variants.
