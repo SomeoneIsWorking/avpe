@@ -180,6 +180,12 @@ guest-owned request and completion pair: validate `CShell::Quit` against the
 live shell singleton at `0x003672F0`, then observe that main-loop return. The
 control channel's VM shutdown route is not evidence for this game path.
 
+`GPauseMenu::ItemActivated` (`0x001FCA10`) special-cases resume and
+profile/save-menu selection, then delegates its remaining actions to the base
+menu handler. The persisted pause child that exposes `CancelKillMe` therefore
+cannot be the shutdown fixture: a valid capture must reach its parent or
+another live menu item whose action is actually `QuitGame`.
+
 ### Finding (2026-08-31, normal game-load owner)
 
 `GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears
