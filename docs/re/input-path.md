@@ -208,11 +208,14 @@ registered at callback index 0: owner `0x015fe940`, input-definition list
 backend was neutral. The diagnostic `POST /input/menu-pointer-dispatch` route
 now queues exactly one relative vector, revalidates the live owner and virtual
 descriptor, and replaces only that dispatch's game-owned `CInputData` and
-member descriptor. A Save Game run admitted ticket 1 and reached `(383.4,
-178.8)` for normalized `(0.6,0.4)` through the ordinary callback. The product
-host still uses the grounded direct pause-menu route: return-ordered menu
-hit-testing and activation remain necessary before this dispatch queue can
-replace it.
+member descriptor. On callback return at `0x001147d8`, it queues the pointer's
+validated `MenuCheck` through the ordinary deferred scheduler, so that check
+cannot run before the yielding callback has completed. A surfaceless Save Game
+run injected ticket 1, moved the `GPosRot::GetPos` coordinates from `(447.30,
+178.80)` to `(431.33,178.80)`, and completed that follow-up with exact stack
+restoration. The hit test cleared this state's existing pointer focus rather
+than selecting an item; activation is therefore not yet grounded. The product
+host still uses the verified direct pause-menu route.
 
 ## Native bridge
 

@@ -204,10 +204,11 @@ Game menu its complete guest routine reaches `SleepThread` and BIOS `EENULL`
 instead of the shuttle return boundary. `NativeInputDispatch` now observes the
 real `GInputDevice::Process` member-call seam and proved its game-owned input
 buffer and neutral menu callback, while separately identifying the registered
-virtual pointer callback. Its diagnostic single-event queue reached the exact
-Save Game pointer target through that ordinary game path. It has not yet
-ordered `MenuCheck` or activation after the yielding callback, so the product
-host correctly remains on the verified direct pause-menu route (issue #6).
+virtual pointer callback. Its diagnostic single-event queue now orders the
+validated `MenuCheck` only after the real callback returns at `0x001147d8` and
+proved pointer movement plus safe deferred restoration in Save Game. That
+menu's hit test cleared focus rather than selecting an item, so activation and
+the product host route remain unverified (issue #6).
 
 Gap: real window key/mouse delivery remains unobserved because agent tests must
 be windowless. Title and broader in-game menu coverage remains incomplete.
