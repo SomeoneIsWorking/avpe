@@ -146,6 +146,19 @@ item or menu level for the normal save path; the prior Cross injection was not
 the root cause. Future evidence must include a positive pacify-process count,
 so a direct or unrelated save cannot certify the menu-owned operation.
 
+### Finding (2026-08-31, load-card pairing discriminator)
+
+Pairing `mission1.p2s` with the previously produced `after-slot0.ps2` card
+did reach a live `GLoadGameMenu` whose first slot displayed the recorded
+`Extinction 1 / Marine 1 / 2026/08/26 8:36:09` save. Focusing that slot and
+the grounded `ActivateFocused` Select item completed the original menu call,
+but the resulting load transition recorded zero
+`GLoadPacifyMenu::Process` calls and zero `CProfile::LoadGame` entries; the
+surfaceless frame remained in the dark transition state. The card and state
+therefore do not restore the same live load context. This is a fixture
+discriminator, not load evidence; a positive load census still requires a
+guest-owned pacify state that reaches the profile boundary.
+
 The known `pause-menu.p2s` is also not the missing fixture. Its grounded
 Down/Activate/Activate sequence completed all three original menu calls, yet
 again observed zero pacify-process calls, zero save entries, and no card delta.
