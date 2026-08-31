@@ -54,7 +54,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="capture the bounded BIOS/IOP census from boot or a savestate")
     parser.add_argument(
         "--probe-bios-phase",
-        choices=("title", "title-profile", "menu", "save-load", "game-save", "mission"),
+        choices=("title", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save", "mission"),
         help="capture a bounded BIOS/IOP phase after a title or observed profile-menu action, control save/load, normal game save, or clean-boot mission load",
     )
     parser.add_argument("--bios-trace-output", type=Path,
@@ -68,7 +68,7 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
         parser.error("--bios-trace-output requires a BIOS trace probe")
     if args.probe_bios_trace and args.probe_bios_phase is not None:
         parser.error("choose either --probe-bios-trace or --probe-bios-phase")
-    if args.probe_bios_phase in ("title", "title-profile", "menu", "save-load", "game-save") and args.statefile is None:
+    if args.probe_bios_phase in ("title", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save") and args.statefile is None:
         parser.error("--probe-bios-phase requires --statefile")
     if args.probe_bios_phase == "game-save" and getattr(args, "memory_card_source", None) is None:
         parser.error("--probe-bios-phase game-save requires --memory-card-source")
@@ -619,10 +619,28 @@ def _activate_title_menu(port: int, deadline: float) -> dict[str, object]:
     _reach_title_menu(port, deadline)
     start_bios_trace(port)
     _complete_menu_action(port, deadline, "activate", "BIOS phase title activate")
-    status, title_menu, detail = menu_state(port)
-    if status not in (200, 409) or title_menu is None:
-        raise RuntimeError(f"BIOS phase title post-action menu discovery failed: HTTP {status}: {detail}")
+    status, title_menu = _await_settled_menu_state(
+        port, deadline, "BIOS phase title post-action menu discovery"
+    )
     return {"status": status, "state": title_menu}
+
+
+def _await_settled_menu_state(
+    port: int,
+    deadline: float,
+    context: str,
+) -> tuple[int, dict[str, object]]:
+    last_status = 0
+    last_detail = ""
+    while time.monotonic() < deadline:
+        status, state, detail = menu_state(port)
+        if status in (200, 409) and state is not None:
+            return status, state
+        if status not in (409, 500):
+            raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
+        last_status, last_detail = status, detail
+        time.sleep(0.05)
+    raise RuntimeError(f"{context} did not settle: HTTP {last_status}: {last_detail}")
 
 
 def run_bios_phase(
@@ -653,6 +671,31 @@ def run_bios_phase(
         trace = capture_bios_trace(port, at_guest_boundary=False)
         trace["title_menu_after_action"] = title_menu
         return trace, "zono_splash_to_title_menu_action", "start_then_title_activate"
+    if phase == "title-down":
+        _reach_title_menu(port, deadline)
+        start_bios_trace(port)
+        _complete_menu_action(port, deadline, "down", "BIOS phase title down")
+        status, title_menu = _await_settled_menu_state(
+            port, deadline, "BIOS phase title post-down menu discovery"
+        )
+        trace = capture_bios_trace(port, at_guest_boundary=False)
+        trace["title_menu_after_down"] = {"status": status, "state": title_menu}
+        return trace, "zono_splash_to_title_menu_direction", "start_then_title_down"
+    if phase == "title-down-activate":
+        _reach_title_menu(port, deadline)
+        _complete_menu_action(port, deadline, "down", "BIOS phase title down")
+        down_status, down_menu = _await_settled_menu_state(
+            port, deadline, "BIOS phase title post-down menu discovery"
+        )
+        start_bios_trace(port)
+        _complete_menu_action(port, deadline, "activate", "BIOS phase title down activation")
+        status, title_menu = _await_settled_menu_state(
+            port, deadline, "BIOS phase title post-down activation menu discovery"
+        )
+        trace = capture_bios_trace(port, at_guest_boundary=False)
+        trace["title_menu_after_down"] = {"status": down_status, "state": down_menu}
+        trace["title_menu_after_down_activation"] = {"status": status, "state": title_menu}
+        return trace, "zono_splash_to_title_menu_transition", "start_then_title_down_activate"
     if phase == "title-profile":
         title_menu = _activate_title_menu(port, deadline)
         profile_state = title_menu["state"]
@@ -663,9 +706,9 @@ def run_bios_phase(
                 f"{title_menu}"
             )
         _complete_menu_action(port, deadline, "activate", "BIOS phase profile activate")
-        status, next_menu, detail = menu_state(port)
-        if status not in (200, 409) or next_menu is None:
-            raise RuntimeError(f"BIOS phase profile post-action menu discovery failed: HTTP {status}: {detail}")
+        status, next_menu = _await_settled_menu_state(
+            port, deadline, "BIOS phase profile post-action menu discovery"
+        )
         trace = capture_bios_trace(port, at_guest_boundary=False)
         trace["title_menu_after_action"] = title_menu
         trace["profile_menu_after_action"] = {"status": status, "state": next_menu}

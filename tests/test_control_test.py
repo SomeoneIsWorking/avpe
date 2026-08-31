@@ -839,6 +839,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(request.call_args.kwargs["timeout"], 22.0)
 
     def test_title_bios_phase_waits_for_title_menu_then_activates(self) -> None:
+        deadline = time.monotonic() + 1.0
         trace = {
             "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
@@ -864,7 +865,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "avpe.native_bios_probe.capture_bios_trace", return_value=trace
         ) as capture:
             result = run_bios_phase(
-                31234, 99.0, "title", Path("scratch/states/title-real.p2s"),
+                31234, deadline, "title", Path("scratch/states/title-real.p2s"),
                 Path("scratch/control-test/bios-phase-state.p2s"),
             )
 
@@ -872,16 +873,17 @@ class ControlTestPolicyTests(unittest.TestCase):
             result,
             (trace, "zono_splash_to_title_menu_action", "start_then_title_activate"),
         )
-        reach.assert_called_once_with(31234, 99.0)
+        reach.assert_called_once_with(31234, deadline)
         start.assert_called_once_with(31234)
         menu.assert_called_once_with(31234, "activate")
-        await_call.assert_called_once_with(31234, 99.0, 19, "BIOS phase title activate")
+        await_call.assert_called_once_with(31234, deadline, 19, "BIOS phase title activate")
         state.assert_called_once_with(31234)
         capture.assert_called_once_with(31234, at_guest_boundary=False)
         self.assertEqual(trace["title_menu_after_action"]["status"], 409)
         self.assertEqual(trace["title_menu_after_action"]["state"]["menu"], "0x00123456")
 
     def test_title_profile_bios_phase_requires_profile_menu_before_second_activation(self) -> None:
+        deadline = time.monotonic() + 1.0
         trace = {
             "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
@@ -907,13 +909,14 @@ class ControlTestPolicyTests(unittest.TestCase):
             "avpe.native_bios_probe.menu_state",
             side_effect=[
                 (200, {"menu_vtable": PROFILE_MENU_VTABLE}, "profile"),
+                (500, None, "transitional focus"),
                 (409, {"menu": "0x00123456", "callback_count": 2}, "ambiguous"),
             ],
         ) as state, patch(
             "avpe.native_bios_probe.capture_bios_trace", return_value=trace
         ) as capture:
             result = run_bios_phase(
-                31234, 99.0, "title-profile", Path("scratch/states/title-real.p2s"),
+                31234, deadline, "title-profile", Path("scratch/states/title-real.p2s"),
                 Path("scratch/control-test/bios-phase-state.p2s"),
             )
 
@@ -921,17 +924,120 @@ class ControlTestPolicyTests(unittest.TestCase):
             result,
             (trace, "zono_splash_to_profile_menu_action", "start_then_title_and_profile_activate"),
         )
-        reach.assert_called_once_with(31234, 99.0)
+        reach.assert_called_once_with(31234, deadline)
         start.assert_called_once_with(31234)
         self.assertEqual(menu.call_args_list[0].args, (31234, "activate"))
         self.assertEqual(menu.call_args_list[1].args, (31234, "activate"))
-        self.assertEqual(await_call.call_args_list[0].args, (31234, 99.0, 19, "BIOS phase title activate"))
-        self.assertEqual(await_call.call_args_list[1].args, (31234, 99.0, 20, "BIOS phase profile activate"))
-        self.assertEqual(state.call_count, 2)
+        self.assertEqual(await_call.call_args_list[0].args, (31234, deadline, 19, "BIOS phase title activate"))
+        self.assertEqual(await_call.call_args_list[1].args, (31234, deadline, 20, "BIOS phase profile activate"))
+        self.assertEqual(state.call_count, 3)
         capture.assert_called_once_with(31234, at_guest_boundary=False)
         self.assertEqual(trace["profile_menu_after_action"]["status"], 409)
 
+    def test_title_down_bios_phase_waits_for_the_settled_focused_action(self) -> None:
+        deadline = time.monotonic() + 1.0
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [make_bios_import_event(1)],
+        }
+        state = {
+            "menu": "0x0139AA20",
+            "menu_vtable": PROFILE_MENU_VTABLE,
+            "focus_object": "0x0153AA10",
+            "focused_item_action": "0x95DF2577",
+        }
+        with patch("avpe.native_bios_probe._reach_title_menu") as reach, patch(
+            "avpe.native_bios_probe.start_bios_trace"
+        ) as start, patch(
+            "avpe.native_bios_probe.menu_action",
+            return_value=(202, {"deferred_call_id": 19}, "queued"),
+        ) as menu, patch(
+            "avpe.native_bios_probe.await_deferred_call"
+        ) as await_call, patch(
+            "avpe.native_bios_probe.menu_state",
+            return_value=(200, state, "settled"),
+        ) as menu_state_mock, patch(
+            "avpe.native_bios_probe.capture_bios_trace", return_value=trace
+        ) as capture:
+            result = run_bios_phase(
+                31234, deadline, "title-down", Path("scratch/states/title-real.p2s"),
+                Path("scratch/control-test/bios-phase-state.p2s"),
+            )
+
+        self.assertEqual(
+            result,
+            (trace, "zono_splash_to_title_menu_direction", "start_then_title_down"),
+        )
+        reach.assert_called_once_with(31234, deadline)
+        start.assert_called_once_with(31234)
+        menu.assert_called_once_with(31234, "down")
+        await_call.assert_called_once_with(31234, deadline, 19, "BIOS phase title down")
+        menu_state_mock.assert_called_once_with(31234)
+        capture.assert_called_once_with(31234, at_guest_boundary=False)
+        self.assertEqual(trace["title_menu_after_down"], {"status": 200, "state": state})
+
+    def test_title_down_activation_uses_the_settled_focused_action(self) -> None:
+        deadline = time.monotonic() + 1.0
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [make_bios_import_event(1)],
+        }
+        down_state = {"menu": "0x01346590", "focused_item_action": "0x807F1E5F"}
+        destination_state = {"menu": "0x01346910", "focused_item_action": "0xC1D97EAC"}
+        with patch("avpe.native_bios_probe._reach_title_menu") as reach, patch(
+            "avpe.native_bios_probe.start_bios_trace"
+        ) as start, patch(
+            "avpe.native_bios_probe.menu_action",
+            side_effect=[
+                (202, {"deferred_call_id": 19}, "queued down"),
+                (202, {"deferred_call_id": 20}, "queued activate"),
+            ],
+        ) as menu, patch(
+            "avpe.native_bios_probe.await_deferred_call"
+        ) as await_call, patch(
+            "avpe.native_bios_probe.menu_state",
+            side_effect=[(200, down_state, "down"), (200, destination_state, "destination")],
+        ) as menu_state_mock, patch(
+            "avpe.native_bios_probe.capture_bios_trace", return_value=trace
+        ) as capture:
+            result = run_bios_phase(
+                31234, deadline, "title-down-activate", Path("scratch/states/title-real.p2s"),
+                Path("scratch/control-test/bios-phase-state.p2s"),
+            )
+
+        self.assertEqual(
+            result,
+            (trace, "zono_splash_to_title_menu_transition", "start_then_title_down_activate"),
+        )
+        reach.assert_called_once_with(31234, deadline)
+        start.assert_called_once_with(31234)
+        self.assertEqual(menu.call_args_list, [call(31234, "down"), call(31234, "activate")])
+        self.assertEqual(
+            await_call.call_args_list,
+            [
+                call(31234, deadline, 19, "BIOS phase title down"),
+                call(31234, deadline, 20, "BIOS phase title down activation"),
+            ],
+        )
+        self.assertEqual(menu_state_mock.call_count, 2)
+        capture.assert_called_once_with(31234, at_guest_boundary=False)
+        self.assertEqual(trace["title_menu_after_down"], {"status": 200, "state": down_state})
+        self.assertEqual(
+            trace["title_menu_after_down_activation"], {"status": 200, "state": destination_state}
+        )
+
     def test_title_profile_bios_phase_refuses_another_menu_before_second_activation(self) -> None:
+        deadline = time.monotonic() + 1.0
         with patch(
             "avpe.native_bios_probe._reach_title_menu"
         ), patch(
@@ -948,7 +1054,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "avpe.native_bios_probe.capture_bios_trace"
         ) as capture, self.assertRaisesRegex(RuntimeError, "grounded GProfileMenu"):
             run_bios_phase(
-                31234, 99.0, "title-profile", Path("scratch/states/title-real.p2s"),
+                31234, deadline, "title-profile", Path("scratch/states/title-real.p2s"),
                 Path("scratch/control-test/bios-phase-state.p2s"),
             )
 
