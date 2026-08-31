@@ -213,7 +213,7 @@ def _summarize_ee_syscalls(events: list[dict[str, Any]]) -> list[dict[str, Any]]
             entry["nonreturning_calls"] = entry.get("nonreturning_calls", 0) + calls
         elif _required_bool(event, "result_valid"):
             entry["observed_result_calls"] = entry.get("observed_result_calls", 0) + calls
-            entry["results"].add(_required_int(event, "result"))
+            entry["results"].add(_required_result(event))
         elif result_expected:
             entry["unobserved_result_calls"] = (
                 entry.get("unobserved_result_calls", 0) + calls
@@ -236,7 +236,7 @@ def _summarize_ee_syscalls(events: list[dict[str, Any]]) -> list[dict[str, Any]]
             bios_result_return_calls[identity] += calls
         if result_valid:
             entry["observed_result_calls"] = entry.get("observed_result_calls", 0) + calls
-            entry["results"].add(_required_int(event, "result"))
+            entry["results"].add(_required_result(event))
         elif result_expected:
             entry["unobserved_result_calls"] = (
                 entry.get("unobserved_result_calls", 0) + calls
@@ -373,6 +373,17 @@ def _required_int(event: dict[str, Any], key: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"BIOS event field {key!r} must be an integer")
     return value
+
+
+def _required_result(event: dict[str, Any]) -> int:
+    if "result" in event and "result_u64" not in event:
+        return _required_int(event, "result")
+    if "result_u64" in event and "result" not in event:
+        result = _required_int(event, "result_u64")
+        if not 0 <= result < (1 << 64):
+            raise ValueError("BIOS event result_u64 is outside the u64 range")
+        return result
+    raise ValueError("BIOS event must carry exactly one scalar result encoding")
 
 
 def _required_bool(event: dict[str, Any], key: str) -> bool:
