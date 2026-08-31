@@ -11,7 +11,10 @@ from avpe.menu_probe import (
     menu_state,
 )
 
-SAVE_GAME_BUTTON_CENTER = (280.0 / 639.0, 378.0 / 447.0)
+MENU_POINTER_TARGETS = {
+    "0x012e85a0": (0.7, 0.4),
+    "0x015afa70": (280.0 / 639.0, 378.0 / 447.0),
+}
 
 
 def _move_through_dispatch(
@@ -85,6 +88,18 @@ def _activate_focused_pointer(
     return response, completion
 
 
+def _target_for_menu(source_menu: dict[str, object]) -> tuple[float, float]:
+    menu = source_menu.get("menu")
+    if not isinstance(menu, str):
+        raise RuntimeError(f"dispatched menu pointer source has no menu identity: {source_menu}")
+    target = MENU_POINTER_TARGETS.get(menu.lower())
+    if target is None:
+        raise RuntimeError(
+            f"no grounded dispatched pointer target for menu {menu}: {source_menu}"
+        )
+    return target
+
+
 def probe_native_menu_pointer_dispatch(
     port: int, deadline: float, output_dir: Path
 ) -> dict[str, object]:
@@ -94,7 +109,7 @@ def probe_native_menu_pointer_dispatch(
             "native dispatched menu pointer source menu returned "
             f"HTTP {source_status}: {source_detail}"
         )
-    move, dispatch, state = _move_through_dispatch(port, deadline, *SAVE_GAME_BUTTON_CENTER)
+    move, dispatch, state = _move_through_dispatch(port, deadline, *_target_for_menu(source_menu))
     focus = state.get("before")
     if not isinstance(focus, dict) or focus.get("focus_object") == "0x00000000":
         raise RuntimeError(
