@@ -15,10 +15,10 @@ The project began with only selected asset-import/debug hooks and no bounded
 firmware census. The remaining root gap is now narrower: the v5 mission census
 has grounded EE BIOS and IOP oracle return owners with ABI-aware result
 validity, each confirmed by repeated mission evidence. Schema v5 now captures
-declared 64-bit EE results without truncation, but a live title exercise of
-those GS calls, stable guest-owned save/load and shutdown boundaries, and
-service negative paths are still absent. One mission slice cannot substitute
-for the complete required firmware contract.
+declared 64-bit EE results without truncation and the ordinary clean boot has
+now exercised `GsPutIMR`; `GsGetIMR`, stable guest-owned save/load and shutdown
+boundaries, and service negative paths are still absent. One mission slice
+cannot substitute for the complete required firmware contract.
 
 ## Current work
 
@@ -209,6 +209,29 @@ does not reach `GLoadPacifyMenu`. The title flow thus establishes profile-list
 selection separately from the normal game-load seam. The next valid operation
 must observe the selected profile row and any resulting pacify owner before it
 can be treated as a game-load candidate.
+
+### Finding (2026-08-31, clean-boot GS result and nested syscall pairing)
+
+The static ELF inventory identifies `GsPutIMR` wrapper calls in
+`sceGsResetGraph` and `sceGsExecStoreImage`, while `GsGetIMR` appears only in
+the store-image routine. `sceGsResetGraph` is reached from ordinary
+`FRAMEBUFFER_Init`, whereas the store-image routine requires explicit GS DMA
+store-image work; it is not a title-menu path. A clean boot held until the
+ordinary `TBD/TBF.TBF` asset-open boundary captured one BIOS syscall 113
+(`GsPutIMR`) with arguments `0x0000ff00, 0x00010000, 0x00020000, 0` and its
+grounded 64-bit result `0x000000000000ff00`. It captured no syscall 112
+(`GsGetIMR`), so the title's normal boot proves only the reset-side 64-bit ABI.
+
+That longer census initially refused its own result with one EE pairing
+sequence error: `NativeBiosEventStore` kept only one pending BIOS syscall per
+guest stack pointer, so a nested call at the same pointer overwrote its older
+entry. The store now retains bounded nested entries and resolves each return to
+the most-recent exact `(stack pointer, resume PC)` entry; a native regression
+covers nested duplicate and distinct return PCs. Repeating the same clean boot
+then completed with zero EE pairing errors and zero event overflow. Its three
+pending EE calls and one pending IOP import are in-flight work at the capture
+boundary, not pairing failures. This makes the captured `GsPutIMR` result
+admissible while preserving the absence of `GsGetIMR` as a real inventory gap.
 
 The retained trace set is mechanically summarized by
 `tools/analyze_bios_traces.py`, which reuses the runner's strict v5 validator
