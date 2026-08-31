@@ -247,7 +247,12 @@ four-byte array element. It validates pointer field IDs and sizes and returns
 the consumed boundary while leaving any following virtual `SaveEx` payload
 unconsumed.
 
-`SaveAll` invokes each saved object's virtual `SaveEx` after `GObject::Save`.
+`GObject::SaveAll` first emits one complete recursive object structure for a
+top-level root: nested structures, nested terminators, and descriptor-defined
+bodies. It then walks the saved-object handle array and invokes each object's
+virtual `SaveEx` in that order. Therefore a class's `SaveEx` bytes are not
+necessarily adjacent to its descriptor body; a parser must retain the object
+handle order while consuming the delayed payload queue.
 The supported binary contains additional implementations at
 `0x00110450` (`GFOWSaver`), `0x0019FFC0` (`GHiveNode`), `0x001A8850`
 (`GAlienCarrier`), `0x001C0C80` (`GUnit`), `0x001DD8E0` (`GChestBurster`),
@@ -259,16 +264,14 @@ probe selected `GObject` for 47 observed classes, `GUnit` for 9,
 `GObjectAI` for 6, `GPlayerManager` for 3, `GDropShip` for 1, and `GFOWSaver`
 for 1, with no missing class IDs. This maps the virtual dispatch boundary for
 the observed records. The payload schemas remain separate: `GFOWSaver::SaveEx`
-writes a bounded count followed by a sign-bit bitmap, while
+writes a bounded word count followed by that many sign-bit bitmap words, while
 `GPlayerManager::SaveEx` conditionally writes a fixed header plus four groups
-of counted object/float triples. A whole-record parser must now decode those
-selected payloads, including the variable-count `GObjectAI` message queue,
-before it can claim complete record boundaries. `src/avpe/save_ex.py` now
-provides bounded readers for the selected fixed, bitmap, message-queue, and
-conditional group layouts. The AI reader requires the grounded message-type
-size lookup; the player-manager reader requires the saved object's grounded
-active-state predicate. Neither missing context is guessed from arbitrary
-bytes.
+of counted object/float triples. `src/avpe/save_ex.py` provides bounded readers
+for the selected fixed, bitmap, message-queue, and conditional group layouts.
+The AI reader requires the grounded message-type size lookup; the
+player-manager reader uses the saved object's state word, with low 16 bits
+equal to `1`, as the grounded active predicate. Neither context is guessed from
+arbitrary bytes.
 
 The `GObjectAI` message queue uses the fixed 256-slot
 `MessageTypeDatabase` at `0x003B10C0`. `CMessage::Find` selects a slot by the
@@ -302,6 +305,18 @@ between the two slots despite the body differences. This identifies structure,
 not editable field meanings or gameplay semantics, and does not prove that the
 original game loads either produced record.
 
+With the retained live descriptor and message-type inventories supplied, the
+same analyzer now parses the complete delayed object stream for both records.
+Each record contains 1,262 objects (189 top-level roots and 1,073 nested
+objects), reaches the top-level terminator at decoded offsets `0x9A694` and
+`0x9A704`, and has eight zero padding bytes after the terminator. The selected
+SaveEx readers consume 228 non-base payloads in each record, including one
+`GFOWSaver`, 109 `GUnit` payloads, one `GDropShip` payload, 107 AI payloads,
+and ten active `GPlayerManager` payloads; the remaining 1,034 objects use the
+base `GObject` implementation. This proves complete wire-boundary parsing for
+the two retained records, not the gameplay meaning of descriptor fields or a
+load round-trip.
+
 ## Evidence needed next
 
 - Produce at least two isolated profile records whose settings differ and two
@@ -312,11 +327,11 @@ original game loads either produced record.
   that must be rejected, to resolve unknown fields and checksums. Object-header
   structure, descriptor wire splitting, and malformed-input rejection are now
   covered by production parsers.
-- Integrate the bounded selected `SaveEx` readers with the recursive object
-  stream, including the variable-count `GObjectAI` message queue and
-  conditional `GPlayerManager` state. The fixed-size table and dynamic
-  message-size fallback are decoded; the remaining external input is the
-  grounded player-manager active predicate.
+- Use paired setting/progress changes to decode editable field meanings and
+  validate a writer against the original loader. The recursive structure,
+  descriptor wire splitting, selected SaveEx payloads, dynamic message-size
+  fallback, and grounded player-manager predicate now produce complete
+  boundaries for both retained records.
 - Capture a normal in-game save completion and identify the narrow guest-call
   interception mechanism that can route the five `CProfile` operations to
   `AVPE::NativeSaves` while keeping the original game routines available as

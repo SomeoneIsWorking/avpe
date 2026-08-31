@@ -13,6 +13,7 @@ from avpe.save_message_types import (
 )
 
 PLAYER_MANAGER_FIXED_BYTES = 0x474 + 0x10
+MAX_FOW_WORDS = 1 << 20
 
 
 @dataclass(frozen=True)
@@ -30,7 +31,7 @@ class GDropShipSaveEx:
 
 @dataclass(frozen=True)
 class GFowSaveEx:
-    bit_count: int
+    word_count: int
     words: tuple[int, ...]
     consumed_bytes: int
 
@@ -75,17 +76,21 @@ def parse_gdrop_ship_payload(data: bytes) -> GDropShipSaveEx:
 def parse_gfow_saver_payload(
     data: bytes, expected_word_count: int | None = None
 ) -> GFowSaveEx:
-    """Read GFOWSaver's bit-count and sign-bit words."""
+    """Read GFOWSaver's serialized word count and sign-bit words."""
 
     _require_bytes(data, 4, "GFOWSaver SaveEx count")
-    bit_count = struct.unpack_from("<I", data)[0]
-    word_count = (bit_count + 31) // 32
+    word_count = struct.unpack_from("<I", data)[0]
+    if word_count > MAX_FOW_WORDS:
+        raise ValueError("GFOWSaver SaveEx word count exceeds its bound")
     if expected_word_count is not None and word_count != expected_word_count:
         raise ValueError("GFOWSaver SaveEx count does not match the expected count")
     consumed = 4 + word_count * 4
     _require_bytes(data, consumed, "GFOWSaver SaveEx bitmap")
-    words = struct.unpack_from("<" + "I" * word_count, data, 4)
-    return GFowSaveEx(bit_count, words, consumed)
+    words = tuple(
+        struct.unpack_from("<I", data, 4 + index * 4)[0]
+        for index in range(word_count)
+    )
+    return GFowSaveEx(word_count, words, consumed)
 
 
 def parse_gobject_ai_payload(data: bytes, message_size: MessageSize) -> GObjectAISaveEx:
