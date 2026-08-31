@@ -252,3 +252,11 @@ that diagnostic explicitly with `AVPE_BIOS_TRACE=0`; ordinary control tests and
 explicit BIOS probes retain tracing. A rebuilt Clang binary is ready for one
 fresh mission comparison; no timing result is claimed until that comparison
 completes.
+
+The first post-fix oracle attempt then reached the Marine M1 endpoint but
+failed during mission-goals inspection because the diagnostic required a
+focused item before discovering the modal's Exit object. The retained
+successful transition proof shows that this modal legitimately starts with
+`focus_handle=0`; the runtime now discovers the exact Exit vtable first and
+requires focus only after the explicit focus call. This second fix is rebuilt
+with Clang and is the next runtime discriminator.
