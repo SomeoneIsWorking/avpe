@@ -214,6 +214,11 @@ return. The corrected native `ActivateFocused` probe completed on
 delta, proving that state has the wrong focused item or menu level rather than
 an unproven save failure.
 
+The grounded Down/Activate/Activate path from `pause-menu.p2s` also completed
+without reaching the pacify process or changing the isolated card. It is not
+kept as a probe sequence: the next fixture operation must observe the concrete
+focused-item action at each transition rather than guess another input order.
+
 The guest shutdown path has an equivalent static seam. `GMenu::ItemActivated`
 handles a `QuitGame` item by calling `CShell::Quit` (`0x0016F8D0`), which sets
 the shell quit bit at `+0x808`. `CShell::MainLoop` checks that bit after
