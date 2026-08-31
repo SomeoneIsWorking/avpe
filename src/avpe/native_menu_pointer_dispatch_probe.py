@@ -1,6 +1,7 @@
 """Proof policy for dispatch-bound native menu pointer motion."""
 
 import json
+import time
 from pathlib import Path
 
 from avpe.control_http import request_json
@@ -49,25 +50,27 @@ def _move_through_dispatch(
             )
 
     dispatch = await_dispatched_pointer_motion(port, deadline, pointer_id)
-    state_status, state, state_detail = menu_pointer_state(port)
-    if state_status != 200 or state is None:
-        raise RuntimeError(
-            f"native menu pointer state returned HTTP {state_status}: {state_detail}"
-        )
-    if response.get("pointer") != state.get("pointer"):
-        raise RuntimeError(
-            "dispatched menu pointer state lost its pointer identity: "
-            f"move={response}, dispatch={dispatch}, state={state}"
-        )
-    for field, expected in (
-        ("menu_x", normalized_x * 639.0),
-        ("menu_y", normalized_y * 447.0),
-    ):
-        if abs(float(state.get(field, float("inf"))) - expected) > 0.05:
-            raise RuntimeError(
-                f"dispatched menu pointer state returned unexpected {field}: {state}"
-            )
-    return response, dispatch, state
+    expected_position = {
+        "menu_x": normalized_x * 639.0,
+        "menu_y": normalized_y * 447.0,
+    }
+    state: dict[str, object] | None = None
+    last_detail = "not sampled"
+    while time.monotonic() < deadline:
+        state_status, state, last_detail = menu_pointer_state(port)
+        if state_status != 200 or state is None:
+            time.sleep(0.05)
+            continue
+        if response.get("pointer") == state.get("pointer") and all(
+            abs(float(state.get(field, float("inf"))) - expected) <= 0.05
+            for field, expected in expected_position.items()
+        ):
+            return response, dispatch, state
+        time.sleep(0.05)
+    raise RuntimeError(
+        "dispatched menu pointer injection did not apply its coordinates: "
+        f"move={response}, dispatch={dispatch}, state={state}, detail={last_detail}"
+    )
 
 
 def _activate_focused_pointer(
