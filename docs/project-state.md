@@ -614,6 +614,12 @@ remaining boundary defect: one had 237 events and its immediate repeat had one
 timer event. Both were bounded valid traces, so the result is a negative
 repeatability control rather than mission-service coverage.
 
+The title phase now advances the Zono splash through Start, waits for the live
+callback-registry title menu, and captures after its deferred activation. Two
+zero-overflow runs reached the same action but retained 150 versus 51 events,
+with 524/524 versus 15/15 paired EE calls and 51/51 versus 0/0 paired IOP calls.
+That is another negative repeatability control, not title service coverage.
+
 `tools/analyze_bios_traces.py` now turns retained v4 captures into a
 deterministic inventory report using the same strict trace validator as the
 runner. Its v4 summary separates observed results, returned oracle calls,

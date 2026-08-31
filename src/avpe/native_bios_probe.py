@@ -3,10 +3,11 @@
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 from avpe.control_http import request_bytes, request_json
-from avpe.menu_probe import await_deferred_call, menu_action
+from avpe.menu_probe import await_deferred_call, menu_action, menu_state
 from avpe.native_asset_probe import await_native_stream_reads
 from avpe.native_mission_probe import probe_marine_m1_transition
 
@@ -39,8 +40,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="capture the bounded BIOS/IOP census from boot or a savestate")
     parser.add_argument(
         "--probe-bios-phase",
-        choices=("menu", "save-load", "mission"),
-        help="capture a bounded BIOS/IOP phase after a menu action, save/load, or clean-boot mission load",
+        choices=("title", "menu", "save-load", "mission"),
+        help="capture a bounded BIOS/IOP phase after a title/menu action, save/load, or clean-boot mission load",
     )
     parser.add_argument("--bios-trace-output", type=Path,
                         help="write --probe-bios-trace JSON to this scratch path")
@@ -53,7 +54,7 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
         parser.error("--bios-trace-output requires a BIOS trace probe")
     if args.probe_bios_trace and args.probe_bios_phase is not None:
         parser.error("choose either --probe-bios-trace or --probe-bios-phase")
-    if args.probe_bios_phase in ("menu", "save-load") and args.statefile is None:
+    if args.probe_bios_phase in ("title", "menu", "save-load") and args.statefile is None:
         parser.error("--probe-bios-phase requires --statefile")
     if args.probe_bios_phase == "mission":
         if args.statefile is not None:
@@ -470,6 +471,35 @@ def _complete_menu_action(port: int, deadline: float, action: str, context: str)
         raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
 
 
+def _reach_title_menu(port: int, deadline: float) -> None:
+    status, response, detail = request_json(
+        port, "POST", "/input/press", {"mask": 1 << 9, "ms": 250}
+    )
+    if status != 200 or response is None or response.get("pressed") is not True:
+        raise RuntimeError(f"BIOS phase title Start input failed: HTTP {status}: {detail}")
+
+    last_status = 0
+    last_detail = ""
+    while time.monotonic() < deadline:
+        status, state, detail = menu_state(port)
+        if status == 200 and state is not None \
+                and isinstance(state.get("menu"), str) \
+                and state.get("menu") != "0x00000000" \
+                and isinstance(state.get("callback_count"), int) \
+                and state["callback_count"] > 0:
+            return
+        if status not in (409, 500):
+            raise RuntimeError(
+                f"BIOS phase title menu discovery failed: HTTP {status}: {detail}"
+            )
+        last_status, last_detail = status, detail
+        time.sleep(0.05)
+    raise RuntimeError(
+        "BIOS phase title did not reach a game-owned menu after Start: "
+        f"HTTP {last_status}: {last_detail}"
+    )
+
+
 def run_bios_phase(
     port: int,
     deadline: float,
@@ -493,6 +523,15 @@ def run_bios_phase(
             raise
         trace["mission_transition_proof"] = transition
         return trace, "clean_boot_to_mission", "shell_set_next_level"
+    if phase == "title":
+        _reach_title_menu(port, deadline)
+        start_bios_trace(port)
+        _complete_menu_action(port, deadline, "activate", "BIOS phase title activate")
+        return (
+            capture_bios_trace(port, at_guest_boundary=False),
+            "zono_splash_to_title_menu_action",
+            "start_then_title_activate",
+        )
     if phase == "menu":
         start_bios_trace(port)
         _complete_menu_action(port, deadline, "down", "BIOS phase menu down")

@@ -174,6 +174,13 @@ save/load repeats retained the same 28 event identities and five fully paired
 EE BIOS calls. The restored menu action, not the earlier VSync-only route, is
 the guest-owned completion condition for this pause-menu slice.
 
+The Zono-splash title probe presses Start, waits for the callback-registry menu,
+then traces the title menu's deferred activation through its exact completion.
+Two runs reached that same action with zero overflow, but retained 150 versus
+51 event identities (524/524 versus 15/15 paired EE calls; 51/51 versus 0/0
+paired IOP oracle calls). It is negative repeatability evidence: title
+activation alone is not the required later title-owned service boundary.
+
 Two fresh `mission1.p2s` statefile-to-running captures on 2026-08-29 also
 demonstrated that boundary defect: the first contained 237 events (2 EE
 syscalls, 84 exceptions, and 151 timers), while the immediate repeat contained
