@@ -26,11 +26,11 @@ class BuildPaths:
 
     @property
     def build_dir(self) -> Path:
-        return self.root / "scratch" / "build"
+        return self.root / "build"
 
     @property
     def dependency_prefix(self) -> Path:
-        return self.root / "scratch" / "deps"
+        return self.build_dir / "deps"
 
     @property
     def product_binary(self) -> Path:

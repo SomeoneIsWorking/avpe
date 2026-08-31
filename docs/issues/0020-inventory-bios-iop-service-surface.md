@@ -6,29 +6,33 @@ symptom: The AVP:E-specific BIOS/HLE service surface is not yet inventoried
 state_items: S025,S026,S027,S028
 tags: bios,hle,iop,inventory,re
 created: 2026-08-28
-updated: 2026-08-30
+updated: 2026-08-31
 ---
 
 ## Root cause
 
 The project began with only selected asset-import/debug hooks and no bounded
-firmware census. The remaining root gap is now narrower: the v3 mission census
-has a grounded EE BIOS return owner and ABI-aware result validity, but IOP
-oracle returns, 64-bit EE results, stable guest-owned save/load and shutdown
-boundaries, and service negative paths are still absent. One mission slice
-cannot substitute for the complete required firmware contract.
+firmware census. The remaining root gap is now narrower: the v4 mission census
+has grounded EE BIOS and IOP oracle return owners with ABI-aware result
+validity, each confirmed by repeated mission evidence. 64-bit EE results,
+stable guest-owned save/load and shutdown boundaries, and service negative
+paths are still absent. One mission slice cannot substitute for the complete
+required firmware contract.
 
 ## Current work
 
-`NativeBiosTrace` v3 records EE `SYSCALL` entries through the shared
+`NativeBiosTrace` v4 retains the v3 EE `SYSCALL` contract through the shared
 interpreter implementation, including their four argument registers and
 whether PCSX2 returned directly or dispatched into the BIOS. Return-capable
 BIOS entries pair by guest stack pointer and exact post-syscall PC. A ps2sdk-
 grounded disposition table separates captured signed 32-bit results, returned
 void calls, unobserved result types, and non-returning context/process/thread
-transfers. Recognized HLE/debug IOP imports
-snapshot arguments before dispatch and record whether HLE handled the call or
-the oracle fallback remained responsible; only handled HLE carries a result.
+transfers. Recognized HLE/debug IOP imports snapshot arguments, stack pointer,
+and caller return PC before dispatch. Handled HLE carries its immediate result.
+Oracle fallback queues a bounded frame, registers that exact caller return
+block, and pairs the eventual signed `v0` by stack pointer and return PC through
+`NativeIopExecutionHooks`. The recompiler instruments only registered return
+blocks; the interpreter scans the registry only while an oracle call is pending.
 The census also records EE/IOP exception entry,
 loadcore module registration and release, interrupt registration, and SIF RPC
 registration. EE and IOP counter target/overflow paths now record the counter
@@ -78,10 +82,10 @@ the guest-owned post-restore completion boundary still needed for repeatable
 mission/save/load inventory.
 
 The retained trace set is mechanically summarized by
-`tools/analyze_bios_traces.py`, which reuses the runner's strict v3 validator
-and groups only events actually present in each capture. Schema v3 separately
-counts grounded results, returned void calls, unobserved results, and
-non-returning transfers. The earlier seven
+`tools/analyze_bios_traces.py`, which reuses the runner's strict v4 validator
+and groups only events actually present in each capture. Schema v4 separately
+counts grounded results, returned oracle calls, returned void calls, unobserved
+results, and non-returning transfers. The earlier seven
 v1 captures remain phase-boundary and service-identity evidence, but their
 sampled `v0` values were pre-dispatch registers and are no longer accepted as
 results by the analyzer.
@@ -261,14 +265,62 @@ thread/semaphore result sets repeat. Exact hot-path totals do not:
 `sceSifSetDma` differed by one call and direct `FlushCache` by two. C035/I021
 therefore claim stable service semantics, not byte-identical traces.
 
+### Investigation (2026-08-30, narrow IOP oracle return boundary)
+
+An unhandled IRX import transfers through its real import-stub target and
+eventually resumes at the caller's saved IOP `ra`. Three generalized observer
+designs were rejected before evidence capture: locking and scanning pending
+frames on every indirect branch, adding an atomic function gate to every
+indirect branch, and emitting a pending-return comparison into every recompiled
+`JR` block. Each changed a hot shared path unrelated to the one return being
+measured.
+
+The current schema-v4 design instead records the import's `sp` and `ra`, keeps
+a fixed 256-frame pending set, and admits the return PC through the dedicated
+fixed 256-site atomic `NativeIopReturnSites` registry. It invalidates only a
+newly registered caller return block and emits the observer only when that exact
+block is compiled. The interpreter first checks one pending-call
+atomic and consults the exact registry only during an active oracle call, after
+completing the branch delay slot. Focused validator, inventory, and
+native tests cover wrong boundaries, nested same-boundary calls, duplicate site
+registration, counter reconciliation, and returned-result grouping.
+
+The first exact-site implementation still performed a 256-slot registry scan
+for every IOP block compilation and every interpreted branch, including before
+any site existed. `NativeIopReturnSites` now publishes a contiguous admitted
+count: an empty recompiler lookup is one atomic load, later lookups inspect only
+admitted sites, and rare registration is serialized. The interpreter's pending
+gate prevents any registry lookup outside the active oracle-call interval.
+
+Four fixed-deadline mission attempts made while the host load average exceeded
+20 did not reach the existing `MENU01.ZIV` readiness boundary. The first
+exact-site design also missed that boundary while unrelated processes occupied
+most CPU capacity, and the later audit found its unconditional 256-site scans.
+After that scan was removed, a fifth unchanged run reached verified `Running`
+but ended at 63,635,456 bytes of `INTRO.PSS` when unrelated compiler work rose
+again; a sixth reached 55,574,528 bytes after the same workload surged during
+the run. Neither produced a trace artifact. None of these runs is accepted as
+semantic or performance evidence.
+
+Two subsequent unchanged-deadline captures in a host window with sustained
+idle capacity completed the exact mission boundary. Both paired 527/527 IOP
+oracle entries/returns with zero pending calls or overflow. Every paired call
+was `cdvdman.sceCdGetError`, returned 0, and used the same stack
+`0x001FA510` and caller PC `0x0003CB2C`. Both traces paired 13,565/13,565 EE
+BIOS entries/returns with zero pending calls, sequence errors, or overflow. The
+two captures repeat the same event-kind, import-identity, and syscall-identity
+sets; their 1,358 versus 1,353 retained event identities again show that
+hot-path totals are not a repeatability contract.
+
 ## Remaining work
 
 Next cover title/menu, save, load, and shutdown. Define a
 guest-owned save/load completion boundary rather than a host delay. Add a
 separate grounded observation seam for remaining interrupt
 delivery, kernel primitives outside the mission slice, executable loading, IOP
-module loads/oracle returns, and 64-bit EE results, then capture service
-negative paths before designing the HLE implementation.
+module loads and services outside the recognized import surface, and 64-bit EE
+results, then capture service negative paths before designing the HLE
+implementation.
 
 ## Resolution
 

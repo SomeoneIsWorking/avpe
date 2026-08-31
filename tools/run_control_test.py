@@ -65,7 +65,7 @@ from avpe.native_assets import (
 from avpe.pcsx2_config import ensure_test_config
 
 ROOT = Path(__file__).resolve().parent.parent
-PCSX2 = ROOT / "scratch" / "build" / "bin" / "pcsx2-qt"
+PCSX2 = ROOT / "build" / "bin" / "pcsx2-qt"
 DATA_DIR = ROOT / "scratch" / "control-test" / "pcsx2-home"
 LOG_DIR = ROOT / "scratch" / "control-test" / "logs"
 NATIVE_ASSET_DIR = ROOT / "scratch" / "native-assets"

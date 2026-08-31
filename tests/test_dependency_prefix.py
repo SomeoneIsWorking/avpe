@@ -33,7 +33,7 @@ class DependencyPrefixProvisioningTests(unittest.TestCase):
     @patch("avpe.dependency_prefix._required_tools", return_value=())
     @patch("avpe.dependency_prefix.select_workflow")
     @patch("avpe.dependency_prefix.Path.mkdir")
-    def test_runs_vendor_workflow_in_scratch_and_verifies_output(
+    def test_runs_vendor_workflow_under_build_root_and_verifies_output(
         self,
         _mkdir: Mock,
         select: Mock,
@@ -42,7 +42,7 @@ class DependencyPrefixProvisioningTests(unittest.TestCase):
         _complete: Mock,
     ) -> None:
         root = Path("/repo")
-        output = root / "scratch" / "deps"
+        output = root / "build" / "deps"
         script = root / "thirdparty" / "pcsx2" / "workflow.sh"
         select.return_value = DependencyWorkflow(script)
         run.return_value = subprocess.CompletedProcess([], 0)
@@ -52,7 +52,7 @@ class DependencyPrefixProvisioningTests(unittest.TestCase):
         self.assertEqual(result, output)
         run.assert_called_once_with(
             [str(script), str(output)],
-            cwd=root / "scratch",
+            cwd=root / "build",
             env={"CXX": "clang++", "BUILD_FFMPEG": "0"},
             check=True,
         )
@@ -68,7 +68,7 @@ class DependencyPrefixProvisioningTests(unittest.TestCase):
             DependencyPrefixError,
             "sudo dnf install curl perl-Digest-SHA",
         ):
-            provision_dependency_prefix(Path("/repo"), Path("/repo/scratch/deps"), {})
+            provision_dependency_prefix(Path("/repo"), Path("/repo/build/deps"), {})
 
 
 class InstallHintTests(unittest.TestCase):

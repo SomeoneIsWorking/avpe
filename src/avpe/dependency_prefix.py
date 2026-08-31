@@ -103,7 +103,7 @@ def provision_dependency_prefix(
     output_dir: Path,
     environment: dict[str, str] | None = None,
 ) -> Path:
-    """Run the vendor workflow in scratch and verify its Qt prefix output."""
+    """Run the vendor workflow under the build root and verify its Qt prefix output."""
     root = root.resolve()
     output_dir = output_dir.resolve()
     env = dict(os.environ if environment is None else environment)

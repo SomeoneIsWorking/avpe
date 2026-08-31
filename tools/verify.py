@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-BUILD_DIR = ROOT / "scratch" / "build"
+BUILD_DIR = ROOT / "build"
 COMPILE_COMMANDS = BUILD_DIR / "compile_commands.json"
 CORE_TEST = BUILD_DIR / "bin" / "core_test"
 
@@ -22,6 +22,8 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeBiosEventStore.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeEeExecutionHooks.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeIopExecutionHooks.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeIopReturnSites.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeHostYield.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.cpp",
@@ -47,6 +49,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/R3000AInterpreter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/x86/iR3000A.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/SaveState.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp",
@@ -75,6 +78,8 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeBiosEventStore.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeBiosTrace.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeEeExecutionHooks.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeIopExecutionHooks.h",
+    ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeIopReturnSites.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeHostYield.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetCache.h",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeAssetFile.h",
@@ -114,8 +119,9 @@ CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (177, 182), (563, 620), (688, 720)),
     ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp": ((1, 10), (50, 57), (64, 69)),
+    ROOT / "thirdparty/pcsx2/pcsx2/R3000AInterpreter.cpp": ((1, 15), (261, 264)),
     ROOT / "thirdparty/pcsx2/pcsx2/x86/iR3000A.cpp": (
-        (1, 15), (705, 765)),
+        (1, 15), (705, 765), (1685, 1695)),
     ROOT / "thirdparty/pcsx2/pcsx2/SaveState.cpp": (
         (90, 105), (315, 325), (1080, 1130), (1140, 1165), (1175, 1215)),
     ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp": (
@@ -195,10 +201,10 @@ def main() -> int:
             ["cmake", "--build", str(BUILD_DIR), "--target", "core_test", "-j2"],
         )
         run(
-            "native asset production-path tests",
+            "native AVPE production-path tests",
             [
                 str(CORE_TEST),
-                "--gtest_filter=NativeAssetStoreTest.*:NativeCdvdCompletionTest.*:NativeWindowHandlesTest.*",
+                "--gtest_filter=NativeAssetStoreTest.*:NativeCdvdCompletionTest.*:NativeBiosTraceTest.*:NativeWindowHandlesTest.*",
             ],
         )
         run(

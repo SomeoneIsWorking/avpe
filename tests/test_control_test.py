@@ -93,6 +93,17 @@ def make_ee_syscall_pairing(
     }
 
 
+def make_iop_import_pairing(
+    entries: int = 0, returns: int = 0, pending: int = 0
+) -> dict[str, int]:
+    return {
+        "entries": entries,
+        "returns": returns,
+        "pending": pending,
+        "overflow": 0,
+    }
+
+
 class ControlTestPolicyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.nonce = "different-every-run"
@@ -168,6 +179,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [
                 make_bios_import_event(1),
             ],
@@ -182,6 +194,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [make_bios_import_event(1)],
         }
         ungrounded = {
@@ -205,6 +218,68 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertFalse(bios_trace_is_verified(ungrounded))
         self.assertFalse(bios_trace_is_verified(mismatched))
 
+    def test_accepts_exactly_paired_iop_oracle_return(self) -> None:
+        entry = make_bios_import_event(1)
+        entry.update({"outcome": "oracle", "result_valid": False})
+        del entry["result"]
+        entry.update(
+            {"first_stack_pointer": 0x001FF000, "first_resume_pc": 0x00010200}
+        )
+        returned = {
+            "sequence": 2,
+            "kind": "iop_import_return",
+            "library": "ioman",
+            "ordinal": 6,
+            "function": "read",
+            "result_valid": True,
+            "result": -5,
+            "hle_available": True,
+            "debug_available": False,
+            "first_stack_pointer": 0x001FF000,
+            "first_resume_pc": 0x00010200,
+            "calls": 1,
+        }
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(1, 1, 0),
+            "events": [entry, returned],
+        }
+
+        self.assertTrue(bios_trace_is_verified(trace))
+        returned["first_resume_pc"] += 4
+        self.assertFalse(bios_trace_is_verified(trace))
+
+        returned["first_resume_pc"] = entry["first_resume_pc"]
+        returned["sequence"] = 1
+        entry["sequence"] = 2
+        trace["events"] = [returned, entry]
+        self.assertFalse(bios_trace_is_verified(trace))
+
+    def test_rejects_iop_oracle_pairing_counter_or_result_omission(self) -> None:
+        entry = make_bios_import_event(1)
+        entry.update({"outcome": "oracle", "result_valid": False})
+        del entry["result"]
+        entry.update(
+            {"first_stack_pointer": 0x001FF000, "first_resume_pc": 0x00010200}
+        )
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [entry],
+        }
+
+        self.assertFalse(bios_trace_is_verified(trace))
+        trace["iop_import_pairing"] = make_iop_import_pairing(1, 0, 1)
+        self.assertTrue(bios_trace_is_verified(trace))
+
     def test_accepts_resultless_direct_syscall(self) -> None:
         event = make_bios_syscall_event(1)
         event.update({"number": 100, "name": "FlushCache", "result_expected": False})
@@ -216,6 +291,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [event],
         }
 
@@ -244,6 +320,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(1, 1, 0),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [entry, returned],
         }
 
@@ -268,6 +345,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [event],
         }
 
@@ -323,6 +401,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(2, 2, 0),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [void_entry, void_return, unknown_entry, unknown_return],
         }
 
@@ -345,6 +424,7 @@ class ControlTestPolicyTests(unittest.TestCase):
                 **make_ee_syscall_pairing(1, 0, 1),
                 "sequence_errors": 1,
             },
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [event],
         }
 
@@ -357,6 +437,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [
                 make_bios_import_event(2),
                 make_bios_syscall_event(1),
@@ -374,6 +455,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [{"sequence": 1, "kind": "rpc"}],
             "mission_boundary": {
                 "entry_pc": MISSION_TRACE_ENTRY_PC,
@@ -394,6 +476,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [{"sequence": 1, "kind": "rpc"}],
             "mission_boundary": {
                 "entry_pc": MISSION_TRACE_ENTRY_PC,
@@ -416,6 +499,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [],
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -433,6 +517,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [],
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -451,6 +536,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [],
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -475,6 +561,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [
                 make_bios_import_event(1),
                 make_bios_syscall_event(2),
@@ -497,6 +584,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [make_bios_import_event(1)],
         }
         with patch(
@@ -527,6 +615,7 @@ class ControlTestPolicyTests(unittest.TestCase):
                     "capacity": 4096,
                     "overflow": 0,
                     "ee_syscall_pairing": make_ee_syscall_pairing(),
+                    "iop_import_pairing": make_iop_import_pairing(),
                     "events": [{"sequence": 1, "kind": "rpc"}],
                     "mission_boundary": {
                         "entry_pc": MISSION_TRACE_ENTRY_PC,
@@ -555,6 +644,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [{"sequence": 1, "kind": "rpc"}],
             "mission_boundary": {
                 "entry_pc": MISSION_TRACE_ENTRY_PC,
@@ -634,6 +724,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 12786,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [{"sequence": 1, "kind": "ee_syscall"}],
         }
 
@@ -651,6 +742,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "capacity": 4096,
             "overflow": 0,
             "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
             "events": [],
             "mission_boundary": {
                 "complete": False,

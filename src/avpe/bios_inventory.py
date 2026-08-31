@@ -8,7 +8,7 @@ from typing import Any
 from avpe.native_bios_probe import bios_trace_is_verified
 
 
-INVENTORY_SCHEMA = "avpe-bios-inventory-v3"
+INVENTORY_SCHEMA = "avpe-bios-inventory-v4"
 _SERVICE_KINDS = ("ee_syscall", "import", "module", "interrupt", "rpc")
 
 
@@ -41,11 +41,13 @@ def summarize_bios_artifact(artifact: object) -> dict[str, Any]:
     }
 
     for kind in _SERVICE_KINDS:
-        summary["services"][kind] = (
-            _summarize_ee_syscalls(events)
-            if kind == "ee_syscall"
-            else _summarize_services(events, kind)
-        )
+        if kind == "ee_syscall":
+            services = _summarize_ee_syscalls(events)
+        elif kind == "import":
+            services = _summarize_iop_imports(events)
+        else:
+            services = _summarize_services(events, kind)
+        summary["services"][kind] = services
     return summary
 
 
@@ -99,17 +101,6 @@ def _summarize_services(events: list[dict[str, Any]], kind: str) -> list[dict[st
         )
         calls = _event_calls(event)
         entry["calls"] = entry.get("calls", 0) + calls
-        if kind == "import":
-            outcome = _required_string(event, "outcome")
-            entry.setdefault("outcomes", Counter())[outcome] += calls
-            entry.setdefault("results", set())
-            result_valid = _required_bool(event, "result_valid")
-            result_calls_key = (
-                "observed_result_calls" if result_valid else "unobserved_result_calls"
-            )
-            entry[result_calls_key] = entry.get(result_calls_key, 0) + calls
-            if result_valid:
-                entry["results"].add(_required_int(event, "result"))
         if kind == "module":
             entry.setdefault("operations", set()).add(_required_string(event, "operation"))
         if kind == "interrupt":
@@ -129,6 +120,67 @@ def _summarize_services(events: list[dict[str, Any]], kind: str) -> list[dict[st
         result,
         key=lambda entry: tuple(
             str(entry[key]) for key in entry if key != "calls"
+        ),
+    )
+
+
+def _summarize_iop_imports(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[Any, ...], dict[str, Any]] = {}
+    oracle_entry_calls: Counter[tuple[Any, ...]] = Counter()
+    oracle_return_calls: Counter[tuple[Any, ...]] = Counter()
+    for event in events:
+        if event["kind"] != "import":
+            continue
+        identity = _service_identity(event, "import")
+        entry = grouped.setdefault(
+            identity,
+            {key: value for key, value in _identity_fields(event, "import")},
+        )
+        calls = _event_calls(event)
+        entry["calls"] = entry.get("calls", 0) + calls
+        outcome = _required_string(event, "outcome")
+        entry.setdefault("outcomes", Counter())[outcome] += calls
+        entry.setdefault("results", set())
+        if outcome == "oracle":
+            oracle_entry_calls[identity] += calls
+        else:
+            entry["observed_result_calls"] = (
+                entry.get("observed_result_calls", 0) + calls
+            )
+            entry["results"].add(_required_int(event, "result"))
+
+    for event in events:
+        if event["kind"] != "iop_import_return":
+            continue
+        identity = _service_identity(event, "import")
+        entry = grouped.get(identity)
+        if entry is None:
+            raise ValueError("IOP import return has no matching entry identity")
+        calls = _event_calls(event)
+        oracle_return_calls[identity] += calls
+        entry["returned_oracle_calls"] = entry.get("returned_oracle_calls", 0) + calls
+        entry["observed_result_calls"] = entry.get("observed_result_calls", 0) + calls
+        entry["results"].add(_required_int(event, "result"))
+
+    result = []
+    for identity, entry in grouped.items():
+        pending_calls = oracle_entry_calls[identity] - oracle_return_calls[identity]
+        if pending_calls < 0:
+            raise ValueError("IOP oracle returns exceed matching entries")
+        entry["outcomes"] = dict(sorted(entry["outcomes"].items()))
+        entry["results"] = sorted(entry["results"])
+        entry.setdefault("observed_result_calls", 0)
+        entry["unobserved_result_calls"] = pending_calls
+        entry.setdefault("returned_oracle_calls", 0)
+        result.append(entry)
+    return sorted(
+        result,
+        key=lambda entry: (
+            entry["library"],
+            entry["ordinal"],
+            entry["function"],
+            entry["hle_available"],
+            entry["debug_available"],
         ),
     )
 

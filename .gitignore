@@ -1,6 +1,7 @@
 # machine-local secrets & user-supplied copyrighted assets
 .env
 scratch/
+build/
 
 # python
 __pycache__/
