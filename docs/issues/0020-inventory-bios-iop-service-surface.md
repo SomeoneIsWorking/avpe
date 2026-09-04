@@ -462,6 +462,14 @@ input, direct guest calls, or a profile-menu fast-forward. This completes the
 title input discriminator, but the later main-menu `QuitGame`/`CShell::Quit`
 shutdown phase remains separate and unproven.
 
+Following that same route confirms the remaining fixture boundary. Activating
+the live profile action reached vtable `0x00343650` with focused action
+`0xC1D97EAC`; activating it reached vtable `0x00343850`, whose only focused
+item was `CancelKillMe` (`0x95DF2577`). This fixture's profile continuation is
+therefore a cancellation confirmation, not the main menu that owns
+`Main_Quit`. The unresolved shutdown work needs a guest-owned profile/main-menu
+fixture, not another title-input change.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
