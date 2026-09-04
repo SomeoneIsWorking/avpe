@@ -442,6 +442,26 @@ growth increment, not its maximum. This establishes a savestate-safe passive
 predicate for title input ownership, but not the cause of its transition or a
 shutdown route.
 
+### Finding (2026-09-04, complete title-attract Cross cancellation route)
+
+The live registry predicate resolves the failed physical-Cross sequencing
+without a timer or a synthetic transition. Starting from `press-start.p2s`,
+the active 52/64 registry contained `GAttractExit`. The first physical Cross
+dispatched that owner's direct `Input` callback exactly once at `0x00206A60`.
+Fifteen seconds later the normal registry had contracted to the 8/32
+press-start set with no attract owner, while `GPressStartMenu` and its focused
+`LoadMenuKillMe` item remained live. A second physical Cross then dispatched
+the focused `GMenuButton` descriptor `{0, 0xcc, 0}` exactly once and published
+`GProfileMenu` with its normal `InputAnalog` callback.
+
+This is the title's complete attract cancellation sequence: the first Cross
+lets `GAttractExit` perform its own normal removal; the second lets the menu
+perform its ordinary focused-item activation. The phase driver must observe
+and respect these guest-owned states, rather than use elapsed time, repeated
+input, direct guest calls, or a profile-menu fast-forward. This completes the
+title input discriminator, but the later main-menu `QuitGame`/`CShell::Quit`
+shutdown phase remains separate and unproven.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
