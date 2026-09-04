@@ -356,13 +356,14 @@ The ordinary input-dispatch snapshot supplied the required other answer. With
 already dispatched 651 times. One physical Cross then produced exactly one
 focused-item callback with member descriptor `{0, 0xcc, 0}` and published
 `GProfileMenu`; this proves controller delivery and the original focused-item
-activation route. However, when the title BIOS census was armed before that
-same Cross, the menu tore down and no `GProfileMenu` was published before the
-bounded run ended. Dispatch readiness alone is consequently not the missing
-title completion condition. The census/control interaction must be separated
-from the title transition before it can support shutdown evidence; moving the
-input, retrying it, or treating the eventual no-menu state as a profile route
-would conceal that distinction.
+activation route. Arming the BIOS census with `POST /bios/trace/start` before
+that same physical Cross produced the same `GProfileMenu`, so the census is not
+the cause of the failed phase-driver observation. The failed driver differs in
+its title-flow sequencing and control polling, not in the census. Dispatch
+readiness alone is consequently not the missing title completion condition.
+The next probe must recover the title-owned transition predicate from that
+surrounding lifecycle; moving the input, retrying it, or treating an eventual
+no-menu state as a profile route would conceal the distinction.
 
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
