@@ -6,7 +6,7 @@ symptom: normal product and prior agent tests expose PCSX2's generic game render
 state_items: S013,S018,S020
 tags: host,pcsx2,presentation,rmlui
 created: 2026-08-26
-updated: 2026-08-27
+updated: 2026-09-04
 ---
 
 ## Root cause
@@ -30,8 +30,16 @@ The `avpe` executable in `pcsx2-avpe/` links the `PCSX2` core library and owns
 its CPU thread, VM lifecycle, settings, host callbacks, native render surface,
 window, and PC input policy. The product launcher invokes that executable
 directly. A structural regression rejects PCSX2 GUI sources or libraries in
-the product target. The Clang link and offscreen configuration check pass, but
-no visible product test was run because agent tests must remain windowless.
+the product target. The Clang link and offscreen configuration check pass.
+
+The standalone settings owner must explicitly populate `ImGuiManager`'s text
+font list from its bundled Roboto resource before GS startup. Without that
+step, `AddTextFont()` necessarily returns null, renderer initialization fails,
+and the normal launcher exits before it can boot the game. With the font list
+initialized and batch mode reserved for the surfaceless control route, a normal
+launcher run kept `avpe` alive through GS CRTC setup and multiple game FMVs.
+That proves renderer and game bootstrap, not the visible window's ownership or
+interactive event delivery.
 
 ## Verification
 
