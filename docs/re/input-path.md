@@ -164,6 +164,17 @@ make it call the focused item. If no descendant hotkey exists, only the exact
 registered active-menu activation callback is eligible. Ambiguous or invalid
 owners fail closed.
 
+`POST /input/menu-action` may additionally arm one diagnostic readiness
+request with `when_menu_vtable` and `when_focused_item_action`, both exact
+eight-digit guest words. `NativeMenuInput` observes only the ordinary
+`GInputDevice::Process` entry through `NativeEeExecutionHooks`; it waits
+through unrelated menu lifecycles, rejects an invalid candidate for the named
+menu owner, and emits one existing physical-pad input when that owner and its
+focused action are current. It does not synthesize an unregistered directional
+callback, retry after a candidate validation failure, or survive a savestate
+load. `GET /input/menu-readiness` reports the one request as pending,
+dispatched, rejected, or absent.
+
 `GMenu::Cancel` is virtual at vtable offset `0xfc`; native cancel resolves the
 active menu's actual handler rather than assuming base `0x00124c20`. Pause Save
 activation and cancel changed ownership `0x012e85a0 -> 0x015afa70 ->
