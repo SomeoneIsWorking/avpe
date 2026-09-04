@@ -346,6 +346,19 @@ at `+0xc8`; it has no title-specific readiness branch on that path. The next
 discriminator is therefore controller delivery or an external title-input
 lifecycle owner, not a menu-local timeout field.
 
+The ordinary input-dispatch snapshot supplied the required other answer. With
+`GPressStartMenu` live, its `GMenu::InputAnalog` callback at `0x00125230` had
+already dispatched 651 times. One physical Cross then produced exactly one
+focused-item callback with member descriptor `{0, 0xcc, 0}` and published
+`GProfileMenu`; this proves controller delivery and the original focused-item
+activation route. However, when the title BIOS census was armed before that
+same Cross, the menu tore down and no `GProfileMenu` was published before the
+bounded run ended. Dispatch readiness alone is consequently not the missing
+title completion condition. The census/control interaction must be separated
+from the title transition before it can support shutdown evidence; moving the
+input, retrying it, or treating the eventual no-menu state as a profile route
+would conceal that distinction.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
