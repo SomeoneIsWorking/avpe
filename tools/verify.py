@@ -44,6 +44,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativeMenuRoute.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/CDVD/CDVD.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/Counters.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp",
@@ -112,6 +113,11 @@ CPP_HEADERS = (
     ROOT / "thirdparty/pcsx2/pcsx2-avpe/Settings.h",
 )
 CORE_SCOPED_SOURCES = {
+    ROOT / "thirdparty/pcsx2/pcsx2/CDVD/CDVD.cpp": (
+        (1, 30),
+        (68, 109),
+        (1199, 1223),
+    ),
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp": (
         (1, 35), (265, 312), (415, 708), (823, 936),
         (992, 1120), (1428, 1498), (1510, 1565), (1600, 1819)),

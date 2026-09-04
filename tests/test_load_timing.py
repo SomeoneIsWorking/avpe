@@ -121,6 +121,21 @@ def make_mission_sample(
         "mode": mode,
         "complete": True,
         "sequence_errors": 0,
+        "optical_activity": {
+            "action_waits": {
+                "count": 3 if mode == "oracle" else 0,
+                "cycles": 900_000 if mode == "oracle" else 0,
+            },
+            "read_waits": {
+                "count": 20 if mode == "oracle" else 0,
+                "cycles": 6_000_000 if mode == "oracle" else 0,
+            },
+            "sector_ready_waits": {
+                "count": 40 if mode == "oracle" else 0,
+                "cycles": 12_000_000 if mode == "oracle" else 0,
+            },
+            "sector_deliveries": 20 if mode == "oracle" else 0,
+        },
         "start": start,
         "end": end,
         "deltas": {
@@ -391,6 +406,38 @@ class MissionLoadTimingTests(unittest.TestCase):
 
         self.assertFalse(report["verified"])
         self.assertIn("start.host_time_ns", report["errors"][0]["detail"])
+
+    def test_rejects_optical_work_in_native_mission_interval(self) -> None:
+        self.native[0]["optical_activity"]["read_waits"] = {
+            "count": 1,
+            "cycles": 100,
+        }
+
+        report = compare_mission_load_timing_samples(self.oracle, self.native)
+
+        self.assertFalse(report["verified"])
+        self.assertIn(
+            "zero optical waits and sector deliveries",
+            report["errors"][0]["detail"],
+        )
+
+    def test_rejects_oracle_that_does_not_fire_optical_instrument(self) -> None:
+        self.oracle[0]["optical_activity"] = copy.deepcopy(
+            self.native[0]["optical_activity"]
+        )
+
+        report = compare_mission_load_timing_samples(self.oracle, self.native)
+
+        self.assertFalse(report["verified"])
+        self.assertIn("positive optical wait", report["errors"][0]["detail"])
+
+    def test_rejects_inconsistent_optical_wait_pair(self) -> None:
+        self.oracle[0]["optical_activity"]["read_waits"]["cycles"] = 0
+
+        report = compare_mission_load_timing_samples(self.oracle, self.native)
+
+        self.assertFalse(report["verified"])
+        self.assertIn("count/cycles", report["errors"][0]["detail"])
 
     def test_startup_validator_still_rejects_mission_schema(self) -> None:
         self.assertFalse(load_timing_sample_is_ready(self.native[0], "native"))

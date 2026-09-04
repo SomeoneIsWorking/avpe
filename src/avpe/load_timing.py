@@ -6,11 +6,10 @@ from dataclasses import dataclass
 from statistics import median
 from typing import Any
 
-
 TIMING_SCHEMA = "avpe-load-timing-v1"
-MISSION_TIMING_SCHEMA = "avpe-mission-load-timing-v1"
+MISSION_TIMING_SCHEMA = "avpe-mission-load-timing-v2"
 COMPARISON_SCHEMA = "avpe-load-timing-comparison-v1"
-MISSION_COMPARISON_SCHEMA = "avpe-mission-load-timing-comparison-v1"
+MISSION_COMPARISON_SCHEMA = "avpe-mission-load-timing-comparison-v2"
 MINIMUM_SAMPLES = 3
 MAX_FRAME_SPREAD = 1
 MAX_CYCLE_SPREAD_PERCENT = 1.0
@@ -297,6 +296,8 @@ def _validate_sample(
     if sample.get("mode") != expected_mode:
         raise _InvalidSample(f"mode must be {expected_mode!r}")
     _validate_backend_contract(sample, expected_mode, policy)
+    if policy.target == "mission":
+        _validate_mission_optical_activity(sample, expected_mode)
     if sample.get("complete") is not True:
         raise _InvalidSample("capture must be complete")
     sequence_errors = sample.get("sequence_errors")
@@ -361,6 +362,61 @@ def _validate_backend_contract(
             raise _InvalidSample(
                 f"backends.{boundary} must be {expected_backend!r}"
             )
+
+
+def _validate_mission_optical_activity(
+    sample: dict[str, Any],
+    expected_mode: str,
+) -> None:
+    activity = sample.get("optical_activity")
+    if not isinstance(activity, dict):
+        raise _InvalidSample("optical_activity must be an object")
+
+    total_waits = 0
+    total_wait_cycles = 0
+    for name in ("action_waits", "read_waits", "sector_ready_waits"):
+        wait = activity.get(name)
+        if not isinstance(wait, dict):
+            raise _InvalidSample(f"optical_activity.{name} must be an object")
+        count = wait.get("count")
+        cycles = wait.get("cycles")
+        if not _is_nonnegative_int(count):
+            raise _InvalidSample(
+                f"optical_activity.{name}.count must be a non-negative integer"
+            )
+        if not _is_nonnegative_int(cycles):
+            raise _InvalidSample(
+                f"optical_activity.{name}.cycles must be a non-negative integer"
+            )
+        if (count == 0) != (cycles == 0):
+            raise _InvalidSample(
+                f"optical_activity.{name} count/cycles must both be zero or positive"
+            )
+        total_waits += count
+        total_wait_cycles += cycles
+
+    sector_deliveries = activity.get("sector_deliveries")
+    if not _is_nonnegative_int(sector_deliveries):
+        raise _InvalidSample(
+            "optical_activity.sector_deliveries must be a non-negative integer"
+        )
+
+    if expected_mode == "native":
+        if total_waits != 0 or total_wait_cycles != 0 or sector_deliveries != 0:
+            raise _InvalidSample(
+                "native mission interval must have zero optical waits and "
+                "sector deliveries"
+            )
+        return
+
+    if total_waits == 0 or total_wait_cycles == 0:
+        raise _InvalidSample(
+            "oracle mission interval must exercise a positive optical wait"
+        )
+    if sector_deliveries == 0:
+        raise _InvalidSample(
+            "oracle mission interval must exercise optical sector delivery"
+        )
 
 
 def _validate_boundary(
