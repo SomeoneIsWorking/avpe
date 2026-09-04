@@ -338,6 +338,13 @@ physical Cross advanced the live `GPressStartMenu` to `GProfileMenu`
 before the normal mission-goals load path. The visible pause `Quit` action is
 still only `LoadMenu`, and did not enter `CShell::Quit`.
 
+The `TBF.TBF` `INDX` chunk has 616 bytes, or 77 `(CRC, offset)` entries. Its
+normalization/CRC lookup resolves the known `MASTER.TBD` record at `0x0024DD74`
+and `M01\BACKGROUND.TBD` at `0x01C1DCF0`, but has no entry for either
+`MainMenu` or `Main_Quit`. They are embedded identifiers in authored data, not
+loadable archive records; using the index as evidence for a quit menu would be
+a category error.
+
 The title-phase driver cannot treat construction of `GPressStartMenu` as a
 ready synthetic-activation contract. At that point the callback registry owns
 navigation but exposes no exact activation callback; the native bridge correctly
