@@ -184,6 +184,12 @@ and restored the call while leaving the source menu active. That Press Start
 saved-state transition is not deterministic evidence. All completed deferred calls
 attested exact nonzero stack restoration.
 
+For diagnostic label recovery, `GMenuItem::GetText` at `0x00122410` returns
+the pointer stored at item offset `+0x148`. Native menu state exposes that
+validated raw pointer as `focus_text_address`; the control client reads its
+bounded NUL-terminated guest bytes through `/mem/read`. It does not duplicate
+guest text decoding or treat an item address as a label.
+
 The mission-goals load menu is a separate synchronous source. Its singleton is
 `0x00367C04` and exact menu vtable is `0x00342570`; while loading, it polls
 `GInputDevice` in `GMissionGoalsMenu::LoadHackCallback` before registering the
