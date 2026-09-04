@@ -1,12 +1,12 @@
 ---
 id: 12
 title: Collapse supported asset operations to host-disk completion
-status: investigating
+status: resolved
 symptom: Startup native I/O is byte-equivalent, bounded, and faster, but the representative M1 transition lacks automated no-optical and exact ShellLoadLevel timing proof
 state_items: S024
 tags: assets,cache,loading,timing
 created: 2026-08-27
-updated: 2026-08-30
+updated: 2026-09-04
 ---
 
 ## Scope
@@ -71,13 +71,23 @@ Copied ordinal-drift and no-reduction controls were both rejected. Detailed
 ignored evidence is
 `scratch/control-test/load-timing-refresh-210/asset-load-timing-comparison.json`.
 
-## Remaining
+## Resolution evidence
 
-- Capture the completed mission boundary through the optical oracle with the
-  same title-modal completion policy.
-- Prove supported operations inside the full entry-to-return interval never
-  enter optical timing or original IOP/CDVD delivery on the native leg.
-- Run and compare three alternating clean oracle/native mission pairs.
+Mission timing schema v2 measures actual CDVD action/read/sector-ready waits and
+sector deliveries only inside the grounded ShellLoadLevel interval. The
+comparison policy requires positive optical activity on the oracle leg and zero
+activity on the native leg. The native transition policy additionally rejects
+dropped path observations and any original fallback increase for every observed
+TBD, movie, or stream path.
+
+On project `f9cab93` and fork `c0e8b29`, three alternating clean
+oracle/native pairs completed with stable `1→2` ordinals and no envelope
+errors. Every oracle leg delivered 1,985 sectors, scheduled 1,985 read waits,
+and scheduled 2,852–2,854 sector-ready waits. Every native leg recorded zero
+optical waits and sector deliveries, zero dropped paths, and no supported-path
+fallback increase. Median EE/IOP/frame/host reductions were 74.36%, 74.36%,
+74.39%, and 74.55%. The copied ordinal-drift and no-reduction controls were
+rejected, and all six isolated cards remained byte-identical.
 
 ## Bounded cache and lifecycle
 
@@ -237,8 +247,8 @@ post-read rounds, 2,638/2,638 initializer calls/returns, and 942/942 object
 factory calls/returns with zero sequence errors. The exact Exit object was
 focused and activated with exact stack restoration, and the mission menu
 singleton cleared. This closes the native missing-boundary investigation. The
-issue remains open for interval-wide no-optical proof and three alternating
-oracle/native mission timing pairs.
+remaining work at that point was interval-wide no-optical proof and three
+alternating oracle/native mission timing pairs.
 
 ### Finding (2026-08-31, timing probe instrumentation regression)
 
@@ -279,5 +289,8 @@ EE cycles, 57,714,287 IOP cycles, and 94 frames. The reductions were 74.35%
 for EE/IOP cycles and 74.32% for frames (74.49% by host elapsed time). Both
 ordinal-drift and no-reduction controls were rejected, all six cards remained
 byte-identical, and there were no environment errors. The timing comparison is
-now verified; the issue remains open only for proving zero original IOP/CDVD
+verified; the remaining work at that point was proving zero original IOP/CDVD
 fallthrough and zero optical waits across the full native interval.
+
+### Resolution (2026-09-04)
+The missing acceptance evidence was not another asset fast path: the timing seam did not observe the optical scheduler or interval-wide native fallback. Mission timing schema v2 now measures CDVD waits and deliveries at their owners, requires the oracle to fire, and requires the native interval plus every observed supported path to remain optical-free. Three alternating clean pairs passed with 74.36% EE/IOP, 74.39% frame, and 74.55% host-time reductions.
