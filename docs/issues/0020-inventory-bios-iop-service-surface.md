@@ -339,6 +339,13 @@ press, direct `CShell::Quit`, or host shutdown. The next shutdown work must
 recover that condition and then follow the main-menu `Main_Quit` item to a
 live `QuitGame` action.
 
+Static decompilation also rules out an activation timer in the shared menu
+owner itself. `GMenu::Input` at `0x00125330` validates the focused child and,
+for input action 4, immediately invokes that child's virtual activation slot
+at `+0xc8`; it has no title-specific readiness branch on that path. The next
+discriminator is therefore controller delivery or an external title-input
+lifecycle owner, not a menu-local timeout field.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
