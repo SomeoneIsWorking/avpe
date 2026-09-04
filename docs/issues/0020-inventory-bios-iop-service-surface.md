@@ -345,6 +345,15 @@ and `M01\BACKGROUND.TBD` at `0x01C1DCF0`, but has no entry for either
 loadable archive records; using the index as evidence for a quit menu would be
 a category error.
 
+The mission archive boundary is also grounded at instruction level. In
+`CShell::ShellLoadLevel`, `0x0016FA44` calls `CTbdFile::Load` (`0x001737C0`)
+with the shell object in `a1`; `0x0016FA4C` is its delay-slot successor, and
+the next call at `0x0016FA50` is `CGameTimer::SetSeconds`. Therefore the
+existing `ShellLoadLevel` entry/`0x0016FA4C` capture is the correct outer
+archive-operation partition, not a host or frame boundary. It still needs a
+service inventory limited to that partition; it must not absorb the following
+game-timer/resumed-game work.
+
 The title-phase driver cannot treat construction of `GPressStartMenu` as a
 ready synthetic-activation contract. At that point the callback registry owns
 navigation but exposes no exact activation callback; the native bridge correctly
