@@ -795,10 +795,10 @@ class ControlTestPolicyTests(unittest.TestCase):
         ) as request, patch(
             "avpe.native_bios_probe.start_bios_trace"
         ) as start, patch(
-            "avpe.native_bios_probe.menu_action",
+            "avpe.menu_probe.menu_action",
             return_value=(202, {"deferred_call_id": 17}, "queued"),
         ) as menu, patch(
-            "avpe.native_bios_probe.await_deferred_call"
+            "avpe.menu_probe.await_deferred_call"
         ) as await_call, patch(
             "avpe.native_bios_probe.capture_bios_trace", return_value=trace
         ) as capture:
@@ -1119,12 +1119,12 @@ class ControlTestPolicyTests(unittest.TestCase):
         ) as reach, patch(
             "avpe.native_bios_probe.start_bios_trace"
         ) as start, patch(
-            "avpe.native_bios_probe.menu_action",
+            "avpe.menu_probe.menu_action",
             return_value=(202, {"deferred_call_id": 19}, "queued"),
         ) as menu, patch(
-            "avpe.native_bios_probe.await_deferred_call"
+            "avpe.menu_probe.await_deferred_call"
         ) as await_call, patch(
-            "avpe.native_bios_probe.menu_state",
+            "avpe.menu_probe.menu_state",
             return_value=(409, {"menu": "0x00123456", "callback_count": 2}, "ambiguous"),
         ) as state, patch(
             "avpe.native_bios_probe.capture_bios_trace", return_value=trace
@@ -1163,15 +1163,15 @@ class ControlTestPolicyTests(unittest.TestCase):
         ) as reach, patch(
             "avpe.native_bios_probe.start_bios_trace"
         ) as start, patch(
-            "avpe.native_bios_probe.menu_action",
+            "avpe.menu_probe.menu_action",
             side_effect=[
                 (202, {"deferred_call_id": 19}, "queued"),
                 (202, {"deferred_call_id": 20}, "queued"),
             ],
         ) as menu, patch(
-            "avpe.native_bios_probe.await_deferred_call"
+            "avpe.menu_probe.await_deferred_call"
         ) as await_call, patch(
-            "avpe.native_bios_probe.menu_state",
+            "avpe.menu_probe.menu_state",
             side_effect=[
                 (200, {"menu_vtable": "0x00342A50"}, "title"),
                 (200, {"menu_vtable": PROFILE_MENU_VTABLE}, "profile"),
@@ -1220,12 +1220,12 @@ class ControlTestPolicyTests(unittest.TestCase):
         with patch("avpe.native_bios_probe._reach_title_menu") as reach, patch(
             "avpe.native_bios_probe.start_bios_trace"
         ) as start, patch(
-            "avpe.native_bios_probe.menu_action",
+            "avpe.menu_probe.menu_action",
             return_value=(202, {"deferred_call_id": 19}, "queued"),
         ) as menu, patch(
-            "avpe.native_bios_probe.await_deferred_call"
+            "avpe.menu_probe.await_deferred_call"
         ) as await_call, patch(
-            "avpe.native_bios_probe.menu_state",
+            "avpe.menu_probe.menu_state",
             return_value=(200, state, "settled"),
         ) as menu_state_mock, patch(
             "avpe.native_bios_probe.capture_bios_trace", return_value=trace
@@ -1263,15 +1263,15 @@ class ControlTestPolicyTests(unittest.TestCase):
         with patch("avpe.native_bios_probe._reach_title_menu") as reach, patch(
             "avpe.native_bios_probe.start_bios_trace"
         ) as start, patch(
-            "avpe.native_bios_probe.menu_action",
+            "avpe.menu_probe.menu_action",
             side_effect=[
                 (202, {"deferred_call_id": 19}, "queued down"),
                 (202, {"deferred_call_id": 20}, "queued activate"),
             ],
         ) as menu, patch(
-            "avpe.native_bios_probe.await_deferred_call"
+            "avpe.menu_probe.await_deferred_call"
         ) as await_call, patch(
-            "avpe.native_bios_probe.menu_state",
+            "avpe.menu_probe.menu_state",
             side_effect=[(200, down_state, "down"), (200, destination_state, "destination")],
         ) as menu_state_mock, patch(
             "avpe.native_bios_probe.capture_bios_trace", return_value=trace
@@ -1315,10 +1315,10 @@ class ControlTestPolicyTests(unittest.TestCase):
         with patch("avpe.native_bios_probe._reach_title_menu") as reach, patch(
             "avpe.native_bios_probe.start_bios_trace"
         ) as start, patch(
-            "avpe.native_bios_probe.menu_action",
+            "avpe.menu_probe.menu_action",
             side_effect=[(202, {"deferred_call_id": 19}, "down"), (202, {"deferred_call_id": 20}, "down")],
-        ), patch("avpe.native_bios_probe.await_deferred_call") as await_call, patch(
-            "avpe.native_bios_probe.menu_state",
+        ), patch("avpe.menu_probe.await_deferred_call") as await_call, patch(
+            "avpe.menu_probe.menu_state",
             side_effect=[
                 (200, initial_state, "initial"),
                 (200, first_state, "first"),
@@ -1350,12 +1350,12 @@ class ControlTestPolicyTests(unittest.TestCase):
         ), patch(
             "avpe.native_bios_probe.start_bios_trace"
         ), patch(
-            "avpe.native_bios_probe.menu_action",
+            "avpe.menu_probe.menu_action",
             return_value=(202, {"deferred_call_id": 19}, "queued"),
         ) as menu, patch(
-            "avpe.native_bios_probe.await_deferred_call"
+            "avpe.menu_probe.await_deferred_call"
         ), patch(
-            "avpe.native_bios_probe.menu_state",
+            "avpe.menu_probe.menu_state",
             side_effect=[
                 (200, {"menu_vtable": "0x00342A50"}, "title"),
                 (200, {"menu_vtable": "0x00000000"}, "another menu"),

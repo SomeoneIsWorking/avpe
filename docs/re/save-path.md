@@ -183,8 +183,13 @@ their body hashes are respectively
 
 This proves that the normal title-owned path can persist two separate,
 structurally valid numbered save records and that the compressed payload is
-state-dependent. It does not yet identify the decompressed object differences,
-prove a load of either record, or provide the native-save interception.
+state-dependent. A later BIOS-backed run loaded the produced slot-0 record
+through Pause → Load → populated slot → Yes, crossed all three
+`GLoadPacifyMenu::Process` calls, returned zero from `CProfile::LoadGame`, and
+completed the synchronous mission-goals modal through its registered Exit
+action. The isolated source card remained unchanged. This proves title
+acceptance of one produced record; it does not identify the decompressed
+object differences or provide the native-save interception.
 
 ## BWJ decode and fixed game-save prefix
 

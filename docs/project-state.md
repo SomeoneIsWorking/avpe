@@ -13,8 +13,9 @@ means the capability is absent.
 ## Current focus
 
 **S025 — required firmware service inventory.** The bounded BIOS census now has
-repeatable clean-boot and post-savestate evidence plus grounded mission and
-normal game-save boundaries. The schema-v6 game-save capture followed the
+repeatable clean-boot and post-savestate evidence plus grounded mission,
+normal game-save, and normal game-load boundaries. The schema-v6 game-save
+capture followed the
 ordinary gameplay Pause → Save → empty-slot route through
 `GSavePacifyMenu::Process` into `CProfile::SaveGame`, returned result zero, and
 paired 3,396/3,396 EE BIOS calls plus 340/340 IOP oracle calls with zero pending
@@ -25,8 +26,11 @@ waits for PCSX2's real post-savestate card reinsertion and post-write busy
 lifecycle, so neither an ejected card nor an unflushed write can masquerade as
 a title failure. The completed mission boundary remains valid with 2,638/2,638
 initializer calls, 942/942 factory calls, and all 24 post-read rounds complete.
-The remaining work is the game-load, shutdown, archive/service-operation, and
-service-level negative-path inventory.
+The matching normal-load capture followed Pause → Load → populated slot → Yes,
+crossed all three load-pacify calls and the exact `CProfile::LoadGame`
+entry/return with result zero, completed the synchronous mission-goals modal,
+and left the source card unchanged. The remaining work is the shutdown,
+archive/service-operation, and service-level negative-path inventory.
 Static IRX analysis now narrows the IOP candidate surface to seven retained
 modules, 61 import tables, 260 import stubs, and 19 library identities; it is
 explicitly not runtime coverage.
@@ -293,7 +297,7 @@ changes without exposing a window or mutating the source.
 
 Gap: map unknown record fields and the decompressed object/class and gameplay
 meaning of at least two deliberately differing profiles and two game saves,
-observe a load of a produced save, and implement the native interception. Two
+and implement the native interception. Two
 normal Save Game menu runs now produced separate slot-0 and slot-1 records with
 different serialized bodies on isolated card copies. The BWJ decoder reaches
 the fixed prefix and the same object-header structure in both records: 189
@@ -321,8 +325,12 @@ and `GFOWSaver`). Bounded readers and the production recursive parser now
 consume the selected payload layouts, the live fixed-size message table and
 dynamic message-size fallback, and the grounded player-manager active-state
 predicate; both retained records parse through their exact top-level
-terminators. Editable field meanings, a produced-save load, and native
-interception remain open.
+terminators. A matching BIOS-backed load run then selected the produced slot 0
+through the normal Pause → Load path, crossed all three
+`GLoadPacifyMenu::Process` calls, returned zero from `CProfile::LoadGame`, and
+completed the synchronous mission-goals modal through its exact registered
+Exit action while preserving the source card. Editable field meanings and
+native interception remain open.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.
@@ -751,8 +759,22 @@ result. PCSX2's 60-frame savestate card auto-eject and 300-frame post-write
 busy intervals are both observed and awaited through the production
 `/memory-card/state` route.
 
-Gap: extend the restored-menu completion pattern to title states, add grounded
-game-load and shutdown phase boundaries, and separate
+A matching schema-v6 load run from `mission1.p2s` and the produced
+`after-slot0.ps2` card completed the normal Pause → Load → populated slot →
+Yes route. It observed all three `GLoadPacifyMenu::Process` calls, entered
+`CProfile::LoadGame` at `0x00130000`, and returned at `0x00130168` with result
+zero. The load then reached the synchronous mission-goals modal; its exact
+registered Exit action completed in 3,609 EE cycles with stack restoration.
+The trace retained 349 event identities, paired 14,444/14,444 return-capable
+EE BIOS calls, and captured 16,357 IOP oracle entries with 16,356 returns. The
+one pending IOP call is the blocking `thmsgbx.ReceiveMbx` at the chosen guest
+boundary, not an overflow or pairing error. The inventory contains 17 EE
+syscall and 86 IOP import identity/result summaries across the load and resumed
+mission initialization, so it is a complete operation boundary but not yet an
+archive-only service slice.
+
+Gap: extend the restored-menu completion pattern to stable title completion,
+add a grounded shutdown phase boundary, and separate
 archive/service operations from resumed execution.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
@@ -767,12 +789,14 @@ current result evidence; registration is not proof of import execution.
 Static presence and registration do not close the remaining service and
 negative-path inventory.
 
-Evidence: claims C035–C037 and C039, instruments I021–I024,
+Evidence: claims C035–C037, C039, and C040, instruments I021–I025,
 [`re/bios.md`](re/bios.md), issue #20,
 the `NativeBiosTraceTest` production tests, and ignored repeated artifacts
 `scratch/control-test/bios-mission-service-v4.prev.json` and
 `scratch/control-test/bios-mission-service-v4.json`, plus
 `scratch/control-test/game-save-bios.json` and its deterministic inventory.
+The normal-load evidence is `scratch/control-test/game-load-bios.json` and its
+deterministic inventory.
 Claims C031/C034 are falsified
 and I020 is distrusted; none is current result evidence. Three repeated
 surfaceless clean boots

@@ -4,9 +4,9 @@ kind: claim
 status: holds
 created: 2026-08-27
 tags: save,profile,re
-depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, src/avpe/save_descriptor_probe.py#inspect_class_type_database, src/avpe/save_descriptor_probe.py#parse_serialized_descriptor_body, src/avpe/save_descriptor_probe.py#resolve_save_ex_dispatch, src/avpe/save_ex.py#parse_gunit_payload, src/avpe/save_ex.py#parse_gobject_ai_payload, src/avpe/save_stream.py#parse_serialized_object_stream, src/avpe/save_message_types.py#parse_message_type_database, src/avpe/save_message_types.py#fixed_message_size, tests/test_save_format.py#SaveFormatTests, tests/test_save_descriptor_probe.py#SaveDescriptorProbeTests, tests/test_save_ex.py#SaveExTests, tests/test_save_stream.py#SaveStreamTests, tests/test_save_message_types.py#SaveMessageTypeTests
-reconfirmed: 2026-08-31
-verified_at: 2026-08-31 22:17:07+03:00
+depends: docs/re/save-path.md, src/avpe/save_format.py#parse_game_save_record, src/avpe/save_format.py#_parse_game_save_stream, src/avpe/save_descriptor_probe.py#inspect_class_type_database, src/avpe/save_descriptor_probe.py#parse_serialized_descriptor_body, src/avpe/save_descriptor_probe.py#resolve_save_ex_dispatch, src/avpe/save_ex.py#parse_gunit_payload, src/avpe/save_ex.py#parse_gobject_ai_payload, src/avpe/save_stream.py#parse_serialized_object_stream, src/avpe/save_message_types.py#parse_message_type_database, src/avpe/save_message_types.py#fixed_message_size, src/avpe/native_game_load_probe.py#run_game_load_phase, tests/test_save_format.py#SaveFormatTests, tests/test_save_descriptor_probe.py#SaveDescriptorProbeTests, tests/test_save_ex.py#SaveExTests, tests/test_save_stream.py#SaveStreamTests, tests/test_save_message_types.py#SaveMessageTypeTests
+reconfirmed: 2026-09-04
+verified_at: 2026-09-04 12:06:44+00:00
 ---
 
 ## Claim
@@ -142,3 +142,7 @@ their delayed handle-ordered SaveEx payloads. Each has 189 top-level roots,
 1,073 nested objects, and eight zero padding bytes after its exact top-level
 terminator. This strengthens the wire-schema evidence; descriptor field
 meanings, loading a produced save, and native interception remain unproven.
+
+## Re-confirmed 2026-09-04
+
+The 2026-09-04 surfaceless/null-muted normal-load run selected the produced slot-0 record from its matching card, crossed all three GLoadPacifyMenu calls and CProfile::LoadGame 0x00130000..0x00130168 with result zero, completed the exact mission-goals Exit modal, and preserved the source card; scratch/control-test/game-load-bios.json

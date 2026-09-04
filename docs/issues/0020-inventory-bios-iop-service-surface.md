@@ -12,15 +12,16 @@ updated: 2026-09-04
 ## Root cause
 
 The project began with only selected asset-import/debug hooks and no bounded
-firmware census. The remaining root gap is now narrower: the v6 mission and
-game-save census
+firmware census. The remaining root gap is now narrower: the v6 mission,
+game-save, and game-load census
 has grounded EE BIOS and IOP oracle return owners with ABI-aware result
 validity. Schema v6 captures declared 64-bit EE results without truncation and
 coalesces changing results into bounded summaries. The ordinary clean boot has
 exercised `GsPutIMR`, and the normal Save Game path now completes through
-`CProfile::SaveGame`. Static reachability excludes `GsGetIMR`'s dead
-screen-capture helper from the normal-title inventory; stable guest-owned load
-and shutdown boundaries, archive/service separation, and service negative
+`CProfile::SaveGame`, and the matching normal Load Game path completes through
+`CProfile::LoadGame`. Static reachability excludes `GsGetIMR`'s dead
+screen-capture helper from the normal-title inventory; stable title completion,
+the guest-owned shutdown boundary, archive/service separation, and service negative
 paths are still absent.
 One mission slice cannot substitute for the complete required firmware contract.
 
@@ -382,6 +383,34 @@ selection separately from the normal game-load seam. The next valid operation
 must observe the selected profile row and any resulting pacify owner before it
 can be treated as a game-load candidate.
 
+### Finding (2026-09-04, normal game-load boundary completed)
+
+The matching `mission1.p2s` and produced `after-slot0.ps2` card provide the
+missing live fixture. The surfaceless/null-muted runner followed Pause → Load →
+the rendered populated slot → confirmation, verified the initial `No` focus,
+used the game-owned Left action to focus `Yes`, and activated it through the
+registered callback. All three `GLoadPacifyMenu::Process` calls were observed;
+`CProfile::LoadGame` entered at `0x00130000`, returned at `0x00130168`, and
+reported result zero.
+
+The profile call did not return until the synchronous mission-goals modal was
+completed. `/input/menu` identified the exact `mission-goals-load` owner and
+Exit action `0xCBC4D4CF`; typed activation completed in 3,609 EE cycles with
+the guest stack restored. This explains the earlier apparent load timeout: the
+title was correctly blocked in its authored modal, not stuck in firmware or
+card I/O. The complete capture retained 349 event identities, paired
+14,444/14,444 EE BIOS calls, and recorded 16,357 IOP oracle entries with
+16,356 returns. The sole pending call is the blocking
+`thmsgbx.ReceiveMbx` at the capture boundary. There were no sequence errors or
+overflows, and the source memory card was unchanged.
+
+The negative fixtures remain useful discriminators. Pairing
+`mission1-current.p2s` with this card reached `GLoadGameMenu` but returned to
+gameplay without a pacify or profile call, while omitting the exact modal Exit
+left the profile boundary entered but not returned. The successful trace spans
+resumed mission initialization, so it completes the operation boundary but
+does not yet isolate archive-owned services from subsequent guest work.
+
 ### Finding (2026-08-31, clean-boot GS result and nested syscall pairing)
 
 The static ELF inventory identifies `GsPutIMR` wrapper calls in
@@ -701,8 +730,8 @@ activation, so the absent boundary is a real action-path falsifier, not a
 rejected probe. The confirmation menu's generic fallback resolves through its
 `GPhysical::GetAttachPos` slot at `0x00104C10`, not a shell shutdown handler.
 
-Next complete the already-grounded `CProfile::LoadGame` and `CShell::Quit`
-phase paths, and distinguish archive-owned service work from resumed guest
+Next complete the already-grounded `CShell::Quit` phase path, and distinguish
+archive-owned service work from resumed guest
 execution. Add a separate grounded
 observation seam for remaining interrupt
 delivery, kernel primitives outside the mission slice, executable loading, IOP
