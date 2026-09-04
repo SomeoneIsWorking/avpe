@@ -346,6 +346,11 @@ at `+0xc8`; it has no title-specific readiness branch on that path. The next
 discriminator is therefore controller delivery or an external title-input
 lifecycle owner, not a menu-local timeout field.
 
+`GMenuItem::HotKeyActivate` at `0x00120F40` gives the same negative result: it
+focuses the item and immediately invokes its `+0xc8` activation slot. Neither
+shared menu layer can supply the missing readiness state. Any viable title
+transition condition must be owned by the surrounding input/lifecycle path.
+
 The ordinary input-dispatch snapshot supplied the required other answer. With
 `GPressStartMenu` live, its `GMenu::InputAnalog` callback at `0x00125230` had
 already dispatched 651 times. One physical Cross then produced exactly one
