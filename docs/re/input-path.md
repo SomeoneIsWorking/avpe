@@ -136,6 +136,14 @@ registry scan, while any unreadable registry is explicitly invalid rather than
 silently treated as absent. This is evidence only; title transition policy
 remains guest-owned.
 
+The title's physical Cross route has two guest-owned steps. With the 52-entry
+registry, the first Cross dispatches `GAttractExit::Input` at `0x00206A60` and
+its normal lifecycle removes that owner, leaving the 8-entry press-start
+registry. A second Cross then dispatches the focused `GMenuButton` activation
+descriptor `{0, 0xcc, 0}` and creates `GProfileMenu`. The host must preserve
+that cancellation sequence; neither its input policy nor a title diagnostic may
+skip directly to the profile menu.
+
 `GMenu::Input` is `0x00125330`; actions are Up=0, Down=1, Left=2, Right=3,
 Activate=4. The active focused-item handle is `menu+0x26c`. Returning
 directional calls are safe through the EE-call transaction and changed pause
