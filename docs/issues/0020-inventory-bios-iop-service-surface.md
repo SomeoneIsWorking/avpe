@@ -821,6 +821,27 @@ semaphore, SIF, `libsd.sceSdGetSwitch`, `sysmem.Kprintf`, and
 This closes the archive/service-operation separation gap, not the separate
 shutdown, other-runtime-operation, or negative-path requirements.
 
+### Finding (2026-09-04, complete native movie service census)
+
+The first boot-to-movie experiment retained an invalidly broad interval and
+overflowed by 4,878,882 events. The cause was the boundary, not an event-store
+capacity defect: it included the whole boot before the native movie operation.
+`NativeMovieBiosBoundary` now enables the production trace only after the
+canonical `MOVIES/EALOGO.PSS` descriptor is admitted and snapshots it only after
+that descriptor's handled `ioman.close` import has been recorded.
+
+A clean surfaceless capture completed that exact boundary with
+`movie_boundary.complete=true`, 426 coalesced event identities, and zero event
+or pairing overflow. The reached native movie services include HLE
+`ioman.lseek` (2 calls), `ioman.read` (104 calls, 16,384 then 4 bytes), and
+`ioman.close` (one zero result), plus oracle `libsd.sceSdVoiceTrans`,
+`sceSdBlockTrans`, and `sceSdBlockTransStatus` activity. The same shipping
+trace observed two `TerminateThread` returns ranging from `-1` to `3`; this is
+a real success/error variation, not a test-only synthetic failure. The capture
+adds a bounded audio/movie operation and one grounded negative result. It does
+not inventory shutdown, executable or module loading, remaining runtime
+services, or their outstanding negative paths.
+
 ### Finding (2026-08-30, result-boundary correction and mission census)
 
 Schema v1 sampled EE `v0` before BIOS dispatch and sampled IOP `v0` before an

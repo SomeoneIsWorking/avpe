@@ -32,6 +32,12 @@ and 543/544 IOP oracle calls with zero sequence errors or overflow; the sole
 pending IOP call was live at the endpoint. Its deterministic inventory includes
 the archive's ioman read/lseek, cdvd error, semaphore, SIF, audio, and thread
 services without absorbing the post-load game-timer work.
+The separate native `MOVIES/EALOGO.PSS` boundary begins only after its canonical
+descriptor is admitted and completes after its matching handled `ioman.close`.
+It retained 426 coalesced identities with zero overflow, including the movie's
+ioman read/lseek/close activity and the reached libsd transfer services. Its
+natural `TerminateThread` results range from `-1` to `3`, supplying one
+observed service-level error result without inventing a synthetic failure.
 The matching normal-load capture followed Pause → Load → populated slot → Yes,
 crossed all three load-pacify calls and the exact `CProfile::LoadGame`
 entry/return with result zero, completed the synchronous mission-goals modal,
@@ -785,12 +791,12 @@ syscall and 86 IOP import identity/result summaries across the load and resumed
 mission initialization, so it is a complete operation boundary but not yet an
 archive-only service slice.
 
-Gap: extend the restored-menu completion pattern to stable title completion,
-add a grounded shutdown phase boundary, and separate
-archive/service operations from resumed execution.
+Gap: extend the restored-menu completion pattern to stable title completion and
+add a grounded shutdown phase boundary.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
-import surface, and service-level negative-path semantics remain incomplete;
+import surface, and additional service-level negative-path semantics remain
+incomplete;
 S025 cannot become verified from this mission census alone.
 The static IRX scan separately found seven extracted module headers, 61 library
 tables, 260 import stubs, and 19 library identities. Six modules are stripped,
@@ -809,6 +815,10 @@ the `NativeBiosTraceTest` production tests, and ignored repeated artifacts
 `scratch/control-test/game-save-bios.json` and its deterministic inventory.
 The normal-load evidence is `scratch/control-test/game-load-bios.json` and its
 deterministic inventory.
+The native-movie evidence is
+`scratch/control-test/bios-trace-movie.json`; a deliberately unbounded boot
+capture overflowed and is negative evidence for using a broad phase rather than
+the native descriptor lifecycle as this operation's boundary.
 Claims C031/C034 are falsified
 and I020 is distrusted; none is current result evidence. Three repeated
 surfaceless clean boots
