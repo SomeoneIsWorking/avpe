@@ -10,14 +10,21 @@ from avpe.bios_result import event_result_is_verified
 from avpe.control_http import request_bytes, request_json
 from avpe.input_probe import press_buttons
 from avpe.menu_probe import (
+    await_menu_transition as _await_menu_transition,
+    await_settled_menu_state as _await_settled_menu_state,
     await_deferred_call,
     await_different_menu_input_dispatch,
     await_dispatched_menu_action,
     await_following_menu_input_dispatch,
+    complete_menu_action as _complete_menu_action,
     menu_action,
     menu_state,
 )
 from avpe.native_asset_probe import await_native_stream_reads
+from avpe.native_game_load_probe import (
+    BiosGameLoadCaptureError,
+    run_game_load_phase,
+)
 from avpe.native_mission_probe import probe_marine_m1_transition
 from avpe.native_menu_pointer_dispatch_probe import (
     activate_focused_dispatched_menu_pointer,
@@ -36,6 +43,18 @@ from avpe.native_pause_quit_probe import (
 
 BIOS_TRACE_SCHEMA = "avpe-bios-trace-v6"
 TITLE_MENU_ACTIONS = frozenset(("up", "down", "left", "right", "activate", "cancel"))
+STATEFILE_BIOS_PHASES = (
+    "title",
+    "title-down",
+    "title-down-activate",
+    "title-profile",
+    "menu",
+    "save-load",
+    "game-save",
+    "game-load",
+    "shutdown",
+    "shutdown-pointer",
+)
 BIOS_EVENT_KINDS = frozenset(
     {
         "ee_syscall",
@@ -87,8 +106,12 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="capture the bounded BIOS/IOP census from boot or a savestate")
     parser.add_argument(
         "--probe-bios-phase",
-        choices=("title", "title-actions", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save", "shutdown", "shutdown-pointer", "mission"),
-        help="capture a bounded BIOS/IOP phase after a title or observed profile-menu action, control save/load, a pointer-driven pause Quit confirmation, or clean-boot mission load",
+        choices=("title", "title-actions", *STATEFILE_BIOS_PHASES[1:], "mission"),
+        help=(
+            "capture a bounded BIOS/IOP phase after a title or observed "
+            "profile-menu action, control save/load, a pointer-driven pause "
+            "Quit confirmation, or clean-boot mission load"
+        ),
     )
     parser.add_argument(
         "--bios-title-actions",
@@ -114,10 +137,13 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
             parser.error(f"unsupported --bios-title-actions value(s): {','.join(invalid)}")
     elif title_actions is not None:
         parser.error("--bios-title-actions requires --probe-bios-phase title-actions")
-    if args.probe_bios_phase in ("title", "title-down", "title-down-activate", "title-profile", "menu", "save-load", "game-save", "shutdown", "shutdown-pointer") and args.statefile is None:
+    if args.probe_bios_phase in STATEFILE_BIOS_PHASES and args.statefile is None:
         parser.error("--probe-bios-phase requires --statefile")
-    if args.probe_bios_phase == "game-save" and getattr(args, "memory_card_source", None) is None:
-        parser.error("--probe-bios-phase game-save requires --memory-card-source")
+    if args.probe_bios_phase in ("game-save", "game-load") \
+            and getattr(args, "memory_card_source", None) is None:
+        parser.error(
+            f"--probe-bios-phase {args.probe_bios_phase} requires --memory-card-source"
+        )
     if args.probe_bios_phase == "mission":
         if args.statefile is not None:
             parser.error("--probe-bios-phase mission requires a clean boot without --statefile")
@@ -428,6 +454,15 @@ def bios_trace_failure_detail(trace: object) -> str:
             f" shell_shutdown_quit_bit={shell_boundary.get('quit_bit_observed')!r}"
             f" shell_shutdown_sequence_errors={shell_boundary.get('sequence_errors')!r}"
         )
+    game_load_boundary = trace.get("game_load_boundary")
+    if isinstance(game_load_boundary, dict):
+        detail += (
+            f" game_load_complete={game_load_boundary.get('complete')!r}"
+            f" game_load_pacify_calls={game_load_boundary.get('pacify_process_calls')!r}"
+            f" game_load_entry={game_load_boundary.get('entry') is not None}"
+            f" game_load_return={game_load_boundary.get('return') is not None}"
+            f" game_load_sequence_errors={game_load_boundary.get('sequence_errors')!r}"
+        )
     return detail
 
 
@@ -646,23 +681,6 @@ def prepare_bios_trace_for_native_stream(port: int, enabled: bool) -> None:
         start_bios_trace(port)
 
 
-def _complete_menu_action(
-    port: int, deadline: float, action: str, context: str
-) -> dict[str, object]:
-    status, response, detail = menu_action(port, action)
-    if status == 202 and response is not None:
-        action_id = response.get("dispatch_action_id")
-        if isinstance(action_id, int) and action_id > 0:
-            return await_dispatched_menu_action(port, deadline, action_id)
-        call_id = response.get("deferred_call_id")
-        if not isinstance(call_id, int) or call_id <= 0:
-            raise RuntimeError(f"{context} returned no dispatch or deferred completion id: {detail}")
-        return await_deferred_call(port, deadline, call_id, context)
-    elif status != 200 or response is None:
-        raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
-    return response
-
-
 def _select_game_save_slot(port: int, deadline: float) -> dict[str, object]:
     """Use GSaveGameMenu's grounded ActivateFocused action, not pad emulation."""
     state_status, state, state_detail = menu_state(port)
@@ -806,59 +824,6 @@ def _activate_title_menu(port: int, deadline: float) -> dict[str, object]:
         port, deadline, before, "BIOS phase title post-action menu transition"
     )
     return {"status": status, "state": title_menu}
-
-
-def _await_settled_menu_state(
-    port: int,
-    deadline: float,
-    context: str,
-) -> tuple[int, dict[str, object]]:
-    last_status = 0
-    last_detail = ""
-    while time.monotonic() < deadline:
-        status, state, detail = menu_state(port)
-        if status in (200, 409) and state is not None:
-            return status, state
-        if status not in (409, 500):
-            raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
-        last_status, last_detail = status, detail
-        time.sleep(0.05)
-    raise RuntimeError(f"{context} did not settle: HTTP {last_status}: {last_detail}")
-
-
-def _menu_identity(state: dict[str, object]) -> tuple[object, ...]:
-    return tuple(
-        state.get(field)
-        for field in ("menu", "menu_vtable", "focus_object", "focused_item_action")
-    )
-
-
-def _await_menu_transition(
-    port: int,
-    deadline: float,
-    before: dict[str, object],
-    context: str,
-) -> tuple[int, dict[str, object]]:
-    before_identity = _menu_identity(before)
-    last_status = 0
-    last_detail = ""
-    last_state: dict[str, object] | None = None
-    while time.monotonic() < deadline:
-        status, state, detail = menu_state(port)
-        if status == 409 and state is not None:
-            return status, state
-        if status == 200 and state is not None:
-            last_state = state
-            if _menu_identity(state) != before_identity:
-                return status, state
-        elif status not in (409, 500):
-            raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
-        last_status, last_detail = status, detail
-        time.sleep(0.05)
-    raise RuntimeError(
-        f"{context} did not change game-owned menu state: HTTP {last_status}: {last_detail}; "
-        f"last_state={last_state}"
-    )
 
 
 def _focus_quit_game(port: int, deadline: float) -> tuple[dict[str, object], list[dict[str, object]]]:
@@ -1039,6 +1004,8 @@ def run_bios_phase(
         trace["game_save_menu_selection"] = selection
         trace["game_save_menu_preparation"] = preparation
         return trace, "gameplay_to_game_save", "pause_save_empty_slot_to_cprofile_save_game"
+    if phase == "game-load":
+        return run_game_load_phase(port, deadline)
     if phase == "shutdown":
         pause = probe_gameplay_pause_menu(port, deadline)
         selections = _pause_selection_rectangles(port)
@@ -1121,6 +1088,13 @@ def run_requested_bios_probe(
                 error.trace,
                 "statefile_to_game_save",
                 "slot_select_to_cprofile_save_game",
+                str(error),
+            )
+        except BiosGameLoadCaptureError as error:
+            return (
+                error.trace,
+                "gameplay_to_game_load",
+                "pause_load_slot_confirm_to_cprofile_load_game",
                 str(error),
             )
         except (RuntimeError, ValueError, json.JSONDecodeError) as error:

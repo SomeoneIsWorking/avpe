@@ -61,6 +61,10 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   entry/return observation, including capture scoping from the validated
   profile object through its final `jr ra`. It is diagnostic-only and does not
   define menu input or native-save behavior.
+- `src/avpe/native_game_load_probe.py` owns the surfaceless normal-load proof
+  policy from the live Pause menu through the exact `CProfile::LoadGame`
+  boundary and synchronous mission-goals modal. It does not own menu input,
+  firmware semantics, or the native-save backend.
 - `NativeMemoryCardState.*` owns the CPU-thread diagnostic snapshot of slot
   presence, savestate auto-eject countdown, busy state, and derived readiness.
   It does not mutate card state or own title save policy.

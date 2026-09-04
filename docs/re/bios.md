@@ -350,13 +350,28 @@ exact hot-path counts remain outside the repeatability contract. Handled
 `ioman.read`, `ioman.lseek`, and `sysmem.Kprintf` retain their grounded HLE
 results. This is a stable mission service-semantics slice. The separate
 schema-v6 normal game-save inventory adds the card and SIF service slice
-described above; neither is an exhaustive firmware contract or an HLE
-implementation.
+described above. A matching schema-v6 normal game-load capture followed the
+live Pause → Load → populated slot → Yes route, observed all three
+`GLoadPacifyMenu::Process` calls, and crossed `CProfile::LoadGame` from
+`0x00130000` to `0x00130168` with result zero. The title then synchronously
+entered the mission-goals modal; the exact registered Exit action completed in
+3,609 EE cycles with stack restoration. The capture retained 349 event
+identities, paired 14,444/14,444 return-capable EE BIOS calls, and recorded
+16,357 IOP oracle entries with 16,356 returns. Its one pending
+`thmsgbx.ReceiveMbx` is a blocking call at the chosen guest boundary, not a
+pairing or overflow failure. The source card was unchanged.
+
+This completes the normal-load operation boundary and proves that the produced
+slot-0 record is accepted by the title. Because the capture intentionally runs
+through resumed mission initialization, its 17 EE syscall and 86 IOP import
+identity/result summaries do not distinguish archive-owned services from
+post-load execution. None of these slices is an exhaustive firmware contract
+or an HLE implementation.
 
 ## Required evidence before S025 can be verified
 
-The census still needs a stable title completion boundary, explicit game-load
-and shutdown boundaries, and separation of archive-owned service work from
+The census still needs a stable title completion boundary, an explicit
+shutdown boundary, and separation of archive-owned service work from
 resumed guest execution.
 The mission slice now has grounded EE BIOS and IOP oracle-return seams, but
 kernel primitives outside that slice, executable loading, timers, interrupt

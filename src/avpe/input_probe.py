@@ -7,14 +7,18 @@ from avpe.control_http import request_bytes, request_json
 
 
 def button_injection_state(port: int) -> tuple[int, dict[str, object] | None, str]:
-    """Read the shipping control channel's active synthetic button mask."""
+    """Read the shipping control channel's atomic input/wire injection state."""
     status, body = request_bytes(port, "GET", "/debug")
     detail = body.decode(errors="replace").strip()
     try:
         parsed = json.loads(body)
     except json.JSONDecodeError:
         return status, None, detail
-    if not isinstance(parsed, dict) or _hex_u32(parsed.get("inject")) is None:
+    if (
+        not isinstance(parsed, dict)
+        or _hex_u32(parsed.get("inject_inputs")) is None
+        or _hex_u32(parsed.get("inject_wire")) is None
+    ):
         return status, None, detail
     return status, parsed, detail
 
@@ -28,8 +32,19 @@ def press_buttons(
     """Inject a physical-pad hold and return only after its observed release."""
     if isinstance(mask, bool) or not isinstance(mask, int) or not 0 < mask <= 0xFFFF:
         raise ValueError(f"button injection mask is outside the u16 range: {mask!r}")
+    if (
+        isinstance(duration_ms, bool)
+        or not isinstance(duration_ms, int)
+        or not 1 <= duration_ms <= 60_000
+    ):
+        raise ValueError(
+            f"button injection duration is outside 1..60000 ms: {duration_ms!r}"
+        )
     initial = _require_injection_state(port, "before button injection")
-    if _hex_u32(initial["inject"]) != 0:
+    if (
+        _hex_u32(initial["inject_inputs"]) != 0
+        or _hex_u32(initial["inject_wire"]) != 0
+    ):
         raise RuntimeError(f"button injection was already active: {initial}")
 
     status, response, detail = request_json(
@@ -43,7 +58,7 @@ def press_buttons(
     while time.monotonic() < deadline:
         state = _require_injection_state(port, "during button injection")
         last_state = state
-        observed_mask = _hex_u32(state["inject"])
+        observed_mask = _hex_u32(state["inject_inputs"])
         if observed_mask not in (0, mask):
             raise RuntimeError(
                 "button injection exposed a different active mask: "

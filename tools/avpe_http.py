@@ -256,7 +256,8 @@ def main() -> int:
             except SystemExit:
                 break
             t = time.strftime("%H:%M:%S")
-            print(f"{t} xfer={dbg.get('transfers')} inj={dbg.get('inject')} "
+            print(f"{t} xfer={dbg.get('transfers')} "
+                  f"inj_inputs={dbg.get('inject_inputs')} inj_wire={dbg.get('inject_wire')} "
                   f"fifo={dbg.get('lastfifo','')} || " + "  ".join(cells), flush=True)
             n += 1
             time.sleep(1.0 / a.hz)

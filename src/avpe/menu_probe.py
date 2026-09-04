@@ -245,6 +245,75 @@ def await_different_menu_input_dispatch(
     )
 
 
+def complete_menu_action(
+    port: int,
+    deadline: float,
+    action: str,
+    context: str,
+) -> dict[str, object]:
+    """Complete either an ordinary dispatched action or a synchronous modal action."""
+    status, response, detail = menu_action(port, action)
+    if status == 202 and response is not None:
+        action_id = _integer(response.get("dispatch_action_id"))
+        if action_id > 0:
+            return await_dispatched_menu_action(port, deadline, action_id)
+        call_id = _integer(response.get("deferred_call_id"))
+        if call_id <= 0:
+            raise RuntimeError(
+                f"{context} returned no dispatch or deferred completion id: {detail}"
+            )
+        return await_deferred_call(port, deadline, call_id, context)
+    if status != 200 or response is None:
+        raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
+    return response
+
+
+def await_settled_menu_state(
+    port: int,
+    deadline: float,
+    context: str,
+) -> tuple[int, dict[str, object]]:
+    last_status = 0
+    last_detail = ""
+    while time.monotonic() < deadline:
+        status, state, detail = menu_state(port)
+        if status in (200, 409) and state is not None:
+            return status, state
+        if status not in (409, 500):
+            raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
+        last_status, last_detail = status, detail
+        time.sleep(0.05)
+    raise RuntimeError(f"{context} did not settle: HTTP {last_status}: {last_detail}")
+
+
+def await_menu_transition(
+    port: int,
+    deadline: float,
+    before: dict[str, object],
+    context: str,
+) -> tuple[int, dict[str, object]]:
+    before_identity = _menu_identity(before)
+    last_status = 0
+    last_detail = ""
+    last_state: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, state, detail = menu_state(port)
+        if status == 409 and state is not None:
+            return status, state
+        if status == 200 and state is not None:
+            last_state = state
+            if _menu_identity(state) != before_identity:
+                return status, state
+        elif status not in (409, 500):
+            raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
+        last_status, last_detail = status, detail
+        time.sleep(0.05)
+    raise RuntimeError(
+        f"{context} did not change game-owned menu state: "
+        f"HTTP {last_status}: {last_detail}; last_state={last_state}"
+    )
+
+
 def run_menu_action(
     port: int,
     deadline: float,
@@ -296,3 +365,10 @@ def _u32(value: object) -> int | None:
     except ValueError:
         return None
     return parsed if 0 <= parsed <= 0xFFFFFFFF else None
+
+
+def _menu_identity(state: dict[str, object]) -> tuple[object, ...]:
+    return tuple(
+        state.get(field)
+        for field in ("menu", "menu_vtable", "focus_object", "focused_item_action")
+    )

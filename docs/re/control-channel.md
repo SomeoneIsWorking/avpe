@@ -12,17 +12,23 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | GET `/status` | — | VM identity plus `host_mode`, `surface`, `audio`, and per-run `nonce` |
 | GET `/mem/read` | `addr=0xHEX&len=HEX` (≤4096) | EE bytes as hex (vtlb_ramRead, PINE-style) |
 | GET `/mem/scan` | `start&end&hex=` (range ≤4MiB) | first 16 match addresses + hit count |
-| GET `/debug` | — | `{"transfers","lastfifo","inject"}` host-side truth |
+| GET `/debug` | — | pad transfers plus atomic `inject_inputs` and translated active-low `inject_wire` masks |
 | GET `/memory-card/state` | — | CPU-thread slot-0 presence, savestate auto-eject ticks, busy state, and derived readiness |
 | GET `/bios/trace` | — | current bounded BIOS/IOP observation snapshot |
 | GET `/input/dispatch` | — | bounded normal `GInputDevice` callback-dispatch identities and pending/completed diagnostic actions |
 | POST `/bios/trace/start` | `{}` | clear and enable the bounded BIOS/IOP sink for a new phase |
 | POST `/bios/trace/capture` | `{}` | atomically snapshot and disable the BIOS/IOP sink |
+| POST `/bios/trace/start-game-load` | `{}` | arm the exact normal `CProfile::LoadGame` census boundary |
+| POST `/bios/trace/capture-game-load` | `{}` | capture the completed load boundary and bounded BIOS/IOP slice |
+| POST `/bios/trace/start-game-save` | `{}` | arm the exact normal `CProfile::SaveGame` census boundary |
+| POST `/bios/trace/capture-game-save` | `{}` | capture the completed save boundary and bounded BIOS/IOP slice |
+| POST `/bios/trace/start-shell-shutdown` | `{}` | arm the exact `CShell::Quit` to main-loop-return boundary |
+| POST `/bios/trace/capture-shell-shutdown` | `{}` | capture the completed title-owned shutdown boundary |
 | POST `/mem/write` | `{"addr":"0x..","hex":"aabb.."}` | raw writes (vtlb_ramWrite) |
 | POST `/state/save` | `{"path":"/abs/x.p2s"}` | CPU-thread save + flush; success includes the native asset state captured immediately before serialization |
 | POST `/state/load` | `{"path":"/abs/x.p2s"}` | CPU-thread load; success includes the native asset state captured immediately after restoration |
 | POST `/guest/reset` | `{}` | CPU-thread real VM reset; success includes pre/post native state and the bounded cache snapshot |
-| POST `/input/press` | `{"mask":512,"ms":250}` | PadDualshock2::Inputs bits, auto-expire |
+| POST `/input/press` | `{"mask":512,"ms":250}` | u16 PadDualshock2::Inputs bits, auto-expire after 1–60,000 ms |
 | POST `/input/move-absolute` | `{"x":0.5,"y":0.5}` | normalized coordinates through the game-native absolute-pointer owner |
 | POST `/input/mouse-button` | `{"button":"primary","edge":"press"}` | typed edge through the corresponding original AVP:E mouse handler |
 | GET `/input/menu` | — | read-only active AVP:E menu owner, callback count, and focus |
@@ -106,7 +112,7 @@ process exit cannot hide an unflushed card operation.
 
 DS2 button data is ACTIVE-LOW. `GetButtons()` returns 0xFFFF when idle, so
 OR-ing an injected mask is a silent no-op — the fix clears bits:
-`return buttons & ~AVPE::ActiveButtonMask();`
+`return buttons & ~AVPE::ActiveButtonInjection().wire_mask;`
 The Inputs->wire translation mirrors PadDualshock2.h `bitmaskMapping`
 (START=Inputs bit 9 -> wire bit 11). Verified live: press start,cross ->
 SIO2 fifo `ff735af7bf...` and game-side btnword reads `f7bf`.
