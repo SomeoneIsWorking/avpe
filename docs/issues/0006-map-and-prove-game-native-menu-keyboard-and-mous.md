@@ -6,7 +6,7 @@ symptom: pause-menu keyboard and pointer actions are native, but product-window 
 state_items: S010
 tags: input,menu,keyboard,mouse,re
 created: 2026-08-27
-updated: 2026-08-31
+updated: 2026-09-04
 ---
 
 ## Root cause
@@ -91,16 +91,17 @@ menu rather than the synchronous absolute-motion route. The same dispatch probe
 preserves the pause-menu Save focus/activation contract and the Save Game
 button contract; real-window delivery remains the unproven product boundary.
 
-### Finding (2026-09-04, product-window launch refusal)
+### Finding (2026-09-04, resolved product-launch refusal)
 
-The normal `./run.sh` route rebuilt the standalone `avpe` host, loaded the
-supported CHD, and opened the Vulkan GS path, but exited with status 1 before a
-visible window appeared. The product log reports `Failed to initialize
-ImGuiManager`, then `GS failed to open`; it also rejects every configured
-`Keyboard/...` binding before and after the GS attempt. Consequently this is a
-product-launch/resource or standalone-host initialization defect, not a failed
-keyboard/mouse interaction. Do not claim real-window routing until the host
-opens successfully and visible events reach `HostInputRouter`.
+The first normal `./run.sh` route rebuilt the standalone `avpe` host, loaded
+the supported CHD, and opened the Vulkan GS path, but exited with status 1
+because the standalone settings path had not populated `ImGuiManager`'s text
+font list. `AddTextFont()` therefore returned null and GS initialization
+failed. Loading the bundled Roboto resource before GS startup resolves that
+cause: the normal launcher now reaches CRTC setup and multiple game FMVs. The
+remaining `Keyboard/...` binding rejections are separate standalone input
+configuration warnings, not the GS failure's cause. Do not claim real-window
+routing until visible events reach `HostInputRouter`.
 
 Remaining work: verify the real windowed key/mouse path in a user-visible run,
 then cover title and broader in-game menu variants.
