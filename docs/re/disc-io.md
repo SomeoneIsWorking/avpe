@@ -328,10 +328,8 @@ boundary drift. Raising copied native EE values to the optical baseline was
 rejected for no measured reduction, so the comparator demonstrated both
 answers.
 
-This timing evidence proves only the startup TBF-open→post-MENU01-search seek
-reduction. Cache bounds have separate evidence below. The clean-boot M1
-transition trigger is separately verified, but its exact ShellLoadLevel timing
-and interval-wide optical exclusion remain S024 work.
+This startup timing evidence is retained separately from the complete mission
+interval and the cache bounds below.
 
 The M1 timing boundary is grounded: `ShellLoadLevel` is `0x0016F910`, its
 `CTbdFile::Load` call is `0x0016FA44`, the first post-load instruction is
@@ -351,8 +349,29 @@ object, focuses it through the title virtual, and invokes
 `0x0016FA4C` with 134/134 observed chunks, all 24 post-read rounds,
 2,638/2,638 initializer calls/returns, 942/942 factory calls/returns, and zero
 sequence errors. The old missing return was therefore title-modal behavior,
-not native-storage latency. S024 still requires interval-wide optical exclusion,
-the matching completed oracle boundary, and three alternating timing pairs.
+not native-storage latency.
+
+Mission timing schema v2 counts the actual CDVD action/read/sector-ready waits
+scheduled by the optical owner and sectors delivered by `cdvdReadSector()`
+only between the grounded `ShellLoadLevel` entry and continuation. The
+comparison policy requires a positive oracle signal and zero native signal, so
+an inactive or silently broken observer cannot certify the native path.
+
+On project `f9cab93` and fork `c0e8b29`, three clean alternating
+oracle/native pairs completed with stable `1→2` ordinals and zero envelope
+errors. Oracle medians were 1,801,962,393 EE cycles, 225,245,258 IOP cycles,
+367 frames, and 6.106907048 s; native medians were 462,041,820 EE cycles,
+57,755,201 IOP cycles, 94 frames, and 1.554046820 s. The corresponding
+reductions are 74.36%, 74.36%, 74.39%, and 74.55%.
+
+Each oracle leg delivered 1,985 optical sectors and scheduled 1,985 read waits
+plus 2,852–2,854 sector-ready waits. Every native leg recorded zero optical
+waits and deliveries. The native transition proof also required zero dropped
+path observations and no new original fallback for every observed TBD, movie,
+or stream path. The copied ordinal-drift and no-reduction controls both
+rejected their mutations, and all six isolated card copies remained
+byte-identical. This completes the representative mission timing and
+interval-wide optical-exclusion contract.
 
 ## Bounded native cache and lifecycle
 

@@ -65,7 +65,7 @@ Current focus is attention, not a separate state.
 | S021 | AVP:E disc/file access boundary and asset namespace are mapped | partial | S001; issue #9 | G005 |
 | S022 | User disc content provisions into a validated native asset store | verified | S021 | G001, G005 |
 | S023 | Supported game asset requests use native host storage instead of emulated optical I/O | verified | S021, S022 | G001, G005 |
-| S024 | Native asset I/O preserves behavior and measurably reduces loading time | partial | S023; issue #12 | G005 |
+| S024 | Native asset I/O preserves behavior and measurably reduces loading time | verified | S023 | G005 |
 | S025 | AVP:E's required BIOS, kernel, and IOP service surface is inventoried | partial | S001, S004; issue #20 | G006 |
 | S026 | Clean-room AVP:E-specific HLE implements the required platform services | blocked | S025 | G006 |
 | S027 | Supported target boots and runs without retail BIOS bytes | blocked | S026 | G001, G006 |
@@ -483,7 +483,7 @@ Evidence: claims C019–C023, instruments I009–I013,
 `scratch/control-test/asset-byte-comparison.json` (ignored), and
 [`re/disc-io.md`](re/disc-io.md).
 
-### S024 — loading behavior and performance: partial
+### S024 — loading behavior and performance: verified
 
 Observed subset: representative TBF, movie, and menu-stream native deliveries
 match the PCSX2 ISO oracle across 96 canonical chunks, including identical file
@@ -580,19 +580,38 @@ at stable `1→2` boundary ordinals: oracle medians were 1,799,787,694 EE cycles
 224,973,420 IOP cycles, and 366 frames; native medians were 461,714,639 EE
 cycles, 57,714,287 IOP cycles, and 94 frames. The reductions were 74.35% for
 EE/IOP cycles and 74.32% for frames; the ordinal-drift and no-reduction
-controls rejected their mutations. Gap: demonstrate zero original fallthrough
-and zero emulated optical wait for supported operations through that interval.
-Title-observed failure tracing
-remains separate hardening in issue #16; it does not substitute for this
-timing proof. Live guest reset cleanup is now verified in issue #15. Evidence:
-claims C024 through C029,
-instruments I014 through I019,
-[`re/disc-io.md`](re/disc-io.md), ignored timing artifact
-`scratch/control-test/load-timing-refresh-210/asset-load-timing-comparison.json`, and ignored
-cache artifact `scratch/control-test/native-asset-cache-proof.json`, and ignored
-transition artifact `scratch/control-test/native-marine-m1-transition-proof.json`.
-Atomic work: issue #12; resolved issues #13–#15 record the native CDVD
-completion, live state-recovery, and guest-reset cleanup seams.
+controls rejected their mutations.
+
+The schema-v2 rerun on project `f9cab93` and fork `c0e8b29` closes the
+remaining interval-wide exclusion. Three alternating clean oracle/native pairs
+again passed at stable `1→2` ordinals. Oracle medians were 1,801,962,393 EE
+cycles, 225,245,258 IOP cycles, 367 frames, and 6.106907048 s host elapsed;
+native medians were 462,041,820 EE cycles, 57,755,201 IOP cycles, 94 frames,
+and 1.554046820 s host elapsed. This is a 74.36% EE/IOP reduction, 74.39%
+frame reduction, and 74.55% host-time reduction.
+
+Every oracle interval positively exercised optical delivery: each delivered
+1,985 sectors, scheduled 1,985 read waits, and scheduled 2,852–2,854
+sector-ready waits. Every native interval recorded zero action, read, and
+sector-ready waits and zero sector deliveries. The native transition policy
+also observed zero dropped paths and no increase in original fallback for any
+TBD, movie, or stream path. All six run envelopes had zero errors, used one
+binary/disc/config identity, remained surfaceless and null-muted with byte
+tracing disabled, and preserved identical source/working card hashes. The
+copied ordinal-drift and no-reduction controls were rejected.
+
+Title-observed failure tracing remains separate hardening in issue #16; it does
+not substitute for this verified loading capability. Live guest reset cleanup
+is verified in issue #15. Evidence: claims C024 through C029 and C038,
+instruments I014 through I019, [`re/disc-io.md`](re/disc-io.md), ignored
+timing artifact
+`scratch/control-test/mission-load-timing/mission-load-timing-comparison.json`,
+ignored cache artifact
+`scratch/control-test/native-asset-cache-proof.json`, and ignored transition
+artifact
+`scratch/control-test/native-marine-m1-transition-proof.json`. Resolved issues
+#12–#15 record the full-interval timing, native CDVD completion, live
+state-recovery, and guest-reset cleanup seams.
 
 ### S025 — required firmware service inventory: partial
 
