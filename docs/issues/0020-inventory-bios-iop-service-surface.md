@@ -478,6 +478,25 @@ exposed `Main_Quit`. The run's later card-readiness timeout is not used as
 transition evidence; the observed guest menu sequence itself is the
 discriminator.
 
+Static disassembly makes the transient owner precise:
+`GMainMenu::Create` at `0x0020A010` calls `GBaseMenu` construction then writes
+`0x00342850` at object offset zero. The card-backed run therefore did reach
+the real main-menu owner, but the control route's separate query and action
+lost its callback-ready window. The next shutdown probe needs one bounded,
+owner-validated normal-dispatch action transaction; it must not infer main-menu
+readiness from a delay or retry an action after the guest state changes.
+
+That transaction now exists at the grounded `GInputDevice::Process` entry. It
+uses the existing physical-pad path rather than inventing a directional
+callback: the main-menu registry exposes `InputAnalog`, not an independent
+Down callback. In the matching-card route, a request armed from press-start
+waited through `GPressStartMenu`, `GProfileMenu`, and the profile selection;
+when vtable `0x00342850` and focused `LoadMenu` action `0xCA788CFB` became
+current, it issued exactly one Down input. The readiness state reported
+`dispatched_id=1`, and the focused object changed from `0x0153EEE0` to
+`0x0153F9C0`. This validates the bounded transition primitive, not a shutdown:
+the fixture still has no observed `Main_Quit` action.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
