@@ -240,7 +240,7 @@ def main() -> int:
 
     report = {
         "schema": (
-            "avpe-mission-load-timing-run-v1"
+            "avpe-mission-load-timing-run-v2"
             if args.target == "mission"
             else "avpe-load-timing-run-v1"
         ),

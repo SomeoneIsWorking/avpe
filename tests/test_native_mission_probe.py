@@ -81,6 +81,7 @@ class NativeMissionProbePolicyTests(unittest.TestCase):
         return {
             "enabled": True,
             "target_recognized": True,
+            "dropped_unique_paths": 0,
             "paths": [
                 {
                     "path": "cdrom0:/TBD/TBF.TBF;1",
@@ -246,6 +247,54 @@ class NativeMissionProbePolicyTests(unittest.TestCase):
         self.assertTrue(any("native_open_count changed" in error for error in errors))
         self.assertTrue(any("original_fallback_count changed" in error for error in errors))
         self.assertTrue(any("read_calls did not increase" in error for error in errors))
+
+    def test_rejects_fallback_for_any_supported_transition_path(self) -> None:
+        proof = self._proof()
+        native_assets = proof["native_assets"]
+        assert isinstance(native_assets, dict)
+        after = native_assets["after"]
+        assert isinstance(after, dict)
+        opens = after["opens"]
+        assert isinstance(opens, dict)
+        paths = opens["paths"]
+        assert isinstance(paths, list)
+        paths.append({
+            "path": "cdrom0:/TBD/M01/ALIEN.TBD;1",
+            "count": 1,
+            "native_open_count": 0,
+            "original_fallback_count": 1,
+            "read_calls": 0,
+            "bytes_read": 0,
+            "seek_calls": 0,
+            "close_count": 0,
+        })
+
+        errors = native_mission_probe.validate_marine_m1_evidence(
+            proof, require_native_assets=True
+        )
+
+        self.assertTrue(any(
+            "tbd/m01/alien.tbd entered original fallback" in error
+            for error in errors
+        ))
+
+    def test_rejects_dropped_native_open_observations(self) -> None:
+        proof = self._proof()
+        native_assets = proof["native_assets"]
+        assert isinstance(native_assets, dict)
+        after = native_assets["after"]
+        assert isinstance(after, dict)
+        opens = after["opens"]
+        assert isinstance(opens, dict)
+        opens["dropped_unique_paths"] = 1
+
+        errors = native_mission_probe.validate_marine_m1_evidence(
+            proof, require_native_assets=True
+        )
+
+        self.assertIn(
+            "native open observations dropped paths during transition", errors
+        )
 
     def test_rejects_unbounded_or_transient_cache(self) -> None:
         proof = copy.deepcopy(self._proof())

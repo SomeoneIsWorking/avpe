@@ -388,6 +388,49 @@ def _native_asset_errors(native_assets: dict[str, object]) -> list[str]:
     if not isinstance(before_opens, dict) or not isinstance(after_opens, dict):
         errors.append("native open snapshots are missing")
     else:
+        for label, snapshot in (("pre-transition", before_opens),
+                                ("post-transition", after_opens)):
+            if snapshot.get("enabled") is not True \
+                    or snapshot.get("target_recognized") is not True:
+                errors.append(f"{label} native open snapshot is not enabled")
+        before_dropped = _counter(before_opens, "dropped_unique_paths")
+        after_dropped = _counter(after_opens, "dropped_unique_paths")
+        if before_dropped < 0 or after_dropped < 0:
+            errors.append("native open dropped-path counters are invalid")
+        elif after_dropped != before_dropped:
+            errors.append("native open observations dropped paths during transition")
+
+        before_supported = _supported_path_observations(before_opens)
+        after_supported = _supported_path_observations(after_opens)
+        if before_supported is None or after_supported is None:
+            errors.append("supported native path observations are malformed")
+        else:
+            for path in sorted(set(before_supported) | set(after_supported)):
+                before_path = before_supported.get(path)
+                after_path = after_supported.get(path)
+                if after_path is None:
+                    errors.append(
+                        f"supported path {path} disappeared during transition"
+                    )
+                    continue
+                before_fallbacks = (
+                    _counter(before_path, "original_fallback_count")
+                    if before_path is not None
+                    else 0
+                )
+                after_fallbacks = _counter(
+                    after_path, "original_fallback_count"
+                )
+                if before_fallbacks < 0 or after_fallbacks < 0:
+                    errors.append(
+                        f"supported path {path} has invalid fallback counters"
+                    )
+                elif after_fallbacks != before_fallbacks:
+                    errors.append(
+                        f"supported path {path} entered original fallback "
+                        "during transition"
+                    )
+
         before_tbf = _path_observation(before_opens, TBF_PATH)
         after_tbf = _path_observation(after_opens, TBF_PATH)
         if before_tbf is None or after_tbf is None:
@@ -440,6 +483,36 @@ def _path_observation(
         ),
         None,
     )
+
+
+def _supported_path_observations(
+    snapshot: dict[str, object],
+) -> dict[str, dict[str, object]] | None:
+    paths = snapshot.get("paths")
+    if not isinstance(paths, list):
+        return None
+    result: dict[str, dict[str, object]] = {}
+    for item in paths:
+        if not isinstance(item, dict):
+            return None
+        path = _normalized_guest_path(item.get("path"))
+        if path is None:
+            return None
+        if not path.startswith(("tbd/", "movies/", "streams/")):
+            continue
+        if path in result:
+            return None
+        result[path] = item
+    return result
+
+
+def _normalized_guest_path(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    path = value.replace("\\", "/").casefold().removesuffix(";1")
+    if ":" in path:
+        path = path.split(":", 1)[1]
+    return path.lstrip("/")
 
 
 def _parse_pointer(value: object) -> int:
