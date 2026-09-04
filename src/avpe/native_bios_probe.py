@@ -106,11 +106,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                         help="capture the bounded BIOS/IOP census from boot or a savestate")
     parser.add_argument(
         "--probe-bios-phase",
-        choices=("title", "title-actions", *STATEFILE_BIOS_PHASES[1:], "mission"),
+        choices=("title", "title-actions", *STATEFILE_BIOS_PHASES[1:], "mission", "movie"),
         help=(
             "capture a bounded BIOS/IOP phase after a title or observed "
             "profile-menu action, control save/load, a pointer-driven pause "
-            "Quit confirmation, or clean-boot mission load"
+            "Quit confirmation, clean-boot mission load, or complete native movie I/O"
         ),
     )
     parser.add_argument(
@@ -151,6 +151,11 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
             parser.error("--probe-bios-phase mission requires --memory-card-source")
         if getattr(args, "probe_load_timing", None):
             parser.error("--probe-bios-phase mission cannot combine with --probe-load-timing")
+    if args.probe_bios_phase == "movie":
+        if args.statefile is not None:
+            parser.error("--probe-bios-phase movie requires a clean boot without --statefile")
+        if not getattr(args, "probe_native_movie_reads", False):
+            parser.error("--probe-bios-phase movie requires --probe-native-movie-reads")
 
 
 def bios_trace_is_verified(trace: object) -> bool:
@@ -642,6 +647,34 @@ def shell_shutdown_boundary_is_verified(trace: object) -> bool:
         and returned["frame"] >= entry["frame"] and returned["host_time_ns"] > entry["host_time_ns"]
 
 
+def movie_boundary_is_verified(trace: object) -> bool:
+    if not bios_trace_is_verified(trace) or not isinstance(trace, dict):
+        return False
+    return trace.get("movie_boundary") == {
+        "path": "MOVIES/EALOGO.PSS",
+        "complete": True,
+    }
+
+
+def capture_bios_movie_boundary(port: int) -> dict[str, object]:
+    status, body = request_bytes(port, "POST", "/bios/trace/capture-movie", {}, timeout=32.0)
+    try:
+        trace = json.loads(body)
+    except json.JSONDecodeError:
+        trace = None
+    if status != 200:
+        raise RuntimeError(
+            f"BIOS movie trace capture returned HTTP {status}: {bios_trace_failure_detail(trace)}"
+        )
+    if not movie_boundary_is_verified(trace):
+        raise RuntimeError(
+            "complete grounded native movie boundary was not observed: "
+            f"{bios_trace_failure_detail(trace)}"
+        )
+    assert isinstance(trace, dict)
+    return trace
+
+
 def start_bios_shell_shutdown_phase(port: int) -> None:
     status, body = request_bytes(port, "POST", "/bios/trace/start-shell-shutdown", {})
     if status != 200:
@@ -883,6 +916,12 @@ def run_bios_phase(
     state_path: Path,
     title_actions: tuple[str, ...] = (),
 ) -> tuple[dict[str, object], str, str]:
+    if phase == "movie":
+        return (
+            capture_bios_movie_boundary(port),
+            "clean_boot_native_movie",
+            "ealogo_native_open_to_ioman_close",
+        )
     if phase == "mission":
         await_native_stream_reads(
             port, deadline, "native MENU01 readiness before the BIOS mission boundary"

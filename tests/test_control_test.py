@@ -43,6 +43,7 @@ from avpe.native_bios_probe import (
     capture_bios_mission_boundary,
     game_save_boundary_is_verified,
     mission_boundary_is_verified,
+    movie_boundary_is_verified,
     report_bios_trace,
     run_bios_phase,
     run_requested_bios_probe,
@@ -266,6 +267,14 @@ class ControlTestPolicyTests(unittest.TestCase):
     def test_bios_trace_is_enabled_by_default_for_control_runs(self) -> None:
         env = build_environment({"AVPE_BIOS_TRACE": "0"}, 31234, self.nonce)
         self.assertNotIn("AVPE_BIOS_TRACE", env)
+
+    def test_movie_trace_mode_is_explicitly_scoped(self) -> None:
+        env = build_environment({}, 31234, self.nonce, bios_movie_trace=True)
+        self.assertEqual(env["AVPE_BIOS_MOVIE_TRACE"], "1")
+        self.assertNotIn(
+            "AVPE_BIOS_MOVIE_TRACE",
+            build_environment({"AVPE_BIOS_MOVIE_TRACE": "1"}, 31234, self.nonce),
+        )
 
     def test_accepts_ordered_bounded_bios_trace(self) -> None:
         trace = {
@@ -1030,6 +1039,22 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertTrue(shell_shutdown_boundary_is_verified(trace))
         trace["shell_shutdown_boundary"]["quit_bit_observed"] = False
         self.assertFalse(shell_shutdown_boundary_is_verified(trace))
+
+    def test_movie_boundary_requires_the_complete_ealogo_lifecycle(self) -> None:
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [make_bios_import_event(1)],
+            "movie_boundary": {"path": "MOVIES/EALOGO.PSS", "complete": True},
+        }
+
+        self.assertTrue(movie_boundary_is_verified(trace))
+        trace["movie_boundary"]["complete"] = False
+        self.assertFalse(movie_boundary_is_verified(trace))
 
     def test_shutdown_bios_phase_refuses_a_non_quit_menu_item(self) -> None:
         deadline = time.monotonic() + 1.0
