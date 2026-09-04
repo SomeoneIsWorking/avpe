@@ -316,6 +316,29 @@ Profile-menu Down completed without an EE shuttle or stack-alignment failure.
 This proves title action dispatch and its guest transition boundary; it still
 does not expose `QuitGame` or prove a shell return.
 
+### Finding (2026-09-04, title shutdown route remains beyond profile selection)
+
+The validated `TBD/TBF.TBF` archive contains `MainMenu`, `Main_Quit`, and the
+main-menu campaign/load/tutorial/options/bestiary/extras labels, so the
+supported title does contain a distinct main-menu Quit route. The generic
+`QuitGame` handler is therefore not dead code inferred solely from the ELF.
+It remains beyond the restored title fixture's profile-selection branch:
+physical Cross advanced the live `GPressStartMenu` to `GProfileMenu`
+(`0x00343750`), then through `GLoadProfileMenu` and a profile confirmation
+before the normal mission-goals load path. The visible pause `Quit` action is
+still only `LoadMenu`, and did not enter `CShell::Quit`.
+
+The title-phase driver cannot treat construction of `GPressStartMenu` as a
+ready synthetic-activation contract. At that point the callback registry owns
+navigation but exposes no exact activation callback; the native bridge correctly
+returns 409. An immediate physical Cross in the phase driver also remained on
+the same live press-start menu, whereas an interactively observed Cross after
+the title flow had progressed reached `GProfileMenu`. The missing discriminator
+is the title's own input-readiness/transition condition, not a delay, repeated
+press, direct `CShell::Quit`, or host shutdown. The next shutdown work must
+recover that condition and then follow the main-menu `Main_Quit` item to a
+live `QuitGame` action.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
