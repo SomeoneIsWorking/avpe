@@ -242,6 +242,14 @@ guest-owned request and completion pair: validate `CShell::Quit` against the
 live shell singleton at `0x003672F0`, then observe that main-loop return. The
 control channel's VM shutdown route is not evidence for this game path.
 
+A fresh Ghidra reference-DB caller walk of `CShell::Quit` finds exactly one
+call-type reference: `GMenu::ItemActivated` at call site `0x00125134`. Thus
+there is no second direct title or shell caller hidden behind the archive
+identifier; a valid shutdown fixture must reach a live item whose action CRC is
+actually `QuitGame`. Virtual dispatch into `GMenu::ItemActivated` remains a
+runtime requirement, so this static fact narrows the path but does not claim
+that any menu item is reachable.
+
 `GPauseMenu::ItemActivated` (`0x001FCA10`) special-cases resume and
 profile/save-menu selection, then delegates its remaining actions to the base
 menu handler. The persisted pause child that exposes `CancelKillMe` therefore
