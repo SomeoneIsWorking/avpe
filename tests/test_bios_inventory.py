@@ -9,13 +9,35 @@ from avpe.bios_inventory import (
 )
 
 
+def make_result_summary(
+    first: int,
+    *,
+    last: int | None = None,
+    minimum: int | None = None,
+    maximum: int | None = None,
+    changes: int = 0,
+    encoding: str = "s32",
+) -> dict[str, object]:
+    last = first if last is None else last
+    minimum = min(first, last) if minimum is None else minimum
+    maximum = max(first, last) if maximum is None else maximum
+    return {
+        "encoding": encoding,
+        "first": first,
+        "last": last,
+        "min": minimum,
+        "max": maximum,
+        "changes": changes,
+    }
+
+
 def make_artifact() -> dict[str, object]:
     return {
         "phase": "statefile_to_menu",
         "operation": "menu_down",
         "statefile": "pause-menu.p2s",
         "trace": {
-            "schema": "avpe-bios-trace-v5",
+            "schema": "avpe-bios-trace-v6",
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
@@ -41,7 +63,7 @@ def make_artifact() -> dict[str, object]:
                     "first_arguments": [0, 1, 2, 3],
                     "outcome": "direct",
                     "result_valid": True,
-                    "result": 0,
+                    "result_summary": make_result_summary(0),
                     "result_expected": True,
                     "return_expected": True,
                 },
@@ -54,7 +76,7 @@ def make_artifact() -> dict[str, object]:
                     "first_arguments": [0, 1, 2, 3],
                     "outcome": "hle",
                     "result_valid": True,
-                    "result": 3,
+                    "result_summary": make_result_summary(3),
                     "hle_available": True,
                     "debug_available": False,
                 },
@@ -126,27 +148,52 @@ class BiosInventoryTests(unittest.TestCase):
         events = artifact["trace"]["events"]
         events.append(copy.deepcopy(events[0]))
         events[-1]["sequence"] = 8
-        events[-1]["result"] = -1
+        events[-1]["result_summary"] = make_result_summary(-1)
 
         summary = summarize_bios_artifact(artifact)
 
         syscall = summary["services"]["ee_syscall"][0]
         self.assertEqual(syscall["calls"], 2)
-        self.assertEqual(syscall["results"], [-1, 0])
+        self.assertEqual(
+            syscall["result_observations"],
+            {
+                "encoding": "s32",
+                "samples": [-1, 0],
+                "min": -1,
+                "max": 0,
+                "transitions_within_trace_events": 0,
+            },
+        )
+
+    def test_summarizes_bounded_changing_results_without_claiming_all_values(self) -> None:
+        artifact = make_artifact()
+        imported = artifact["trace"]["events"][1]
+        imported["calls"] = 10000
+        imported["result_summary"] = make_result_summary(
+            10, last=500, minimum=0, maximum=9999, changes=9876
+        )
+
+        summary = summarize_bios_artifact(artifact)
+
+        observations = summary["services"]["import"][0]["result_observations"]
+        self.assertEqual(observations["samples"], [0, 10, 500, 9999])
+        self.assertEqual(observations["min"], 0)
+        self.assertEqual(observations["max"], 9999)
+        self.assertEqual(observations["transitions_within_trace_events"], 9876)
 
     def test_counts_oracle_results_as_unobserved_without_inventing_values(self) -> None:
         artifact = make_artifact()
         syscall = artifact["trace"]["events"][0]
         syscall["outcome"] = "bios"
         syscall["result_valid"] = False
-        del syscall["result"]
+        del syscall["result_summary"]
         artifact["trace"]["ee_syscall_pairing"].update(
             {"entries": 1, "pending": 1}
         )
         imported = artifact["trace"]["events"][1]
         imported["outcome"] = "oracle"
         imported["result_valid"] = False
-        del imported["result"]
+        del imported["result_summary"]
         imported.update(
             {"first_stack_pointer": 0x001FF000, "first_resume_pc": 0x00010200}
         )
@@ -158,7 +205,7 @@ class BiosInventoryTests(unittest.TestCase):
 
         syscall_summary = summary["services"]["ee_syscall"][0]
         import_summary = summary["services"]["import"][0]
-        self.assertEqual(syscall_summary["results"], [])
+        self.assertIsNone(syscall_summary["result_observations"])
         self.assertEqual(syscall_summary["observed_result_calls"], 0)
         self.assertEqual(syscall_summary["unobserved_result_calls"], 1)
         self.assertEqual(import_summary["outcomes"], {"oracle": 1})
@@ -169,7 +216,7 @@ class BiosInventoryTests(unittest.TestCase):
         imported = artifact["trace"]["events"][1]
         imported["outcome"] = "oracle"
         imported["result_valid"] = False
-        del imported["result"]
+        del imported["result_summary"]
         imported.update(
             {"first_stack_pointer": 0x001FF000, "first_resume_pc": 0x00010200}
         )
@@ -181,7 +228,7 @@ class BiosInventoryTests(unittest.TestCase):
                 "ordinal": 6,
                 "function": "open",
                 "result_valid": True,
-                "result": -5,
+                "result_summary": make_result_summary(-5),
                 "hle_available": True,
                 "debug_available": False,
                 "first_stack_pointer": 0x001FF000,
@@ -198,14 +245,14 @@ class BiosInventoryTests(unittest.TestCase):
         self.assertEqual(imported_summary["returned_oracle_calls"], 1)
         self.assertEqual(imported_summary["observed_result_calls"], 1)
         self.assertEqual(imported_summary["unobserved_result_calls"], 0)
-        self.assertEqual(imported_summary["results"], [-5])
+        self.assertEqual(imported_summary["result_observations"]["samples"], [-5])
 
     def test_distinguishes_resultless_direct_calls_from_pending_bios_calls(self) -> None:
         artifact = make_artifact()
         syscall = artifact["trace"]["events"][0]
         syscall.update({"number": 100, "name": "FlushCache", "result_expected": False})
         syscall["result_valid"] = False
-        del syscall["result"]
+        del syscall["result_summary"]
 
         summary = summarize_bios_artifact(artifact)
 
@@ -219,7 +266,7 @@ class BiosInventoryTests(unittest.TestCase):
         syscall = artifact["trace"]["events"][0]
         syscall.update({"number": 68, "name": "WaitSema", "outcome": "bios"})
         syscall["result_valid"] = False
-        del syscall["result"]
+        del syscall["result_summary"]
         artifact["trace"]["events"].append(
             {
                 "sequence": 8,
@@ -228,7 +275,7 @@ class BiosInventoryTests(unittest.TestCase):
                 "name": "WaitSema",
                 "result_expected": True,
                 "result_valid": True,
-                "result": -1,
+                "result_summary": make_result_summary(-1),
                 "first_stack_pointer": 0x01FFF000,
                 "first_resume_pc": 0x00102004,
             }
@@ -244,7 +291,7 @@ class BiosInventoryTests(unittest.TestCase):
         self.assertEqual(syscall_summary["returned_bios_calls"], 1)
         self.assertEqual(syscall_summary["observed_result_calls"], 1)
         self.assertEqual(syscall_summary["unobserved_result_calls"], 0)
-        self.assertEqual(syscall_summary["results"], [-1])
+        self.assertEqual(syscall_summary["result_observations"]["samples"], [-1])
 
     def test_distinguishes_returned_void_from_uncaptured_result(self) -> None:
         void_artifact = make_artifact()
@@ -258,7 +305,7 @@ class BiosInventoryTests(unittest.TestCase):
                 "result_expected": False,
             }
         )
-        del void_entry["result"]
+        del void_entry["result_summary"]
         void_artifact["trace"]["events"].append(
             {
                 "sequence": 8,
@@ -289,7 +336,7 @@ class BiosInventoryTests(unittest.TestCase):
                 "result_valid": False,
             }
         )
-        del unknown_entry["result"]
+        del unknown_entry["result_summary"]
         unknown_artifact["trace"]["events"].append(
             {
                 "sequence": 8,
@@ -321,7 +368,7 @@ class BiosInventoryTests(unittest.TestCase):
                 "result_valid": False,
             }
         )
-        del entry["result"]
+        del entry["result_summary"]
         artifact["trace"]["events"].append(
             {
                 "sequence": 8,
@@ -330,7 +377,9 @@ class BiosInventoryTests(unittest.TestCase):
                 "name": "GsGetIMR",
                 "result_expected": True,
                 "result_valid": True,
-                "result_u64": (1 << 63) + 1,
+                "result_summary": make_result_summary(
+                    (1 << 63) + 1, encoding="u64"
+                ),
                 "first_stack_pointer": 0x01FFF000,
                 "first_resume_pc": 0x00102004,
             }
@@ -339,7 +388,10 @@ class BiosInventoryTests(unittest.TestCase):
 
         syscall_summary = summarize_bios_artifact(artifact)["services"]["ee_syscall"][0]
         self.assertEqual(syscall_summary["observed_result_calls"], 1)
-        self.assertEqual(syscall_summary["results"], [(1 << 63) + 1])
+        self.assertEqual(
+            syscall_summary["result_observations"]["samples"],
+            [(1 << 63) + 1],
+        )
 
     def test_counts_nonreturning_bios_control_transfers_separately(self) -> None:
         artifact = make_artifact()
@@ -354,7 +406,7 @@ class BiosInventoryTests(unittest.TestCase):
                 "return_expected": False,
             }
         )
-        del syscall["result"]
+        del syscall["result_summary"]
 
         summary = summarize_bios_artifact(artifact)
 

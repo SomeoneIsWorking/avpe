@@ -8,7 +8,7 @@ from typing import Any
 from avpe.native_bios_probe import bios_trace_is_verified
 
 
-INVENTORY_SCHEMA = "avpe-bios-inventory-v4"
+INVENTORY_SCHEMA = "avpe-bios-inventory-v5"
 _SERVICE_KINDS = ("ee_syscall", "import", "module", "interrupt", "rpc")
 
 
@@ -108,7 +108,7 @@ def _summarize_services(events: list[dict[str, Any]], kind: str) -> list[dict[st
 
     result = []
     for entry in grouped.values():
-        for key in ("results", "operations", "handlers"):
+        for key in ("operations", "handlers"):
             if key in entry:
                 entry[key] = sorted(entry[key])
         if "outcomes" in entry:
@@ -140,14 +140,13 @@ def _summarize_iop_imports(events: list[dict[str, Any]]) -> list[dict[str, Any]]
         entry["calls"] = entry.get("calls", 0) + calls
         outcome = _required_string(event, "outcome")
         entry.setdefault("outcomes", Counter())[outcome] += calls
-        entry.setdefault("results", set())
         if outcome == "oracle":
             oracle_entry_calls[identity] += calls
         else:
             entry["observed_result_calls"] = (
                 entry.get("observed_result_calls", 0) + calls
             )
-            entry["results"].add(_required_int(event, "result"))
+            _merge_result_observations(entry, event)
 
     for event in events:
         if event["kind"] != "iop_import_return":
@@ -160,7 +159,7 @@ def _summarize_iop_imports(events: list[dict[str, Any]]) -> list[dict[str, Any]]
         oracle_return_calls[identity] += calls
         entry["returned_oracle_calls"] = entry.get("returned_oracle_calls", 0) + calls
         entry["observed_result_calls"] = entry.get("observed_result_calls", 0) + calls
-        entry["results"].add(_required_int(event, "result"))
+        _merge_result_observations(entry, event)
 
     result = []
     for identity, entry in grouped.items():
@@ -168,7 +167,7 @@ def _summarize_iop_imports(events: list[dict[str, Any]]) -> list[dict[str, Any]]
         if pending_calls < 0:
             raise ValueError("IOP oracle returns exceed matching entries")
         entry["outcomes"] = dict(sorted(entry["outcomes"].items()))
-        entry["results"] = sorted(entry["results"])
+        _finalize_result_observations(entry)
         entry.setdefault("observed_result_calls", 0)
         entry["unobserved_result_calls"] = pending_calls
         entry.setdefault("returned_oracle_calls", 0)
@@ -204,7 +203,6 @@ def _summarize_ee_syscalls(events: list[dict[str, Any]]) -> list[dict[str, Any]]
         result_expected = _required_bool(event, "result_expected")
         return_expected = _required_bool(event, "return_expected")
         entry.setdefault("outcomes", Counter())[outcome] += calls
-        entry.setdefault("results", set())
         if outcome == "bios" and return_expected:
             bios_entry_calls[identity] += calls
             if result_expected:
@@ -213,7 +211,7 @@ def _summarize_ee_syscalls(events: list[dict[str, Any]]) -> list[dict[str, Any]]
             entry["nonreturning_calls"] = entry.get("nonreturning_calls", 0) + calls
         elif _required_bool(event, "result_valid"):
             entry["observed_result_calls"] = entry.get("observed_result_calls", 0) + calls
-            entry["results"].add(_required_result(event))
+            _merge_result_observations(entry, event)
         elif result_expected:
             entry["unobserved_result_calls"] = (
                 entry.get("unobserved_result_calls", 0) + calls
@@ -236,7 +234,7 @@ def _summarize_ee_syscalls(events: list[dict[str, Any]]) -> list[dict[str, Any]]
             bios_result_return_calls[identity] += calls
         if result_valid:
             entry["observed_result_calls"] = entry.get("observed_result_calls", 0) + calls
-            entry["results"].add(_required_result(event))
+            _merge_result_observations(entry, event)
         elif result_expected:
             entry["unobserved_result_calls"] = (
                 entry.get("unobserved_result_calls", 0) + calls
@@ -258,7 +256,7 @@ def _summarize_ee_syscalls(events: list[dict[str, Any]]) -> list[dict[str, Any]]
             entry.get("unobserved_result_calls", 0) + pending_result_calls
         )
         entry["outcomes"] = dict(sorted(entry["outcomes"].items()))
-        entry["results"] = sorted(entry["results"])
+        _finalize_result_observations(entry)
         entry.setdefault("observed_result_calls", 0)
         entry.setdefault("returned_bios_calls", 0)
         entry.setdefault("resultless_calls", 0)
@@ -375,15 +373,47 @@ def _required_int(event: dict[str, Any], key: str) -> int:
     return value
 
 
-def _required_result(event: dict[str, Any]) -> int:
-    if "result" in event and "result_u64" not in event:
-        return _required_int(event, "result")
-    if "result_u64" in event and "result" not in event:
-        result = _required_int(event, "result_u64")
-        if not 0 <= result < (1 << 64):
-            raise ValueError("BIOS event result_u64 is outside the u64 range")
-        return result
-    raise ValueError("BIOS event must carry exactly one scalar result encoding")
+def _required_result_summary(event: dict[str, Any]) -> dict[str, Any]:
+    summary = event.get("result_summary")
+    if not isinstance(summary, dict):
+        raise ValueError("BIOS event must carry a result summary")
+    return summary
+
+
+def _merge_result_observations(
+    entry: dict[str, Any], event: dict[str, Any]
+) -> None:
+    summary = _required_result_summary(event)
+    encoding = _required_string(summary, "encoding")
+    first = _required_int(summary, "first")
+    last = _required_int(summary, "last")
+    minimum = _required_int(summary, "min")
+    maximum = _required_int(summary, "max")
+    changes = _required_int(summary, "changes")
+    observations = entry.get("result_observations")
+    if observations is None:
+        observations = {
+            "encoding": encoding,
+            "samples": set(),
+            "min": minimum,
+            "max": maximum,
+            "transitions_within_trace_events": 0,
+        }
+        entry["result_observations"] = observations
+    elif observations["encoding"] != encoding:
+        raise ValueError("BIOS service mixes result encodings")
+    observations["samples"].update((first, last, minimum, maximum))
+    observations["min"] = min(observations["min"], minimum)
+    observations["max"] = max(observations["max"], maximum)
+    observations["transitions_within_trace_events"] += changes
+
+
+def _finalize_result_observations(entry: dict[str, Any]) -> None:
+    observations = entry.get("result_observations")
+    if observations is None:
+        entry["result_observations"] = None
+        return
+    observations["samples"] = sorted(observations["samples"])
 
 
 def _required_bool(event: dict[str, Any], key: str) -> bool:

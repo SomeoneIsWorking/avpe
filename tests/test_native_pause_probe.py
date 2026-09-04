@@ -30,16 +30,13 @@ class NativePauseProbeTests(unittest.TestCase):
             "avpe.native_pause_probe.input_dispatch_state",
             side_effect=[(200, {"callbacks": []}, ""), (200, dispatch, "")],
         ), patch(
-            "avpe.native_pause_probe.request_json",
-            return_value=(200, {"pressed": True}, ""),
+            "avpe.native_pause_probe.press_buttons",
+            return_value={"request": {"pressed": True}},
         ) as press:
             proof = native_pause_probe.probe_gameplay_pause_menu(31234, time.monotonic() + 1.0)
 
         press.assert_called_once_with(
-            31234,
-            "POST",
-            "/input/press",
-            {"mask": native_pause_probe.PAD_START_MASK, "ms": 250},
+            31234, unittest.mock.ANY, native_pause_probe.PAD_START_MASK
         )
         self.assertEqual(proof["input_route"], "physical-pad-start")
         self.assertEqual(proof["menu"], menu)
@@ -53,8 +50,8 @@ class NativePauseProbeTests(unittest.TestCase):
             "avpe.native_pause_probe.input_dispatch_state",
             return_value=(200, {"callbacks": []}, ""),
         ), patch(
-            "avpe.native_pause_probe.request_json",
-            return_value=(200, {"pressed": True}, ""),
+            "avpe.native_pause_probe.press_buttons",
+            return_value={"request": {"pressed": True}},
         ):
             with self.assertRaisesRegex(RuntimeError, "last_status=500"):
                 native_pause_probe.probe_gameplay_pause_menu(31234, time.monotonic() + 1.0)
@@ -77,8 +74,8 @@ class NativePauseProbeTests(unittest.TestCase):
                 (200, {"callbacks": [{**callback, "dispatches": 4}]}, ""),
             ],
         ), patch(
-            "avpe.native_pause_probe.request_json",
-            return_value=(200, {"pressed": True}, ""),
+            "avpe.native_pause_probe.press_buttons",
+            return_value={"request": {"pressed": True}},
         ):
             proof = native_pause_probe.probe_gameplay_pause_menu(31234, time.monotonic() + 1.0)
 

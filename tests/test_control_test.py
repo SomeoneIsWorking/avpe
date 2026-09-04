@@ -60,6 +60,28 @@ from avpe.native_asset_cache_probe import cache_snapshot_is_verified
 from avpe.native_menu_pointer_dispatch_probe import _move_through_dispatch, focus_dispatched_menu_pointer_at
 
 
+def make_result_summary(
+    first: int,
+    *,
+    last: int | None = None,
+    minimum: int | None = None,
+    maximum: int | None = None,
+    changes: int = 0,
+    encoding: str = "s32",
+) -> dict[str, object]:
+    last = first if last is None else last
+    minimum = min(first, last) if minimum is None else minimum
+    maximum = max(first, last) if maximum is None else maximum
+    return {
+        "encoding": encoding,
+        "first": first,
+        "last": last,
+        "min": minimum,
+        "max": maximum,
+        "changes": changes,
+    }
+
+
 def make_bios_import_event(sequence: int) -> dict[str, object]:
     return {
         "sequence": sequence,
@@ -70,7 +92,7 @@ def make_bios_import_event(sequence: int) -> dict[str, object]:
         "first_arguments": [1, 2, 3, 4],
         "outcome": "hle",
         "result_valid": True,
-        "result": 0,
+        "result_summary": make_result_summary(0),
         "hle_available": True,
         "debug_available": False,
         "calls": 1,
@@ -86,7 +108,7 @@ def make_bios_syscall_event(sequence: int) -> dict[str, object]:
         "first_arguments": [0, 0, 0, 0],
         "outcome": "direct",
         "result_valid": True,
-        "result": 0,
+        "result_summary": make_result_summary(0),
         "result_expected": True,
         "return_expected": True,
         "calls": 1,
@@ -260,6 +282,44 @@ class ControlTestPolicyTests(unittest.TestCase):
 
         self.assertTrue(bios_trace_is_verified(trace))
 
+    def test_accepts_bounded_changing_result_summary(self) -> None:
+        event = make_bios_import_event(1)
+        event["calls"] = 10000
+        event["result_summary"] = make_result_summary(
+            0, last=9999, minimum=0, maximum=9999, changes=9999
+        )
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [event],
+        }
+
+        self.assertTrue(bios_trace_is_verified(trace))
+        event["result_summary"]["changes"] = 10000
+        self.assertFalse(bios_trace_is_verified(trace))
+
+    def test_rejects_inconsistent_result_summary(self) -> None:
+        event = make_bios_import_event(1)
+        event["calls"] = 2
+        event["result_summary"] = make_result_summary(
+            4, last=4, minimum=4, maximum=5, changes=0
+        )
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [event],
+        }
+
+        self.assertFalse(bios_trace_is_verified(trace))
+
     def test_rejects_legacy_or_ungrounded_bios_service_results(self) -> None:
         legacy = {
             "schema": "avpe-bios-trace-v2",
@@ -294,19 +354,23 @@ class ControlTestPolicyTests(unittest.TestCase):
     def test_accepts_exactly_paired_iop_oracle_return(self) -> None:
         entry = make_bios_import_event(1)
         entry.update({"outcome": "oracle", "result_valid": False})
-        del entry["result"]
-        entry.update(
-            {"first_stack_pointer": 0x001FF000, "first_resume_pc": 0x00010200}
-        )
+        del entry["result_summary"]
+        entry.update({
+            "function": "unknown",
+            "hle_available": False,
+            "debug_available": False,
+            "first_stack_pointer": 0x001FF000,
+            "first_resume_pc": 0x00010200,
+        })
         returned = {
             "sequence": 2,
             "kind": "iop_import_return",
             "library": "ioman",
             "ordinal": 6,
-            "function": "read",
+            "function": "unknown",
             "result_valid": True,
-            "result": -5,
-            "hle_available": True,
+            "result_summary": make_result_summary(-5),
+            "hle_available": False,
             "debug_available": False,
             "first_stack_pointer": 0x001FF000,
             "first_resume_pc": 0x00010200,
@@ -335,7 +399,7 @@ class ControlTestPolicyTests(unittest.TestCase):
     def test_rejects_iop_oracle_pairing_counter_or_result_omission(self) -> None:
         entry = make_bios_import_event(1)
         entry.update({"outcome": "oracle", "result_valid": False})
-        del entry["result"]
+        del entry["result_summary"]
         entry.update(
             {"first_stack_pointer": 0x001FF000, "first_resume_pc": 0x00010200}
         )
@@ -357,7 +421,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         event = make_bios_syscall_event(1)
         event.update({"number": 100, "name": "FlushCache", "result_expected": False})
         event["result_valid"] = False
-        del event["result"]
+        del event["result_summary"]
         trace = {
             "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
@@ -374,7 +438,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         entry = make_bios_syscall_event(1)
         entry.update({"number": 68, "name": "WaitSema", "outcome": "bios"})
         entry["result_valid"] = False
-        del entry["result"]
+        del entry["result_summary"]
         returned = {
             "sequence": 2,
             "kind": "ee_syscall_return",
@@ -382,7 +446,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "name": "WaitSema",
             "result_expected": True,
             "result_valid": True,
-            "result": 0,
+            "result_summary": make_result_summary(0),
             "first_stack_pointer": 0x01FFF000,
             "first_resume_pc": 0x00102004,
             "calls": 1,
@@ -403,7 +467,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         entry = make_bios_syscall_event(1)
         entry.update({"number": 112, "name": "GsGetIMR", "outcome": "bios"})
         entry["result_valid"] = False
-        del entry["result"]
+        del entry["result_summary"]
         returned = {
             "sequence": 2,
             "kind": "ee_syscall_return",
@@ -411,7 +475,9 @@ class ControlTestPolicyTests(unittest.TestCase):
             "name": "GsGetIMR",
             "result_expected": True,
             "result_valid": True,
-            "result_u64": (1 << 63) + 1,
+            "result_summary": make_result_summary(
+                (1 << 63) + 1, encoding="u64"
+            ),
             "first_stack_pointer": 0x01FFF000,
             "first_resume_pc": 0x00102004,
             "calls": 1,
@@ -442,7 +508,7 @@ class ControlTestPolicyTests(unittest.TestCase):
                 "return_expected": False,
             }
         )
-        del event["result"]
+        del event["result_summary"]
         trace = {
             "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
@@ -466,7 +532,7 @@ class ControlTestPolicyTests(unittest.TestCase):
                 "result_expected": False,
             }
         )
-        del void_entry["result"]
+        del void_entry["result_summary"]
         void_return = {
             "sequence": 2,
             "kind": "ee_syscall_return",
@@ -487,7 +553,7 @@ class ControlTestPolicyTests(unittest.TestCase):
                 "result_valid": False,
             }
         )
-        del unknown_entry["result"]
+        del unknown_entry["result_summary"]
         unknown_return = {
             "sequence": 4,
             "kind": "ee_syscall_return",
@@ -518,7 +584,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         event = make_bios_syscall_event(1)
         event.update({"number": 68, "name": "WaitSema", "outcome": "bios"})
         event["result_valid"] = False
-        del event["result"]
+        del event["result_summary"]
         trace = {
             "schema": BIOS_TRACE_SCHEMA,
             "enabled": True,
@@ -807,7 +873,13 @@ class ControlTestPolicyTests(unittest.TestCase):
             "iop_import_pairing": make_iop_import_pairing(),
             "events": [make_bios_import_event(1)],
         }
-        with patch("avpe.native_bios_probe.start_bios_game_save_phase") as start, patch(
+        preparation = {"empty_slot": {"focused_item_action": "0x00000001"}}
+        with patch(
+            "avpe.native_bios_probe._prepare_empty_game_save_slot",
+            return_value=preparation,
+        ) as prepare, patch(
+            "avpe.native_bios_probe.start_bios_game_save_phase"
+        ) as start, patch(
             "avpe.native_bios_probe.menu_state",
             return_value=(200, {"focus_object": "0x00123456"}, "OK"),
         ) as state, patch(
@@ -827,8 +899,13 @@ class ControlTestPolicyTests(unittest.TestCase):
 
         self.assertEqual(
             result,
-            (trace, "statefile_to_game_save", "slot_select_to_cprofile_save_game"),
+            (
+                trace,
+                "gameplay_to_game_save",
+                "pause_save_empty_slot_to_cprofile_save_game",
+            ),
         )
+        prepare.assert_called_once_with(31234, 99.0)
         start.assert_called_once_with(31234)
         state.assert_called_once_with(31234)
         activate.assert_called_once_with(31234, "activate")
@@ -836,6 +913,63 @@ class ControlTestPolicyTests(unittest.TestCase):
             31234, 99.0, 17, "BIOS phase game-save activate"
         )
         capture.assert_called_once_with(31234)
+        self.assertEqual(trace["game_save_menu_preparation"], preparation)
+
+    def test_game_save_bios_phase_waits_for_registered_callback_dispatch(self) -> None:
+        trace = {
+            "schema": BIOS_TRACE_SCHEMA,
+            "enabled": True,
+            "capacity": 4096,
+            "overflow": 0,
+            "ee_syscall_pairing": make_ee_syscall_pairing(),
+            "iop_import_pairing": make_iop_import_pairing(),
+            "events": [make_bios_import_event(1)],
+        }
+        dispatch = {"completed_menu_action_id": 23}
+        response = {"dispatch_action_id": 23, "handler": "0x00120F40"}
+        preparation = {"empty_slot": {"focused_item_action": "0x00000001"}}
+        with patch(
+            "avpe.native_bios_probe._prepare_empty_game_save_slot",
+            return_value=preparation,
+        ), patch("avpe.native_bios_probe.start_bios_game_save_phase"), patch(
+            "avpe.native_bios_probe.menu_state",
+            return_value=(200, {"focus_object": "0x00123456"}, "OK"),
+        ), patch(
+            "avpe.native_bios_probe.menu_action",
+            return_value=(202, response, "queued"),
+        ), patch(
+            "avpe.native_bios_probe.await_dispatched_menu_action",
+            return_value=dispatch,
+        ) as await_dispatch, patch(
+            "avpe.native_bios_probe.capture_bios_game_save_boundary",
+            return_value=trace,
+        ):
+            result = run_bios_phase(
+                31234,
+                99.0,
+                "game-save",
+                Path("scratch/states/save-menu.p2s"),
+                Path("scratch/control-test/bios-phase-state.p2s"),
+            )
+
+        self.assertEqual(
+            result,
+            (
+                trace,
+                "gameplay_to_game_save",
+                "pause_save_empty_slot_to_cprofile_save_game",
+            ),
+        )
+        self.assertEqual(
+            trace["game_save_menu_selection"],
+            {
+                "before": {"focus_object": "0x00123456"},
+                "action": "activate",
+                "response": response,
+                "dispatch": dispatch,
+            },
+        )
+        await_dispatch.assert_called_once_with(31234, 99.0, 23)
 
     def test_game_save_capture_retains_a_structured_timeout(self) -> None:
         trace = {
@@ -899,12 +1033,17 @@ class ControlTestPolicyTests(unittest.TestCase):
 
     def test_shutdown_bios_phase_refuses_a_non_quit_menu_item(self) -> None:
         deadline = time.monotonic() + 1.0
-        candidate = {"focused_item_action": "0xCA788CFB"}
+        candidate = {
+            "menu": "0x012E85A0",
+            "focused_item_action": "0xCA788CFB",
+        }
         with patch("avpe.native_bios_probe.probe_gameplay_pause_menu") as pause, patch(
             "avpe.native_bios_probe._pause_selection_rectangles", return_value=[]
         ), patch(
             "avpe.native_bios_probe._complete_menu_action"
         ) as action, patch(
+            "avpe.native_bios_probe.await_following_menu_input_dispatch"
+        ), patch(
             "avpe.native_bios_probe._await_settled_menu_state",
             return_value=(200, candidate),
         ) as settled, patch("avpe.native_bios_probe.start_bios_shell_shutdown_phase") as start, self.assertRaisesRegex(
