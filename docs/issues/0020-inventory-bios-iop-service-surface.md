@@ -509,6 +509,17 @@ must belong to a descendant menu or another title state; activating any of
 these rows without first identifying that branch would not be shutdown
 evidence.
 
+Two identified descendant probes further narrow that archive label without
+executing an unclassified item. Activating `Options` entered menu vtable
+`0x00343850`: its first two textual rows are `Audio` and `Controls`; its next
+focused object has a zero base `GMenuItem::GetText` pointer and distinct action
+`0x0ECB1445`, so it was not activated. Normal Cancel returned to the focused
+`Options` row. Activating `Extras` entered the same menu vtable with `Credits`
+then `Replay Intro` (action `0x0B36B742`); an exact-state Down remained on
+`Replay Intro`. Therefore the fully enumerated Extras branch has no direct
+Quit entry, while the Options non-text control remains intentionally
+unclassified rather than being mistaken for `Main_Quit`.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
