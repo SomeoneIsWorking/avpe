@@ -910,6 +910,16 @@ def main() -> int:
         stop_process_group(proc)
         stdout.close()
 
+    if proc.returncode != 0:
+        print(f"FATAL control test exited rc={proc.returncode}; see {LOG_DIR}", file=sys.stderr)
+        return 1
+    if not graceful_shutdown:
+        print(f"FATAL control test did not complete graceful shutdown; see {LOG_DIR}", file=sys.stderr)
+        return 1
+    if boot_status is None:
+        print(f"FATAL {EXPECTED_SERIAL} never reached Running state; see {LOG_DIR}", file=sys.stderr)
+        return 1
+
     card_proof: dict[str, object] | None = None
     if card_probe is not None:
         try:
@@ -942,15 +952,6 @@ def main() -> int:
             flush=True,
         )
 
-    if proc.returncode != 0:
-        print(f"FATAL control test exited rc={proc.returncode}; see {LOG_DIR}", file=sys.stderr)
-        return 1
-    if not graceful_shutdown:
-        print(f"FATAL control test did not complete graceful shutdown; see {LOG_DIR}", file=sys.stderr)
-        return 1
-    if boot_status is None:
-        print(f"FATAL {EXPECTED_SERIAL} never reached Running state; see {LOG_DIR}", file=sys.stderr)
-        return 1
     if args.probe_native_assets or args.probe_native_asset_reads:
         if native_assets_proof is None:
             detail = probe_error or "probe did not run"
