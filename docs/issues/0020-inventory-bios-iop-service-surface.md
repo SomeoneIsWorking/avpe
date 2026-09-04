@@ -318,11 +318,13 @@ does not expose `QuitGame` or prove a shell return.
 
 ### Finding (2026-09-04, title shutdown route remains beyond profile selection)
 
-The validated `TBD/TBF.TBF` archive contains `MainMenu`, `Main_Quit`, and the
-main-menu campaign/load/tutorial/options/bestiary/extras labels, so the
-supported title does contain a distinct main-menu Quit route. The generic
-`QuitGame` handler is therefore not dead code inferred solely from the ELF.
-It remains beyond the restored title fixture's profile-selection branch:
+The validated `TBD/TBF.TBF` archive contains the `MainMenu`, `Main_Quit`, and
+main-menu campaign/load/tutorial/options/bestiary/extras identifiers. Those
+archive identifiers alone do not establish a selectable route: the supported
+live main menu has only the six observed textual rows, and bounded Options and
+Extras probes expose no direct Quit item. The generic `QuitGame` handler is
+therefore still not known to be reachable from this title configuration. It
+remains beyond the restored title fixture's profile-selection branch:
 physical Cross advanced the live `GPressStartMenu` to `GProfileMenu`
 (`0x00343750`), then through `GLoadProfileMenu` and a profile confirmation
 before the normal mission-goals load path. The visible pause `Quit` action is
@@ -336,8 +338,9 @@ the same live press-start menu, whereas an interactively observed Cross after
 the title flow had progressed reached `GProfileMenu`. The missing discriminator
 is the title's own input-readiness/transition condition, not a delay, repeated
 press, direct `CShell::Quit`, or host shutdown. The next shutdown work must
-recover that condition and then follow the main-menu `Main_Quit` item to a
-live `QuitGame` action.
+recover the title/menu configuration that makes a guest-owned `QuitGame`
+action reachable; it must not assume that the `Main_Quit` archive identifier
+maps to the current main-menu item set.
 
 Static decompilation also rules out an activation timer in the shared menu
 owner itself. `GMenu::Input` at `0x00125330` validates the focused child and,
