@@ -422,6 +422,26 @@ state load. The required replacement must inspect the live callback registry
 at the normal input-dispatch boundary; object construction history is not a
 registry-lifetime contract.
 
+### Finding (2026-09-04, live attract-owner registry discriminator)
+
+`NativeInputDispatch` now snapshots `GInputDevice`'s current callback registry
+at `Process` entry `0x00114490`, before its ordinary callback dispatch. It
+validates the guest `ZArray` against its own capacity, resolves each owner
+handle, and reports `GAttractExit` only when a current owner has vtable
+`0x00343AF0`. It makes no lifecycle or menu decision.
+
+The shipping surfaceless process produced both discriminator outcomes. The
+`press-start.p2s` path had 52 callbacks in capacity 64, zero scan failures,
+and current attract owner `0x01765D10`; its normal dispatches included
+`GAttractExit::InputAnalog` at `0x002069E0`. The ordinary `title-real.p2s`
+path had 8 callbacks in capacity 32, a valid scan, and no attract owner before
+the physical Cross transition that reached `GProfileMenu`. The former
+presentation cap of 32 was
+rejected when the real registry exposed 52 entries; 32 is the guest container's
+growth increment, not its maximum. This establishes a savestate-safe passive
+predicate for title input ownership, but not the cause of its transition or a
+shutdown route.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
