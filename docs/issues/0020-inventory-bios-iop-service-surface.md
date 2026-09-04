@@ -502,9 +502,12 @@ objects `0x0153F9C0`, `0x015404B0`, `0x01540F90`, `0x01541A70`, and
 `0x01542550` after the initial `0x0153EEE0`; each has the same `LoadMenu`
 action `0xCA788CFB`. A sixth Down leaves `0x01542550` focused. Thus this
 live `GMainMenu` has six selectable `LoadMenu` rows and no direct `QuitGame`
-candidate. The `Main_Quit` archive label must belong to a descendant menu or
-another title state; activating any of these rows without first identifying
-that branch would not be shutdown evidence.
+candidate. `GMenuItem::GetText` statically resolves to offset `+0x148`; live
+bounded reads establish their exact order as `Start Campaign`, `Load Game`,
+`Tutorials`, `Options`, `Bestiary`, and `Extras`. The `Main_Quit` archive label
+must belong to a descendant menu or another title state; activating any of
+these rows without first identifying that branch would not be shutdown
+evidence.
 
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 

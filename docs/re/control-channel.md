@@ -31,7 +31,7 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | POST `/input/press` | `{"mask":512,"ms":250}` | u16 PadDualshock2::Inputs bits, auto-expire after 1–60,000 ms |
 | POST `/input/move-absolute` | `{"x":0.5,"y":0.5}` | normalized coordinates through the game-native absolute-pointer owner |
 | POST `/input/mouse-button` | `{"button":"primary","edge":"press"}` | typed edge through the corresponding original AVP:E mouse handler |
-| GET `/input/menu` | — | read-only active AVP:E menu owner, callback count, and focus |
+| GET `/input/menu` | — | read-only active AVP:E menu owner, callback count, focus, and raw focused-item text pointer |
 | GET `/input/menu-readiness` | — | state of the single bounded exact-menu physical-pad request |
 | POST `/input/menu-action` | `{"action":"down"}` | typed direction, activate, or cancel through the active AVP:E `GMenu` owner; paired `when_menu_vtable` and `when_focused_item_action` arm one exact-state physical-pad action |
 | GET `/input/menu-pointer` | — | read-only active menu-capable pointer owner and focused item |
