@@ -365,6 +365,29 @@ The next probe must recover the title-owned transition predicate from that
 surrounding lifecycle; moving the input, retrying it, or treating an eventual
 no-menu state as a profile route would conceal the distinction.
 
+Static and live field evidence narrows that lifecycle without turning it into a
+delay. `GPressStartMenu` inherits `GBaseMenu::Process` at `0x00207470`, whose
+only timed branch compares the inherited deadline at `+0x288` to game time and
+calls `CShell::SetNextLevel` with the level path at `+0x280`. In the live
+press-start object, `+0x27c` was `30.0`, `+0x280` pointed to
+`Attract\\background.tbd`, and `+0x288` was its resulting deadline. That is
+the authored attract/demo route, not an input-readiness timer and must not be
+used as one.
+
+A stricter title-phase experiment required the exact live
+`GPressStartMenu` vtable, focus object, and `LoadMenuKillMe` action before
+injecting physical Cross. The injection itself was observed active then
+released (`0x0040` then `0x0000`), but the phase still observed the unchanged
+press-start menu followed by no active menu, without `GProfileMenu` before its
+bounded deadline. The earlier manual sequence, including an armed trace,
+reached `GProfileMenu`; neither observation identifies the cause of the
+different schedule. Exact focus publication and controller delivery are
+therefore necessary but not sufficient transition evidence. The next grounded
+discriminator is a passive guest-side observation of
+`GPressStartMenu::ItemActivated` (`0x00209F30`) through `GProfileMenu::Create`
+(`0x002075F0`), rather than more control-channel polling, input holds, or
+timers.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
