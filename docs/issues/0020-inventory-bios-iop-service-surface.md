@@ -470,6 +470,14 @@ therefore a cancellation confirmation, not the main menu that owns
 `Main_Quit`. The unresolved shutdown work needs a guest-owned profile/main-menu
 fixture, not another title-input change.
 
+Pairing `press-start.p2s` with the isolated matching `after-slot0.ps2` card
+does not resolve that fixture gap. After the profile action it reached vtable
+`0x00343350` with focused action zero, then `0x00342850` with `LoadMenu`, and
+finally no active menu plus a new 52/64 `GAttractExit` registry. It never
+exposed `Main_Quit`. The run's later card-readiness timeout is not used as
+transition evidence; the observed guest menu sequence itself is the
+discriminator.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
