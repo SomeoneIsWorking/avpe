@@ -126,6 +126,16 @@ Callbacks for `GMenu::InputUp/Down/Left/Right/InputAnalog` identify the unique
 active menu owner; handle resolution uses `GObject::TheHandleArray` at
 `0x00371020`.
 
+The `32` is the array's growth increment, not a callback limit: its `+0x08`
+capacity grows by `0x20` records whenever count reaches capacity. The normal
+dispatch observer snapshots the live registry at `GInputDevice::Process` entry
+`0x00114490`, accepts it only when `count <= capacity`, and resolves every
+current owner handle before reporting the `GAttractExit` vtable
+`0x00343AF0`. Consequently `attract_registered=false` means a complete valid
+registry scan, while any unreadable registry is explicitly invalid rather than
+silently treated as absent. This is evidence only; title transition policy
+remains guest-owned.
+
 `GMenu::Input` is `0x00125330`; actions are Up=0, Down=1, Left=2, Right=3,
 Activate=4. The active focused-item handle is `menu+0x26c`. Returning
 directional calls are safe through the EE-call transaction and changed pause
