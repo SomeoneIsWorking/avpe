@@ -2,12 +2,17 @@
 
 from dataclasses import dataclass
 import hashlib
+import json
 from pathlib import Path
 import shutil
+import time
+
+from avpe.control_http import request_bytes
 
 
 PS2_CARD_MAGIC = b"Sony PS2 Memory Card Format "
 WORKING_CARD_NAME = "save-boundary-probe.ps2"
+MEMORY_CARD_STATE_SCHEMA = "avpe-memory-card-state-v1"
 
 
 def sha256_file(path: Path) -> str:
@@ -79,3 +84,57 @@ def prepare_memory_card_probe(source: Path, data_dir: Path) -> MemoryCardProbe:
     shutil.copyfile(source, pending)
     pending.replace(working)
     return MemoryCardProbe(source, working, sha256_file(source))
+
+
+def memory_card_state(port: int) -> tuple[int, dict[str, object] | None, str]:
+    status, body = request_bytes(port, "GET", "/memory-card/state")
+    detail = body.decode(errors="replace").strip()
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return status, None, detail
+    if not isinstance(parsed, dict) or not _valid_memory_card_state(parsed):
+        return status, None, detail
+    return status, parsed, detail
+
+
+def await_memory_card_ready(port: int, deadline: float) -> dict[str, object]:
+    """Wait for PCSX2's savestate-load card ejection to complete."""
+    observations = 0
+    saw_ejected = False
+    saw_busy = False
+    last_state: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, state, detail = memory_card_state(port)
+        if status != 200 or state is None:
+            raise RuntimeError(
+                f"memory-card readiness returned HTTP {status}: {detail}"
+            )
+        observations += 1
+        last_state = state
+        ticks = int(state["auto_eject_ticks"])
+        saw_ejected = saw_ejected or ticks > 0
+        saw_busy = saw_busy or state["busy"] is True
+        if state["ready"] is True:
+            return {
+                "observations": observations,
+                "saw_auto_eject": saw_ejected,
+                "saw_busy": saw_busy,
+                "state": state,
+            }
+        time.sleep(0.01)
+    raise RuntimeError(
+        "memory card did not become ready after ejection or active writes: "
+        f"observations={observations}, last_state={last_state}"
+    )
+
+
+def _valid_memory_card_state(state: dict[str, object]) -> bool:
+    ticks = state.get("auto_eject_ticks")
+    return state.get("schema") == MEMORY_CARD_STATE_SCHEMA \
+        and state.get("slot") == 0 \
+        and isinstance(state.get("present"), bool) \
+        and isinstance(state.get("busy"), bool) \
+        and isinstance(ticks, int) and not isinstance(ticks, bool) and ticks >= 0 \
+        and isinstance(state.get("ready"), bool) \
+        and state["ready"] is (state["present"] and not state["busy"] and ticks == 0)

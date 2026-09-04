@@ -13,25 +13,19 @@ means the capability is absent.
 ## Current focus
 
 **S025 — required firmware service inventory.** The bounded BIOS census now has
-repeatable clean-boot and post-savestate phase evidence plus a completed,
-grounded clean-boot mission boundary. Stack-aware observers identified the
-outer initializer as `CPresetFillData`, then the active factory as
-`GExitMissionGoalsButton::Create`. The actual wait was the title's synchronous
-mission-goals modal, which polls `GInputDevice` before normal callback-registry
-ownership. Exact Exit-item focus and synchronous game-native activation cleared
-the modal and reached `ShellLoadLevel` return with 2,638/2,638 initializer calls,
-942/942 factory calls, all 24 post-read rounds complete, and zero sequence
-errors at those ownership boundaries. The older single-frame load-timing
-observer separately reports 10 nesting errors and is not timing evidence for
-this path. Two earlier schema-v4 service captures pair every return-capable EE
-BIOS call and all 527 IOP oracle imports at exact stack/return-PC boundaries
-with zero pending calls, pairing errors, or overflow. Schema v5 preserves that
-pairing contract and adds a non-truncating `result_u64` encoding for declared
-GS calls, proven by native and Python discriminators. A clean boot held through
-the ordinary `TBD/TBF.TBF` open now captures `GsPutIMR` and its full 64-bit
-result. Static reachability proves that `GsGetIMR` belongs only to a dead
-player-two screen-capture branch, so it is not a normal-title service
-requirement. The remaining work is the complete menu, save/load, shutdown, and
+repeatable clean-boot and post-savestate evidence plus grounded mission and
+normal game-save boundaries. The schema-v6 game-save capture followed the
+ordinary gameplay Pause → Save → empty-slot route through
+`GSavePacifyMenu::Process` into `CProfile::SaveGame`, returned result zero, and
+paired 3,396/3,396 EE BIOS calls plus 340/340 IOP oracle calls with zero pending
+calls, sequence errors, or overflow. Result-bearing hot services retain bounded
+first/last/min/max/change summaries instead of consuming the event capacity,
+and unresolved oracle names are explicit `unknown` values. The runner also
+waits for PCSX2's real post-savestate card reinsertion and post-write busy
+lifecycle, so neither an ejected card nor an unflushed write can masquerade as
+a title failure. The completed mission boundary remains valid with 2,638/2,638
+initializer calls, 942/942 factory calls, and all 24 post-read rounds complete.
+The remaining work is the game-load, shutdown, archive/service-operation, and
 service-level negative-path inventory.
 Static IRX analysis now narrows the IOP candidate surface to seven retained
 modules, 61 import tables, 260 import stubs, and 19 library identities; it is
@@ -616,7 +610,7 @@ state-recovery, and guest-reset cleanup seams.
 ### S025 — required firmware service inventory: partial
 
 Observed subset: the BIOS-backed IOP import boundary now emits a bounded,
-sequence-ordered v5 diagnostic census containing each reached import's module,
+sequence-ordered v6 diagnostic census containing each reached import's module,
 ordinal, resolved name (or `unknown` when unresolved), first four input
 arguments, handler availability, actual outcome, and occurrence count. A
 handled HLE call carries
@@ -638,7 +632,8 @@ IOP counter target/overflow paths also record counter state, cycle, and whether
 the interrupt was delivered. The isolated C++ and Python tests prove disabled
 capture, ordering, outcome/result-validity pairs, rejection of legacy or
 malformed result fields, exception/timer fields, and the exact capacity/
-overflow behavior, wrong return pairing, and malformed result dispositions.
+overflow behavior, wrong return pairing, malformed result dispositions, and
+bounded aggregation of continuously changing results.
 
 A successful `Host::OnSaveStateLoaded()` reset now separates post-savestate
 execution from restore-time scheduler traffic. Three different BIOS-backed
@@ -672,9 +667,9 @@ zero-overflow runs reached the same action but retained 150 versus 51 events,
 with 524/524 versus 15/15 paired EE calls and 51/51 versus 0/0 paired IOP calls.
 That is another negative repeatability control, not title service coverage.
 
-`tools/analyze_bios_traces.py` now turns retained v5 captures into a
+`tools/analyze_bios_traces.py` now turns retained v6 captures into a
 deterministic inventory report using the same strict trace validator as the
-runner. Its v5 summary separates observed results, returned oracle calls,
+runner. Its v5 inventory summary separates observed results, returned oracle calls,
 returned void calls, unobserved results, and non-returning transfers. The
 earlier seven-capture v1
 set still proves
@@ -740,8 +735,23 @@ or overflow. The first trace retained 1,358 event identities and the current
 relinked repeat 1,353,
 so exact hot-path event totals remain outside the repeatability contract.
 
-Gap: extend the restored-menu completion pattern to title and mission states,
-add a fixture that reaches the grounded `CProfile::SaveGame` observer, then
+A schema-v6 BIOS-backed run from `mission1-current.p2s` and the matching
+isolated `after-slot0.ps2` card completed the ordinary gameplay Pause → Save →
+empty-slot path. It observed all three `GSavePacifyMenu::Process` calls, entered
+`CProfile::SaveGame` at `0x00130170`, returned at `0x00130374` with result zero,
+and changed the working card while preserving the source card. The trace
+retained 121 event identities, paired 3,396/3,396 return-capable EE BIOS calls
+and 340/340 IOP oracle calls, and reported zero pending calls, sequence errors,
+or overflow. The IOP slice contains 117 `cdvdman` ordinal-51 returns, 111
+`sifcmd.sceSifGetOtherData` returns, 111 `mcman` ordinal-9 returns, and one
+`mcman` ordinal-10 return. The stripped `mcman` names are recorded as
+`unknown`, not empty strings. Its changing ordinal-9 results are retained as a
+bounded summary (`min=4`, `max=8192`, 92 changes) rather than one event per
+result. PCSX2's 60-frame savestate card auto-eject and 300-frame post-write
+busy intervals are both observed and awaited through the production
+`/memory-card/state` route.
+
+Gap: extend the restored-menu completion pattern to title states, add grounded
 game-load and shutdown phase boundaries, and separate
 archive/service operations from resumed execution.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
@@ -757,10 +767,13 @@ current result evidence; registration is not proof of import execution.
 Static presence and registration do not close the remaining service and
 negative-path inventory.
 
-Evidence: claims C035–C037, instruments I021–I023, [`re/bios.md`](re/bios.md), issue #20,
+Evidence: claims C035–C037 and C039, instruments I021–I024,
+[`re/bios.md`](re/bios.md), issue #20,
 the `NativeBiosTraceTest` production tests, and ignored repeated artifacts
 `scratch/control-test/bios-mission-service-v4.prev.json` and
-`scratch/control-test/bios-mission-service-v4.json`. Claims C031/C034 are falsified
+`scratch/control-test/bios-mission-service-v4.json`, plus
+`scratch/control-test/game-save-bios.json` and its deterministic inventory.
+Claims C031/C034 are falsified
 and I020 is distrusted; none is current result evidence. Three repeated
 surfaceless clean boots
 also captured the same 28-event `clean_boot_to_running` trace with zero

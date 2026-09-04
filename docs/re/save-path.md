@@ -142,6 +142,18 @@ differential comparison. The `/ee/call` diagnostic endpoint cannot faithfully
 invoke the five-argument `CProfile::SaveGame` ABI because it only stages
 `a0..a3`; normal menu execution is therefore required for game-save captures.
 
+The BIOS-backed game-save probe now supplies that runtime evidence from
+`mission1-current.p2s` and its matching `after-slot0.ps2` card. It first waits
+through PCSX2's 60-frame post-savestate card auto-eject, then follows the
+ordinary Pause → Save → verified empty-slot route. The exact registered
+descendant `ActivateFocused` callback enters `GSavePacifyMenu`, whose three
+normal process calls reach `CProfile::SaveGame` at `0x00130170`; the function
+returns at `0x00130374` with result zero. The isolated working card changes,
+the source card does not, and the runner waits through the observed 300-frame
+post-write busy interval before graceful shutdown. This is the grounded
+completion boundary needed for future native-save interception; it is not yet
+the native backend itself.
+
 ## Two normal game-save records
 
 The BIOS-backed control runner exercised the actual Save Game menu on isolated
@@ -332,16 +344,15 @@ load round-trip.
   descriptor wire splitting, selected SaveEx payloads, dynamic message-size
   fallback, and grounded player-manager predicate now produce complete
   boundaries for both retained records.
-- Capture a normal in-game save completion and identify the narrow guest-call
-  interception mechanism that can route the five `CProfile` operations to
+- Identify the narrow guest-call interception mechanism that can route the
+  five `CProfile` operations to
   `AVPE::NativeSaves` while keeping the original game routines available as
   the differential oracle.
-  The available `save-menu.p2s` is not that completion fixture: its
-  dispatch-bound pointer activation and title Cross input did not reach
-  `CProfile::SaveGame` or change the isolated card.
 
 `tools/run_control_test.py --memory-card-source CARD.ps2` copies a formatted
 card into the surfaceless/null-muted test profile, never opens the source for
 writing, and emits `scratch/control-test/memory-card-proof.json` with source and
-working hashes plus the changed-byte range. It is the runtime observation seam
-for these comparisons; it is not the native backend.
+working hashes plus the changed-byte range. Its production
+`/memory-card/state` observation waits for card reinsertion after state load and
+for write-idle before shutdown. It is the runtime observation seam for these
+comparisons; it is not the native backend.

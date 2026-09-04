@@ -7,6 +7,9 @@ from pathlib import Path
 from avpe.control_http import request_bytes, request_json
 
 
+MENU_INPUT_ANALOG = ("0x00000000", "0xffffffff", "0x00125230")
+
+
 def menu_action(
     port: int,
     action: str,
@@ -140,6 +143,108 @@ def await_dispatched_menu_action(
     )
 
 
+def menu_input_dispatch_count(snapshot: dict[str, object], menu: object) -> int:
+    menu_address = _u32(menu)
+    if menu_address is None:
+        raise RuntimeError(f"menu dispatch owner is invalid: {menu!r}")
+    for callback in snapshot.get("callbacks", []):
+        if not isinstance(callback, dict):
+            continue
+        member = callback.get("member_function")
+        if _u32(callback.get("owner")) != menu_address \
+                or not isinstance(member, list) \
+                or tuple(member) != MENU_INPUT_ANALOG:
+            continue
+        dispatches = callback.get("dispatches")
+        if isinstance(dispatches, int) and not isinstance(dispatches, bool):
+            return dispatches
+    return 0
+
+
+def menu_input_dispatch_counts(snapshot: dict[str, object]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for callback in snapshot.get("callbacks", []):
+        if not isinstance(callback, dict):
+            continue
+        owner = callback.get("owner")
+        member = callback.get("member_function")
+        dispatches = callback.get("dispatches")
+        if _u32(owner) is None or not isinstance(owner, str) \
+                or not isinstance(member, list) \
+                or tuple(member) != MENU_INPUT_ANALOG \
+                or not isinstance(dispatches, int) \
+                or isinstance(dispatches, bool):
+            continue
+        counts[owner.lower()] = dispatches
+    return counts
+
+
+def await_following_menu_input_dispatch(
+    port: int,
+    deadline: float,
+    menu: object,
+    completed_action: dict[str, object],
+) -> dict[str, object]:
+    baseline = menu_input_dispatch_count(completed_action, menu)
+    last_dispatch: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, dispatch, detail = input_dispatch_state(port)
+        if status != 200 or dispatch is None:
+            raise RuntimeError(
+                f"input dispatch state returned HTTP {status}: {detail}"
+            )
+        last_dispatch = dispatch
+        if menu_input_dispatch_count(dispatch, menu) > baseline:
+            return dispatch
+        time.sleep(0.05)
+    raise RuntimeError(
+        "menu did not complete a following normal input dispatch: "
+        f"menu={menu!r}, baseline={baseline}, last_dispatch={last_dispatch}"
+    )
+
+
+def await_different_menu_input_dispatch(
+    port: int,
+    deadline: float,
+    previous_menu: object,
+    completed_action: dict[str, object],
+    expected_vtable: str | None = None,
+) -> tuple[str, dict[str, object]]:
+    previous_address = _u32(previous_menu)
+    if previous_address is None:
+        raise RuntimeError(f"previous menu dispatch owner is invalid: {previous_menu!r}")
+    baseline = menu_input_dispatch_counts(completed_action)
+    last_dispatch: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, dispatch, detail = input_dispatch_state(port)
+        if status != 200 or dispatch is None:
+            raise RuntimeError(
+                f"input dispatch state returned HTTP {status}: {detail}"
+            )
+        last_dispatch = dispatch
+        for callback in dispatch.get("callbacks", []):
+            if not isinstance(callback, dict):
+                continue
+            owner = callback.get("owner")
+            counts = menu_input_dispatch_counts({"callbacks": [callback]})
+            if not isinstance(owner, str) or owner.lower() not in counts:
+                continue
+            normalized_owner = owner.lower()
+            if int(normalized_owner, 0) == previous_address \
+                    or counts[normalized_owner] <= baseline.get(normalized_owner, 0) \
+                    or expected_vtable is not None \
+                    and callback.get("owner_vtable") != expected_vtable:
+                continue
+            return normalized_owner, dispatch
+        time.sleep(0.05)
+    raise RuntimeError(
+        "menu transition produced no different normal input owner: "
+        f"previous_menu={previous_menu!r}, expected_vtable={expected_vtable!r}, "
+        f"baseline={baseline}, "
+        f"last_dispatch={last_dispatch}"
+    )
+
+
 def run_menu_action(
     port: int,
     deadline: float,
@@ -181,3 +286,13 @@ def _integer(value: object) -> int:
         return int(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return -1
+
+
+def _u32(value: object) -> int | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = int(value, 0)
+    except ValueError:
+        return None
+    return parsed if 0 <= parsed <= 0xFFFFFFFF else None

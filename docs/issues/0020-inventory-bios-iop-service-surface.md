@@ -6,24 +6,27 @@ symptom: The AVP:E-specific BIOS/HLE service surface is not yet inventoried
 state_items: S025,S026,S027,S028
 tags: bios,hle,iop,inventory,re
 created: 2026-08-28
-updated: 2026-08-31
+updated: 2026-09-04
 ---
 
 ## Root cause
 
 The project began with only selected asset-import/debug hooks and no bounded
-firmware census. The remaining root gap is now narrower: the v5 mission census
+firmware census. The remaining root gap is now narrower: the v6 mission and
+game-save census
 has grounded EE BIOS and IOP oracle return owners with ABI-aware result
-validity, each confirmed by repeated mission evidence. Schema v5 now captures
-declared 64-bit EE results without truncation and the ordinary clean boot has
-now exercised `GsPutIMR`. Static reachability excludes `GsGetIMR`'s dead
-screen-capture helper from the normal-title inventory; stable guest-owned
-save/load and shutdown boundaries and service negative paths are still absent.
+validity. Schema v6 captures declared 64-bit EE results without truncation and
+coalesces changing results into bounded summaries. The ordinary clean boot has
+exercised `GsPutIMR`, and the normal Save Game path now completes through
+`CProfile::SaveGame`. Static reachability excludes `GsGetIMR`'s dead
+screen-capture helper from the normal-title inventory; stable guest-owned load
+and shutdown boundaries, archive/service separation, and service negative
+paths are still absent.
 One mission slice cannot substitute for the complete required firmware contract.
 
 ## Current work
 
-`NativeBiosTrace` v5 retains the v3 EE `SYSCALL` contract through the shared
+`NativeBiosTrace` v6 retains the v3 EE `SYSCALL` contract through the shared
 interpreter implementation, including their four argument registers and
 whether PCSX2 returned directly or dispatched into the BIOS. Return-capable
 BIOS entries pair by guest stack pointer and exact post-syscall PC. A ps2sdk-
@@ -41,7 +44,9 @@ registration. EE and IOP counter target/overflow paths now record the counter
 state, cycle, and whether the interrupt was delivered. All observations use
 narrow calls at the existing owners, remain observation-only, and are exposed at
 `GET /bios/trace` for control-test diagnostics. Repeated import, syscall,
-exception, and timer identities are coalesced with occurrence counts. Every
+exception, and timer identities are coalesced with occurrence counts. Result-
+bearing identities additionally retain first, last, minimum, maximum, and
+change count, preventing a changing hot result from exhausting capacity. Every
 reached IOP import is now admitted to the census while it is enabled, including
 imports without an HLE or debug handler; unresolved names are recorded as
 `unknown` with their library and ordinal, while dispatch remains on the
@@ -117,27 +122,20 @@ paired EE calls and no IOP calls. Title activation is a grounded transition but
 not yet a repeatable service completion boundary; a later title-owned state
 signal is required.
 
-### Finding (2026-08-31, game-save fixture discriminator)
+### Finding (2026-09-04, game-save fixture root cause)
 
 `NativeGameSaveBoundary` now scopes the census from the validated live
 `CProfile::SaveGame` entry `0x00130170` to its final `jr ra` at `0x00130374`,
 capturing its signed `v0` before control returns to the caller. It disables the
 general control-test trace until that exact entry, so a failure cannot be
-misreported as menu or resumed execution traffic. The available
-`save-menu.p2s` did not enter `CProfile::SaveGame` or change its isolated card
-after dispatch-bound pointer activation or title Cross input; generic native
-`down` left its focus empty. This is a fixture/input-path discriminator, not
-save evidence: the normal `GSavePacifyMenu::Process` path still needs a
-guest-owned state fixture.
-
-Pairing the historical `mission1-current.p2s` with `after-slot0.ps2` is also
-not that fixture. The restored screen entered the title's load-failure and
-load-confirmation dialogs; its menu transitions never reached the grounded
-observer, whose bounded capture remained empty. A 128-byte card delta from one
-traversal is metadata activity, not evidence of `CProfile::SaveGame`. Future
-game-save probes require a state/card pair that restores the same live profile
-and mission rather than treating independently captured artifacts as
-interchangeable.
+misreported as menu or resumed execution traffic. Earlier `save-menu.p2s`
+probes correctly rejected a screen that did not enter `CProfile::SaveGame`,
+but the later gameplay-state failures had a different cause: PCSX2
+intentionally auto-ejects restored memory cards for 60 frames after savestate
+load. The runner was opening Save while the card was still unavailable, so
+`GPauseMenu::ItemActivated` followed its normal fallback path instead of
+entering the save menu. A CPU-thread card-state observation and readiness gate
+now make that lifecycle explicit; no menu or save state is patched or bypassed.
 
 ### Finding (2026-08-31, normal game-save owner)
 
@@ -145,10 +143,35 @@ interchangeable.
 only on its third pass calls `CShell::SaveGame` at `0x0016FAE0`; that routine's
 call at `0x0016FAE8` is the sole direct caller of the grounded
 `CProfile::SaveGame` entry. Before that handoff the menu selects profile target
-zero and, when needed, creates and saves the profile. A valid game-save fixture
-must therefore restore a live `GSavePacifyMenu` with the matching profile/card
+zero and, when needed, creates and saves the profile. A valid game-save probe
+must therefore reach a live `GSavePacifyMenu` with the matching profile/card
 and permit its process ticks to reach the handoff. A generic save-menu screen,
 synthetic direct call, or unrelated card cannot substitute for that boundary.
+
+### Finding (2026-09-04, completed normal game-save boundary)
+
+The runner restores `mission1-current.p2s` with its matching
+`after-slot0.ps2` card, waits for card reinsertion, opens Pause, focuses Save,
+enters the live `GSaveGameMenu`, selects a verified empty slot, and invokes the
+exact registered descendant `ActivateFocused` callback. This ordinary path
+observed all three `GSavePacifyMenu::Process` calls, entered
+`CProfile::SaveGame` at `0x00130170`, and returned at `0x00130374` with result
+zero. The source card remained unchanged while the isolated working copy
+changed.
+
+The schema-v6 trace retained 121 event identities and paired 3,396/3,396 EE
+BIOS calls plus 340/340 IOP oracle calls with zero pending calls, sequence
+errors, or overflow. The IOP calls comprise 117 `cdvdman` ordinal-51 returns,
+111 `sifcmd.sceSifGetOtherData` returns, 111 stripped `mcman` ordinal-9
+returns, and one stripped `mcman` ordinal-10 return. Missing debug/HLE handlers
+do not invalidate oracle execution; stripped names are serialized explicitly
+as `unknown`. Continuously changing `mcman` ordinal-9 results remain bounded as
+first/last/min/max/change-count evidence (`min=4`, `max=8192`, 92 changes).
+
+The run also observed the 300-frame memory-card busy period after the write and
+waited for readiness before clean shutdown. This proves the normal game-save
+service slice without fast-forwarding, direct guest calls, or forced process
+termination.
 
 ### Finding (2026-08-31, save-menu activation discriminator)
 
@@ -678,10 +701,9 @@ activation, so the absent boundary is a real action-path falsifier, not a
 rejected probe. The confirmation menu's generic fallback resolves through its
 `GPhysical::GetAttachPos` slot at `0x00104C10`, not a shell shutdown handler.
 
-Next obtain a guest-owned normal `GSavePacifyMenu::Process` fixture that reaches
-the grounded `CProfile::SaveGame` observer, then separately identify the
-guest action that reaches `CShell::Quit` before calling shutdown covered.
-Add a separate grounded
+Next complete the already-grounded `CProfile::LoadGame` and `CShell::Quit`
+phase paths, and distinguish archive-owned service work from resumed guest
+execution. Add a separate grounded
 observation seam for remaining interrupt
 delivery, kernel primitives outside the mission slice, executable loading, IOP
 module loads and services outside the recognized import surface, then capture

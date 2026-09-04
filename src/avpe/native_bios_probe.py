@@ -6,8 +6,17 @@ import sys
 import time
 from pathlib import Path
 
+from avpe.bios_result import event_result_is_verified
 from avpe.control_http import request_bytes, request_json
-from avpe.menu_probe import await_deferred_call, await_dispatched_menu_action, menu_action, menu_state
+from avpe.input_probe import press_buttons
+from avpe.menu_probe import (
+    await_deferred_call,
+    await_different_menu_input_dispatch,
+    await_dispatched_menu_action,
+    await_following_menu_input_dispatch,
+    menu_action,
+    menu_state,
+)
 from avpe.native_asset_probe import await_native_stream_reads
 from avpe.native_mission_probe import probe_marine_m1_transition
 from avpe.native_menu_pointer_dispatch_probe import (
@@ -25,7 +34,7 @@ from avpe.native_pause_quit_probe import (
     read_guest_word,
 )
 
-BIOS_TRACE_SCHEMA = "avpe-bios-trace-v5"
+BIOS_TRACE_SCHEMA = "avpe-bios-trace-v6"
 TITLE_MENU_ACTIONS = frozenset(("up", "down", "left", "right", "activate", "cancel"))
 BIOS_EVENT_KINDS = frozenset(
     {
@@ -45,6 +54,8 @@ MISSION_TRACE_RETURN_PC = 0x0016FA4C
 GAME_SAVE_TRACE_ENTRY_PC = 0x00130170
 GAME_SAVE_TRACE_RETURN_PC = 0x00130374
 GAME_SAVE_PACIFY_PROCESS_PC = 0x00202F40
+GAME_SAVE_MENU_VTABLE = "0x00341520"
+EMPTY_GAME_SAVE_SLOT_ACTION = "0x00000001"
 SHELL_SHUTDOWN_QUIT_ENTRY_PC = 0x0016F8D0
 SHELL_SHUTDOWN_MAIN_LOOP_RETURN_PC = 0x0016F8C8
 SHELL_SINGLETON_ADDRESS = 0x003672F0
@@ -150,7 +161,7 @@ def bios_trace_is_verified(trace: object) -> bool:
         if isinstance(calls, bool) or not isinstance(calls, int) or calls <= 0:
             return False
         if event["kind"] in {"ee_syscall", "import"} \
-                and not _service_event_is_verified(event):
+                and not _service_event_is_verified(event, calls):
             return False
         if event["kind"] == "ee_syscall" \
                 and event.get("outcome") == "bios" \
@@ -164,7 +175,7 @@ def bios_trace_is_verified(trace: object) -> bool:
                 return False
             bios_result_expectations[identity] = result_expected
         if event["kind"] == "ee_syscall_return":
-            if not _syscall_return_event_is_verified(event):
+            if not _syscall_return_event_is_verified(event, calls):
                 return False
             return_calls += calls
             identity = (event["number"], event["name"])
@@ -179,7 +190,7 @@ def bios_trace_is_verified(trace: object) -> bool:
                 oracle_import_identities.get(identity, 0) + calls
             )
         if event["kind"] == "iop_import_return":
-            if not _iop_import_return_event_is_verified(event):
+            if not _iop_import_return_event_is_verified(event, calls):
                 return False
             identity = _iop_oracle_pair_identity(event)
             if identity not in oracle_import_identities:
@@ -203,7 +214,7 @@ def bios_trace_is_verified(trace: object) -> bool:
     )
 
 
-def _service_event_is_verified(event: dict[str, object]) -> bool:
+def _service_event_is_verified(event: dict[str, object], calls: int) -> bool:
     arguments = event.get("first_arguments")
     outcome = event.get("outcome")
     result_valid = event.get("result_valid")
@@ -215,7 +226,9 @@ def _service_event_is_verified(event: dict[str, object]) -> bool:
             or not isinstance(result_valid, bool) \
             or (event["kind"] == "ee_syscall" and not isinstance(result_expected, bool)):
         return False
-    if not _event_result_is_verified(event, result_valid, event["kind"] == "ee_syscall"):
+    if not event_result_is_verified(
+        event, result_valid, event["kind"] == "ee_syscall", calls
+    ):
         return False
 
     if event["kind"] == "ee_syscall":
@@ -252,10 +265,9 @@ def _service_event_is_verified(event: dict[str, object]) -> bool:
         and function
         and isinstance(hle_available, bool)
         and isinstance(debug_available, bool)
-        and (hle_available or debug_available)
         and outcome in {"hle", "oracle"}
         and result_valid == (outcome == "hle")
-        and (outcome != "hle" or hle_available)
+        and (outcome != "hle" or (hle_available and bool(function)))
         and (
             outcome != "oracle"
             or (
@@ -270,24 +282,7 @@ def _is_u32(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and 0 <= value < (1 << 32)
 
 
-def _event_result_is_verified(
-        event: dict[str, object], result_valid: bool, allows_u64: bool) -> bool:
-    has_result = "result" in event
-    has_result_u64 = "result_u64" in event
-    if not result_valid:
-        return not has_result and not has_result_u64
-    if has_result == has_result_u64:
-        return False
-    if has_result:
-        result = event["result"]
-        return isinstance(result, int) and not isinstance(result, bool) \
-            and -(1 << 31) <= result < (1 << 31)
-    result_u64 = event["result_u64"]
-    return allows_u64 and isinstance(result_u64, int) and not isinstance(result_u64, bool) \
-        and 0 <= result_u64 < (1 << 64)
-
-
-def _syscall_return_event_is_verified(event: dict[str, object]) -> bool:
+def _syscall_return_event_is_verified(event: dict[str, object], calls: int) -> bool:
     number = event.get("number")
     name = event.get("name")
     result_expected = event.get("result_expected")
@@ -301,7 +296,7 @@ def _syscall_return_event_is_verified(event: dict[str, object]) -> bool:
         and isinstance(result_expected, bool)
         and isinstance(result_valid, bool)
         and (not result_valid or result_expected)
-        and _event_result_is_verified(event, result_valid, True)
+        and event_result_is_verified(event, result_valid, True, calls)
         and _is_u32(event.get("first_stack_pointer"))
         and _is_u32(event.get("first_resume_pc"))
     )
@@ -324,11 +319,12 @@ def _iop_oracle_pair_identity(event: dict[str, object]) -> tuple[object, ...]:
     )
 
 
-def _iop_import_return_event_is_verified(event: dict[str, object]) -> bool:
+def _iop_import_return_event_is_verified(
+    event: dict[str, object], calls: int
+) -> bool:
     library, ordinal, function, hle_available, debug_available = (
         _iop_import_identity(event)
     )
-    result = event.get("result")
     return bool(
         isinstance(library, str)
         and library
@@ -339,11 +335,8 @@ def _iop_import_return_event_is_verified(event: dict[str, object]) -> bool:
         and function
         and isinstance(hle_available, bool)
         and isinstance(debug_available, bool)
-        and (hle_available or debug_available)
         and event.get("result_valid") is True
-        and isinstance(result, int)
-        and not isinstance(result, bool)
-        and -(1 << 31) <= result < (1 << 31)
+        and event_result_is_verified(event, True, False, calls)
         and _is_u32(event.get("first_stack_pointer"))
         and _is_u32(event.get("first_resume_pc"))
     )
@@ -653,19 +646,21 @@ def prepare_bios_trace_for_native_stream(port: int, enabled: bool) -> None:
         start_bios_trace(port)
 
 
-def _complete_menu_action(port: int, deadline: float, action: str, context: str) -> None:
+def _complete_menu_action(
+    port: int, deadline: float, action: str, context: str
+) -> dict[str, object]:
     status, response, detail = menu_action(port, action)
     if status == 202 and response is not None:
         action_id = response.get("dispatch_action_id")
         if isinstance(action_id, int) and action_id > 0:
-            await_dispatched_menu_action(port, deadline, action_id)
-            return
+            return await_dispatched_menu_action(port, deadline, action_id)
         call_id = response.get("deferred_call_id")
         if not isinstance(call_id, int) or call_id <= 0:
             raise RuntimeError(f"{context} returned no dispatch or deferred completion id: {detail}")
-        await_deferred_call(port, deadline, call_id, context)
+        return await_deferred_call(port, deadline, call_id, context)
     elif status != 200 or response is None:
         raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
+    return response
 
 
 def _select_game_save_slot(port: int, deadline: float) -> dict[str, object]:
@@ -683,6 +678,17 @@ def _select_game_save_slot(port: int, deadline: float) -> dict[str, object]:
         return {"before": state, "action": "pointer-activate"}
     status, response, detail = menu_action(port, "activate")
     if status == 202 and response is not None:
+        # Callback-registry actions complete at the game's ordinary input-dispatch
+        # return. Synchronous modal actions use the EE call shuttle instead.
+        action_id = response.get("dispatch_action_id")
+        if isinstance(action_id, int) and not isinstance(action_id, bool) and action_id > 0:
+            completion = await_dispatched_menu_action(port, deadline, action_id)
+            return {
+                "before": state,
+                "action": "activate",
+                "response": response,
+                "dispatch": completion,
+            }
         call_id = response.get("deferred_call_id")
         if not isinstance(call_id, int) or call_id <= 0:
             raise RuntimeError(f"game-save activation returned invalid call: {detail}")
@@ -693,12 +699,81 @@ def _select_game_save_slot(port: int, deadline: float) -> dict[str, object]:
     raise RuntimeError(f"game-save activation failed: HTTP {status}: {detail}")
 
 
-def _reach_title_menu(port: int, deadline: float) -> None:
-    status, response, detail = request_json(
-        port, "POST", "/input/press", {"mask": 1 << 9, "ms": 250}
+def _focus_menu_action(
+    port: int,
+    deadline: float,
+    target_action: str,
+    context: str,
+) -> tuple[dict[str, object], list[dict[str, object]]]:
+    observations: list[dict[str, object]] = []
+    seen_focuses: set[tuple[object, object, object]] = set()
+    for step in range(MAX_QUIT_MENU_STEPS):
+        _, candidate = _await_settled_menu_state(
+            port, deadline, f"{context} discovery at step {step}"
+        )
+        observations.append(candidate)
+        if candidate.get("focused_item_action") == target_action:
+            return candidate, observations
+        focus_identity = tuple(
+            candidate.get(field)
+            for field in ("focus_handle", "focus_object", "focused_item_action")
+        )
+        if focus_identity in seen_focuses:
+            raise RuntimeError(
+                f"{context} repeated a non-target focus: {candidate}; "
+                f"observed={observations}"
+            )
+        seen_focuses.add(focus_identity)
+        completion = _complete_menu_action(
+            port, deadline, "down", f"{context} down at step {step}"
+        )
+        await_following_menu_input_dispatch(
+            port, deadline, candidate.get("menu"), completion
+        )
+    raise RuntimeError(
+        f"{context} did not focus action {target_action} within "
+        f"{MAX_QUIT_MENU_STEPS} observed actions: {observations}"
     )
-    if status != 200 or response is None or response.get("pressed") is not True:
-        raise RuntimeError(f"BIOS phase title Start input failed: HTTP {status}: {detail}")
+
+
+def _prepare_empty_game_save_slot(port: int, deadline: float) -> dict[str, object]:
+    pause = probe_gameplay_pause_menu(port, deadline)
+    save_item, pause_navigation = _focus_menu_action(
+        port, deadline, LOAD_MENU_ACTION, "BIOS phase game-save pause Save"
+    )
+    activation = _complete_menu_action(
+        port, deadline, "activate", "BIOS phase game-save pause Save activation"
+    )
+    next_menu_owner, next_menu_dispatch = await_different_menu_input_dispatch(
+        port, deadline, save_item.get("menu"), activation, GAME_SAVE_MENU_VTABLE
+    )
+    status, save_menu = _await_settled_menu_state(
+        port, deadline, "BIOS phase game-save Save menu readiness"
+    )
+    if status != 200 or save_menu.get("menu_vtable") != GAME_SAVE_MENU_VTABLE:
+        raise RuntimeError(
+            "BIOS phase game-save did not reach the grounded GSaveGameMenu: "
+            f"status={status}, state={save_menu}"
+        )
+    empty_slot, slot_navigation = _focus_menu_action(
+        port, deadline, EMPTY_GAME_SAVE_SLOT_ACTION,
+        "BIOS phase game-save empty slot",
+    )
+    return {
+        "pause": pause,
+        "save_item": save_item,
+        "pause_navigation": pause_navigation,
+        "save_activation": activation,
+        "save_menu_dispatch_owner": next_menu_owner,
+        "save_menu_dispatch": next_menu_dispatch,
+        "save_menu": save_menu,
+        "empty_slot": empty_slot,
+        "slot_navigation": slot_navigation,
+    }
+
+
+def _reach_title_menu(port: int, deadline: float) -> None:
+    press_buttons(port, deadline, 1 << 9)
 
     last_status = 0
     last_detail = ""
@@ -788,29 +863,8 @@ def _await_menu_transition(
 
 def _focus_quit_game(port: int, deadline: float) -> tuple[dict[str, object], list[dict[str, object]]]:
     """Navigate only through observed menu actions until the live QuitGame item is focused."""
-    observed: list[dict[str, object]] = []
-    seen_focuses: set[tuple[object, object, object]] = set()
-    for step in range(MAX_QUIT_MENU_STEPS):
-        _, candidate = _await_settled_menu_state(
-            port, deadline, f"BIOS phase shutdown menu discovery at step {step}"
-        )
-        observed.append(candidate)
-        if candidate.get("focused_item_action") == QUIT_GAME_ACTION:
-            return candidate, observed
-        focus_identity = tuple(
-            candidate.get(field)
-            for field in ("focus_handle", "focus_object", "focused_item_action")
-        )
-        if focus_identity in seen_focuses:
-            raise RuntimeError(
-                "BIOS phase shutdown navigation repeated a non-QuitGame focus: "
-                f"{candidate}; observed={observed}"
-            )
-        seen_focuses.add(focus_identity)
-        _complete_menu_action(port, deadline, "down", f"BIOS phase shutdown down at step {step}")
-    raise RuntimeError(
-        "BIOS phase shutdown did not focus the grounded QuitGame item within "
-        f"{MAX_QUIT_MENU_STEPS} observed actions: {observed}"
+    return _focus_menu_action(
+        port, deadline, QUIT_GAME_ACTION, "BIOS phase shutdown QuitGame"
     )
 
 
@@ -973,6 +1027,7 @@ def run_bios_phase(
             "state_save_load_then_menu_down",
         )
     if phase == "game-save":
+        preparation = _prepare_empty_game_save_slot(port, deadline)
         start_bios_game_save_phase(port)
         selection = _select_game_save_slot(port, deadline)
         try:
@@ -982,7 +1037,8 @@ def run_bios_phase(
                 error.trace["game_save_menu_selection"] = selection
             raise
         trace["game_save_menu_selection"] = selection
-        return trace, "statefile_to_game_save", "slot_select_to_cprofile_save_game"
+        trace["game_save_menu_preparation"] = preparation
+        return trace, "gameplay_to_game_save", "pause_save_empty_slot_to_cprofile_save_game"
     if phase == "shutdown":
         pause = probe_gameplay_pause_menu(port, deadline)
         selections = _pause_selection_rectangles(port)

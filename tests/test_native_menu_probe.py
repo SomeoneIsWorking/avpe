@@ -2,11 +2,46 @@ import time
 import unittest
 from unittest.mock import ANY, patch
 
-from avpe.menu_probe import await_dispatched_menu_action, run_menu_action
+from avpe.menu_probe import (
+    await_different_menu_input_dispatch,
+    await_dispatched_menu_action,
+    run_menu_action,
+)
 from avpe.native_menu_probe import _complete_directional_action
 
 
 class NativeMenuProbeTests(unittest.TestCase):
+    def test_menu_transition_waits_for_a_different_normal_input_owner(self) -> None:
+        old_callback = {
+            "owner": "0x012e85a0",
+            "member_function": ["0x00000000", "0xffffffff", "0x00125230"],
+            "dispatches": 4,
+        }
+        new_callback = {
+            "owner": "0x015efeb0",
+            "owner_vtable": "0x00341520",
+            "member_function": ["0x00000000", "0xffffffff", "0x00125230"],
+            "dispatches": 1,
+        }
+        completed = {"callbacks": [old_callback]}
+        with patch(
+            "avpe.menu_probe.input_dispatch_state",
+            side_effect=[
+                (200, {"callbacks": [old_callback]}, "old"),
+                (200, {"callbacks": [old_callback, new_callback]}, "new"),
+            ],
+        ):
+            owner, dispatch = await_different_menu_input_dispatch(
+                31234,
+                time.monotonic() + 1.0,
+                "0x012e85a0",
+                completed,
+                "0x00341520",
+            )
+
+        self.assertEqual(owner, "0x015efeb0")
+        self.assertEqual(dispatch["callbacks"][-1], new_callback)
+
     def test_directional_action_uses_completed_guest_input(self) -> None:
         queued = {
             "deferred": True,

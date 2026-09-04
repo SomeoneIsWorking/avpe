@@ -23,9 +23,11 @@ surface ownership.
   disables memory cards, and never mutates product settings.
 - Save-boundary runs may explicitly pass `--memory-card-source CARD.ps2`. The
   runner copies it into the isolated profile, enables only that working copy,
-  verifies the source hash is unchanged, and records byte-level changes in
-  `scratch/control-test/memory-card-proof.json`. Memory cards remain disabled
-  when the option is absent.
+  waits for the real post-savestate auto-eject to expire before driving the
+  title, verifies the source hash is unchanged, records byte-level changes in
+  `scratch/control-test/memory-card-proof.json`, and waits for post-write busy
+  state to clear before shutdown. Memory cards remain disabled when the option
+  is absent.
 - Native I/O recovery runs select exactly one of
   `--probe-native-ioman-state-recovery` or
   `--probe-native-cdvd-state-recovery`. They use clean boot, a copied card,

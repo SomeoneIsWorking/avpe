@@ -34,9 +34,11 @@ surfaceless control-test mode enables it and exposes its snapshot at
 - `sceSifRegisterRpc` RPC ID.
 
 The sink retains at most 4096 events across all event kinds and reports
-overflow explicitly. Repeated imports are coalesced by service
-identity, outcome, and valid result and carry a `calls` count so hot polling
-cannot consume the census with duplicate events. The retained
+overflow explicitly. Repeated imports are coalesced by service identity,
+outcome, result encoding, and call boundary and carry a `calls` count so hot
+polling cannot consume the census with duplicate events. Result-bearing groups
+retain one bounded `result_summary` with first, last, minimum, maximum, and
+change count instead of splitting on each distinct result. The retained
 `first_arguments` belong to the first call in that coalesced group. It does not
 change dispatch, return values, scheduling, or fallback behavior. Imports with
 no HLE or debug handler are retained as unresolved oracle observations, using
@@ -52,15 +54,17 @@ register values. Schema v2 made outcome/result validity explicit but still
 mistakenly equated every direct path with a result and had no BIOS return seam.
 Schema v3 classifies returning-result, returning-void, unobserved-result, and
 non-returning syscalls independently of BIOS/direct ownership. Schema v4 adds
-bounded IOP oracle entry/return pairing. `NativeBiosTrace` admits only exact
+bounded IOP oracle entry/return pairing, schema v5 preserves full declared
+64-bit EE results, and schema v6 bounds changing result streams with summaries.
+`NativeBiosTrace` admits only exact
 caller return PCs through the fixed `NativeIopReturnSites` registry; a newly
 registered PC invalidates its existing IOP block so the recompiler emits
 `NativeIopExecutionHooks` at that block's entry, while the interpreter uses one
 pending-call atomic before consulting the exact registry
 after a delay slot. Entry and return pair by stack pointer and exact resume PC.
 The recompiler adds no work to unrelated blocks, and the interpreter performs
-no registry scan outside an active oracle call. The runner rejects v1–v3
-artifacts rather than presenting them as current IOP return evidence.
+no registry scan outside an active oracle call. The runner rejects pre-v6
+artifacts rather than presenting them as current bounded result evidence.
 
 ## Static EE syscall candidates
 
@@ -233,45 +237,28 @@ a mission-service inventory.
 The game-save observer is grounded at `CProfile::SaveGame` entry `0x00130170`
 and its final `jr ra` at `0x00130374`; it validates the live `CProfile`
 singleton before starting the census and captures the returned signed `v0`
-before the jump. Its first fixture discriminator is negative: `save-menu.p2s`
-did not enter that owner or change the isolated card after either the
-dispatch-bound pointer activation or title Cross input. Generic menu `down`
-also returned with no focused object. The observer deliberately retained zero
-events rather than attributing pre-selection or resumed traffic to a game save.
-This state is not a normal `GSavePacifyMenu::Process` completion; a fixture
-that reaches that guest-owned path is still required.
+before the jump. It deliberately retains zero events when the entry is not
+reached rather than attributing pre-selection or resumed traffic to a game
+save.
 
 Static RE grounds that path: `GSavePacifyMenu::Process` (`0x00202F40`) waits
 for its third process tick, selects profile target zero, conditionally creates
 and saves the profile, then calls `CShell::SaveGame` (`0x0016FAE0`). Its call
 at `0x0016FAE8` is the only direct caller of `CProfile::SaveGame`. Thus the
-future state/card fixture must preserve a live pacify menu, matching profile,
-and enough normal process execution to reach that handoff; direct invocation
-or a generic save menu would bypass the boundary being inventoried.
+runtime route must reach a live pacify menu with its matching profile/card and
+allow normal process execution to reach that handoff; direct invocation or a
+generic save-menu screen would bypass the boundary being inventoried.
 
 The game-save proof additionally requires a positive observation at
 `GSavePacifyMenu::Process` (`0x00202F40`) before it accepts the save entry and
-return. The corrected native `ActivateFocused` probe completed on
-`save-menu.p2s` but recorded zero such calls, zero save entries, and no card
-delta, proving that state has the wrong focused item or menu level rather than
-an unproven save failure.
-
-The grounded Down/Activate/Activate path from `pause-menu.p2s` also completed
-without reaching the pacify process or changing the isolated card. It is not
-kept as a probe sequence: the next fixture operation must observe the concrete
-focused-item action at each transition rather than guess another input order.
-
-The callback menu focus can be absent even while the dispatch-bound pointer has
-focused a valid button. In `save-menu.p2s` that pointer focused `0x015AFD10`
-and its original activation restored the stack, but it still did not reach the
-save pacify boundary. Pointer and menu focus are distinct evidence and must not
-be conflated when constructing the fixture.
-
-The focused-item actions resolve through the title's CRC convention: reflected
-CRC-32 with initial `0xFFFFFFFF` and no final XOR. The inherited pointer focus
-is `LoadMenu` (`0xCA788CFB`) and the measured button is `CancelKillMe`
-(`0x95DF2577`), proving the retained state exposes cancellation rather than a
-save slot.
+return. Earlier fixed save-menu states correctly failed that discriminator.
+The root cause of the later gameplay-state failures was PCSX2's intentional
+60-frame card auto-eject after savestate load; the runner now observes and
+waits for card readiness instead of guessing from elapsed host time. It then
+uses each live menu's concrete focused action and the exact registered
+descendant `ActivateFocused` callback. The successful route reaches all three
+pacify calls and the profile boundary, and the runner waits for the observed
+300-frame post-write busy interval before shutdown.
 
 The guest shutdown path has an equivalent static seam. `GMenu::ItemActivated`
 handles a `QuitGame` item by calling `CShell::Quit` (`0x0016F8D0`), which sets
@@ -311,6 +298,26 @@ thread/semaphore calls and `sceSifSetDma` carry their program-visible signed
 by one call and direct `FlushCache` differed by two, so exact event equality is
 not claimed.
 
+The normal game-save phase restores a known gameplay state with its matching
+isolated card, waits for PCSX2's post-savestate card reinsertion, and drives the
+ordinary Pause → Save → empty-slot route. `NativeMenuInput` dispatches the
+exact registered descendant `ActivateFocused` callback rather than rewriting
+an arbitrary menu callback or emulating a pad button. A successful schema-v6
+capture observed three `GSavePacifyMenu::Process` calls, entered
+`CProfile::SaveGame` at `0x00130170`, and returned at `0x00130374` with result
+zero. It retained 121 event identities, paired 3,396/3,396 EE BIOS calls plus
+340/340 IOP oracle calls, and reported zero pending calls, sequence errors, or
+overflow.
+
+The IOP slice contains 117 `cdvdman` ordinal-51 returns, 111
+`sifcmd.sceSifGetOtherData` returns, 111 stripped `mcman` ordinal-9 returns,
+and one stripped `mcman` ordinal-10 return. Both stripped functions are
+serialized as `unknown`; an oracle call does not require an HLE or debug
+handler. The changing ordinal-9 results are bounded by a summary with
+`min=4`, `max=8192`, and 92 changes. After the write, the runner observes and
+waits through PCSX2's 300-frame memory-card busy interval before graceful
+shutdown, so the artifact and card comparison describe flushed state.
+
 ## Inventory analysis
 
 `tools/analyze_bios_traces.py` consumes one or more captured artifact files and
@@ -320,7 +327,8 @@ and IOP imports by identity with occurrence counts, and group module,
 interrupt, and RPC registrations. Exception domains/codes/PCs and timer
 delivery/overflow outcomes are reported separately. For EE syscalls and IOP
 imports it separately counts observed results, returned void calls, unobserved
-results, and non-returning transfers. It calls the same strict
+results, and non-returning transfers, and preserves bounded first/last/min/max/
+change observations. It calls the same strict
 `bios_trace_is_verified()` policy used by the runner, so a legacy, malformed,
 incomplete, or overflowed capture is rejected
 rather than summarized.
@@ -340,14 +348,16 @@ Two clean v4 captures supersede the remaining IOP result gap. Both paired
 Their import and syscall identity sets match; retained event totals differ, so
 exact hot-path counts remain outside the repeatability contract. Handled
 `ioman.read`, `ioman.lseek`, and `sysmem.Kprintf` retain their grounded HLE
-results. This is a stable mission service-semantics slice, not an exhaustive
-firmware contract or an HLE implementation.
+results. This is a stable mission service-semantics slice. The separate
+schema-v6 normal game-save inventory adds the card and SIF service slice
+described above; neither is an exhaustive firmware contract or an HLE
+implementation.
 
 ## Required evidence before S025 can be verified
 
-The census still needs this restored-menu completion pattern extended to title
-and mission states, plus a fixture that reaches the grounded game-save observer,
-explicit game-load, and shutdown boundaries.
+The census still needs a stable title completion boundary, explicit game-load
+and shutdown boundaries, and separation of archive-owned service work from
+resumed guest execution.
 The mission slice now has grounded EE BIOS and IOP oracle-return seams, but
 kernel primitives outside that slice, executable loading, timers, interrupt
 delivery, IOP module loads and services outside the recognized import surface,

@@ -24,7 +24,7 @@ from avpe.control_test import (
 )
 from avpe.control_http import read_status, request_bytes, request_json, request_shutdown
 from avpe.cursor import CursorObservation, detect_cursor
-from avpe.memory_card_probe import prepare_memory_card_probe
+from avpe.memory_card_probe import await_memory_card_ready, prepare_memory_card_probe
 from avpe.native_asset_probe import (
     await_asset_byte_trace,
     await_load_timing,
@@ -666,7 +666,7 @@ def main() -> int:
         asset_byte_trace_mode=args.probe_asset_byte_trace,
         asset_load_timing_mode=args.probe_load_timing,
         asset_load_timing_target=args.load_timing_target if args.probe_load_timing and args.load_timing_target != "startup" else None,
-        bios_trace_enabled=args.probe_load_timing is None,
+        bios_trace_enabled=args.probe_bios_trace,
     )
     stdout = (LOG_DIR / "stdout.log").open("wb")
     try:
@@ -686,6 +686,8 @@ def main() -> int:
     signal.signal(signal.SIGTERM, handle_signal)
     deadline = time.monotonic() + args.seconds
     boot_status: dict[str, str] | None = None
+    memory_card_ready_proof: dict[str, object] | None = None
+    memory_card_shutdown_proof: dict[str, object] | None = None
     pointer_proof: dict[str, object] | None = None
     mouse_proof: dict[str, object] | None = None
     menu_proof: dict[str, object] | None = None
@@ -718,6 +720,13 @@ def main() -> int:
                         flush=True,
                     )
                 boot_status = status
+                if card_probe is not None and args.statefile is not None:
+                    try:
+                        memory_card_ready_proof = await_memory_card_ready(port, deadline)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                    if probe_error is not None:
+                        break
                 if args.probe_native_assets or args.probe_native_asset_reads:
                     try:
                         native_assets_proof = probe_native_assets(
@@ -885,6 +894,12 @@ def main() -> int:
                 if probe_requested:
                     break
             time.sleep(0.1)
+        if proc.poll() is None and card_probe is not None:
+            try:
+                memory_card_shutdown_proof = await_memory_card_ready(port, deadline)
+            except RuntimeError as error:
+                if probe_error is None:
+                    probe_error = str(error)
         if proc.poll() is None and request_shutdown(port):
             try:
                 proc.wait(timeout=10)
@@ -902,6 +917,23 @@ def main() -> int:
         except RuntimeError as error:
             print(f"FATAL {error}; see {LOG_DIR}", file=sys.stderr)
             return 1
+        if args.statefile is not None:
+            if memory_card_ready_proof is None:
+                detail = probe_error or "readiness probe did not run"
+                print(
+                    f"FATAL memory-card readiness failed: {detail}; see {LOG_DIR}",
+                    file=sys.stderr,
+                )
+                return 1
+            card_proof["readiness"] = memory_card_ready_proof
+        if memory_card_shutdown_proof is None:
+            detail = probe_error or "shutdown readiness probe did not run"
+            print(
+                f"FATAL memory-card shutdown readiness failed: {detail}; see {LOG_DIR}",
+                file=sys.stderr,
+            )
+            return 1
+        card_proof["shutdown_readiness"] = memory_card_shutdown_proof
         (LOG_DIR.parent / "memory-card-proof.json").write_text(
             json.dumps(card_proof, indent=2, sort_keys=True) + "\n"
         )

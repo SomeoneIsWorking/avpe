@@ -137,6 +137,15 @@ by `ExecuteUntil`. Deferred calls instead exit the current EE block, run under
 the ordinary VM scheduler, and force the saved return PC through a completion
 hook that restores the interrupted architectural context and reserved stack.
 
+Activation now first traverses the active menu's bounded descendant tree and
+finds the unique registered item whose action is `ActivateFocused` and whose
+resolved member function is `GMenuItem::HotKeyActivate` at `0x00120F40`. It
+queues that original callback owner and descriptor through
+`GInputDevice::Process`; it does not overwrite an unrelated menu callback to
+make it call the focused item. If no descendant hotkey exists, only the exact
+registered active-menu activation callback is eligible. Ambiguous or invalid
+owners fail closed.
+
 `GMenu::Cancel` is virtual at vtable offset `0xfc`; native cancel resolves the
 active menu's actual handler rather than assuming base `0x00124c20`. Pause Save
 activation and cancel changed ownership `0x012e85a0 -> 0x015afa70 ->
@@ -208,7 +217,9 @@ buffer before `__ptmf_scall`; the callback itself therefore executes on the
 ordinary game input/update path rather than a synthetic EE frame.
 
 `NativeInputDispatch` observes that instruction and leaves it unchanged with no
-pending event. In the Save Game state it recorded 114 title-admitted dispatches,
+pending event. Schema v2 also records each callback owner's live vtable, which
+lets the probe reject a callback whose address survives after its owner changes
+class. In the Save Game state it recorded 114 title-admitted dispatches,
 all to menu owner `0x015afa70` and direct descriptor `{0, -1, 0x00125230}`
 (`GMenu::InputAnalog`) with zero input words. The menu pointer is independently
 registered at callback index 0: owner `0x015fe940`, input-definition list
@@ -238,10 +249,14 @@ and admits only handles that dynamically cast to `GMenuItem`. In the saved
 state, the measured item is the `GMenuButton` at list entry 21; the visible
 first-row entry has a different vtable and does not acquire pointer focus when
 its listed rectangle is supplied directly. Thus the rendered 640×480 image is
-not a coordinate oracle for this guest hit-test. With a copied formatted card
-mounted, activating the measured item still returns to the pause menu without
-entering `CProfile::SaveGame`; it proves dispatch and activation, not a normal
-game-save fixture.
+not a coordinate oracle for this guest hit-test. The measured pointer item
+remains a cancellation-path discriminator, not a save-slot selector. The
+completed normal game-save probe instead starts from gameplay, waits for the
+restored memory card to become available, enters `GSaveGameMenu` through Pause
+→ Save, selects a verified empty slot, and uses the descendant
+`ActivateFocused` callback above. That path reaches all three
+`GSavePacifyMenu::Process` calls and the exact `CProfile::SaveGame` entry and
+return; no pointer coordinate is inferred from pixels or retargeted to a slot.
 
 ## Native bridge
 

@@ -13,7 +13,9 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | GET `/mem/read` | `addr=0xHEX&len=HEX` (≤4096) | EE bytes as hex (vtlb_ramRead, PINE-style) |
 | GET `/mem/scan` | `start&end&hex=` (range ≤4MiB) | first 16 match addresses + hit count |
 | GET `/debug` | — | `{"transfers","lastfifo","inject"}` host-side truth |
+| GET `/memory-card/state` | — | CPU-thread slot-0 presence, savestate auto-eject ticks, busy state, and derived readiness |
 | GET `/bios/trace` | — | current bounded BIOS/IOP observation snapshot |
+| GET `/input/dispatch` | — | bounded normal `GInputDevice` callback-dispatch identities and pending/completed diagnostic actions |
 | POST `/bios/trace/start` | `{}` | clear and enable the bounded BIOS/IOP sink for a new phase |
 | POST `/bios/trace/capture` | `{}` | atomically snapshot and disable the BIOS/IOP sink |
 | POST `/mem/write` | `{"addr":"0x..","hex":"aabb.."}` | raw writes (vtlb_ramWrite) |
@@ -34,6 +36,10 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 
 Client tool: `uv run python tools/avpe_http.py <status|memread|memwrite|statesave|stateload|eecall|waitpointer|press|moveabsolute|mousebutton|menuaction|menupointerstate|menupointermove|menupointeractivate|watch> ...`
 Numbers in /input/press are DECIMAL (or "0x" strings); memread addr/len are hex.
+`POST /input/press` schedules an asynchronous hold. Probe code uses the shared
+`press_buttons()` lifecycle observer, which requires `/debug` to show both the
+requested active-low mask and its release before it returns; the HTTP response
+alone is not completion evidence.
 
 Agent and maintainer runtime verification enters through
 `tools/run_control_test.py`, never `run.sh`. The runner allocates a loopback
@@ -41,6 +47,11 @@ port and nonce, removes desktop display sockets from the child environment,
 uses an isolated settings profile, and accepts the process only when `/status`
 reports the actual `control-test` / `surfaceless` / `null-muted` runtime state.
 The nonce prevents a stale or unrelated process from satisfying the check.
+When a copied memory card accompanies a savestate, the runner also waits for
+`/memory-card/state` to report the card present, its 60-frame auto-eject expired,
+and no write busy state before driving the title. Before shutdown it waits for
+the observed 300-frame post-write busy interval to clear, so a successful
+process exit cannot hide an unflushed card operation.
 
 ## Verified live (SLUS-20147 boot, 2026-08-26)
 
