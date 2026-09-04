@@ -26,11 +26,18 @@ waits for PCSX2's real post-savestate card reinsertion and post-write busy
 lifecycle, so neither an ejected card nor an unflushed write can masquerade as
 a title failure. The completed mission boundary remains valid with 2,638/2,638
 initializer calls, 942/942 factory calls, and all 24 post-read rounds complete.
+The latest clean mission archive capture isolates that same `CTbdFile::Load`
+interval: it retained 103 event identities, paired 13,566/13,566 EE BIOS calls
+and 543/544 IOP oracle calls with zero sequence errors or overflow; the sole
+pending IOP call was live at the endpoint. Its deterministic inventory includes
+the archive's ioman read/lseek, cdvd error, semaphore, SIF, audio, and thread
+services without absorbing the post-load game-timer work.
 The matching normal-load capture followed Pause → Load → populated slot → Yes,
 crossed all three load-pacify calls and the exact `CProfile::LoadGame`
 entry/return with result zero, completed the synchronous mission-goals modal,
 and left the source card unchanged. The remaining work is the shutdown,
-archive/service-operation, and service-level negative-path inventory.
+service-level negative-path inventory, plus required runtime operations outside
+the current boot, archive, save, and load slices.
 Static IRX analysis now narrows the IOP candidate surface to seven retained
 modules, 61 import tables, 260 import stubs, and 19 library identities; it is
 explicitly not runtime coverage.
