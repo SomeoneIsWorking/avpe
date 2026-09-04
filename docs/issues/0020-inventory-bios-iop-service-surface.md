@@ -388,6 +388,20 @@ discriminator is a passive guest-side observation of
 (`0x002075F0`), rather than more control-channel polling, input holds, or
 timers.
 
+The normal-dispatch snapshot then identified a second, title-specific input
+owner that the first menu-only model omitted. `GAttractExit` (vtable
+`0x00343AF0`) resets the primary controller in its constructor, registers the
+cluster/shoulder actions plus analogue callbacks, and selects input mode 4.
+Its `InputAnalog` at `0x002069E0` reacts only to an axis magnitude above 0.3,
+whereas its button `Input` at `0x00206A60` enters the shell next-level path.
+In the failing physical-Cross phase, `GPressStartMenu::InputAnalog` had 1,040
+normal dispatches, but the concurrent `GAttractExit::InputAnalog` owner had
+3,332. The title therefore has two live input owners; menu focus and a Cross
+hold alone cannot prove which one consumes the action. The next discriminator
+must recover the `GAttractExit` registration/lifetime transition and capture
+the actual dispatched button descriptor before inferring a profile or shutdown
+route.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
