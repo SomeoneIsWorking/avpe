@@ -402,6 +402,19 @@ must recover the `GAttractExit` registration/lifetime transition and capture
 the actual dispatched button descriptor before inferring a profile or shutdown
 route.
 
+The contrasting manual run supplied both sides of that discriminator. Its
+pre-Cross normal-dispatch snapshot retained only
+`GPressStartMenu::InputAnalog` (372 dispatches) and no `GAttractExit` record.
+After one physical Cross, that same menu callback had 383 dispatches, the
+focused-item descriptor `{0, 0xcc, 0}` dispatched exactly once, and a new
+`GProfileMenu::InputAnalog` owner dispatched 597 times. The menu snapshot then
+reported the expected `GProfileMenu` and `LoadMenu` action. Taken with the
+failing run, this makes absence of the attract owner a candidate transition
+predicate; it does not yet prove why that owner was absent. Cross delivery
+alone is not the distinguishing condition. A future phase must observe the
+registry-removal event at the guest boundary, rather than encode the manual
+run's elapsed time or infer it from the rendered title.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
