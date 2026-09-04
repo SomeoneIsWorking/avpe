@@ -415,6 +415,13 @@ alone is not the distinguishing condition. A future phase must observe the
 registry-removal event at the guest boundary, rather than encode the manual
 run's elapsed time or infer it from the rendered title.
 
+A constructor/destructor-only observer was rejected before landing: the
+`title-real.p2s` fixture can restore title objects without re-entering their
+constructors, so such a probe cannot establish the active attract owner after
+state load. The required replacement must inspect the live callback registry
+at the normal input-dispatch boundary; object construction history is not a
+registry-lifetime contract.
+
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
 `NativeShellShutdownBoundary` is now a narrow observation-only owner for the
