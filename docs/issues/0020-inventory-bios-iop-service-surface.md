@@ -21,8 +21,8 @@ exercised `GsPutIMR`, and the normal Save Game path now completes through
 `CProfile::SaveGame`, and the matching normal Load Game path completes through
 `CProfile::LoadGame`. Static reachability excludes `GsGetIMR`'s dead
 screen-capture helper from the normal-title inventory; stable title completion,
-the guest-owned shutdown boundary, archive/service separation, and service negative
-paths are still absent.
+the guest-owned shutdown boundary, runtime operations beyond the current
+boot/archive/save/load slices, and service negative paths are still absent.
 One mission slice cannot substitute for the complete required firmware contract.
 
 ## Current work
@@ -805,6 +805,21 @@ object was focused and activated in 3,609 EE cycles with stack restoration, and
 the mission menu singleton cleared. The separate single-active-frame load-
 timing observer reported 10 nesting errors, so its timing totals are not used
 for this path.
+
+### Finding (2026-09-04, archive-operation service census)
+
+A fresh clean-boot mission probe captured the exact `CTbdFile::Load` partition
+from `ShellLoadLevel` entry through `0x0016FA4C`: its v6 trace retained 103
+coalesced event identities with zero overflow, 13,566/13,566 paired EE BIOS
+entries/returns, and 544 IOP oracle entries with 543 returns. The remaining
+IOP call was live at the grounded endpoint, not a pairing failure. The strict
+inventory reports archive ioman `read` (924 HLE calls) and `lseek` (56 HLE
+calls), `cdvdman.sceCdGetError` (527 oracle results of zero), and the reached
+semaphore, SIF, `libsd.sceSdGetSwitch`, `sysmem.Kprintf`, and
+`thbase.ExitThread` services. The trace ended before the following
+`CGameTimer::SetSeconds` call and preserved the isolated memory card unchanged.
+This closes the archive/service-operation separation gap, not the separate
+shutdown, other-runtime-operation, or negative-path requirements.
 
 ### Finding (2026-08-30, result-boundary correction and mission census)
 
