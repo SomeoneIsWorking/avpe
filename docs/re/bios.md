@@ -25,8 +25,9 @@ surfaceless control-test mode enables it and exposes its snapshot at
   results carry the program-visible signed `v0`; declared `u64` results carry
   the full unsigned `v0` as `result_u64`; void returns omit a result; unknown
   result types remain explicitly unobserved;
-- the first EE/IOP exception-entry observation for each domain, cause code,
-  pre-entry PC, and branch-delay shape, with an occurrence count;
+- each distinct EE/IOP exception-transition identity: domain, requested code,
+  pre-entry PC, branch-delay state, and `transition` containing `status_before`,
+  `status_after`, `cause_after`, `epc_after`, and `vector_pc`, with an occurrence count;
 - the first EE/IOP counter observation for each domain, counter, overflow, and
   delivery shape, with count, target, cycle, and an occurrence count;
 - `RegisterLibraryEntries` and `ReleaseLibraryEntries` module name/version;
@@ -55,7 +56,12 @@ mistakenly equated every direct path with a result and had no BIOS return seam.
 Schema v3 classifies returning-result, returning-void, unobserved-result, and
 non-returning syscalls independently of BIOS/direct ownership. Schema v4 adds
 bounded IOP oracle entry/return pairing, schema v5 preserves full declared
-64-bit EE results, and schema v6 bounds changing result streams with summaries.
+64-bit EE results, schema v6 bounds changing result streams with summaries,
+and schema v7 requires actual before/after CPU exception registers.
+`NativeExceptionObservation` scopes the original shared EE/IOP exception
+routines, including reset/NMI early returns. It reads their actual register
+results, never predicts or mutates exception semantics. Reaching the vector PC
+does not prove execution of its handler body or pair an exception to a source IRQ.
 `NativeBiosTrace` admits only exact
 caller return PCs through the fixed `NativeIopReturnSites` registry; a newly
 registered PC invalidates its existing IOP block so the recompiler emits
@@ -63,8 +69,9 @@ registered PC invalidates its existing IOP block so the recompiler emits
 pending-call atomic before consulting the exact registry
 after a delay slot. Entry and return pair by stack pointer and exact resume PC.
 The recompiler adds no work to unrelated blocks, and the interpreter performs
-no registry scan outside an active oracle call. The runner rejects pre-v6
-artifacts rather than presenting them as current bounded result evidence.
+no registry scan outside an active oracle call. The runner rejects pre-v7
+artifacts rather than presenting them as current exception-transition evidence.
+Earlier operation captures cited below remain historical measurements only.
 
 ## Static EE syscall candidates
 
@@ -321,12 +328,13 @@ shutdown, so the artifact and card comparison describe flushed state.
 ## Inventory analysis
 
 `tools/analyze_bios_traces.py` consumes one or more captured artifact files and
-emits `avpe-bios-inventory-report-v5` with `avpe-bios-inventory-v6` summaries.
+emits `avpe-bios-inventory-report-v6` with `avpe-bios-inventory-v7` summaries.
 Its summaries preserve the phase and
 statefile labels, count retained event identities, group observed EE syscalls
 and IOP imports by identity with occurrence counts, and group module,
 interrupt, and RPC registrations. Exceptions retain joint domain/cause/PC/
-branch-delay identities; timers retain joint domain/counter/overflow/delivery
+branch-delay and complete transition-register identities; timers retain joint
+domain/counter/overflow/delivery
 identities. Each category and identity distinguishes retained `event_count`
 from weighted `occurrences`; timer `first_sample` contains only the first
 recorded count/target/cycle, not extrema, duration, or every occurrence.
@@ -334,10 +342,11 @@ recorded count/target/cycle, not extrema, duration, or every occurrence.
 EE `Counters.cpp` calls `hwIntcIrq`, while IOP `_rcntFireInterrupt` sets
 `HW_ISTAT` and calls `iopTestIntc`. Their `delivered` flag proves source
 assertion, not subsequent CPU exception acceptance or BIOS handler execution.
-The latter require separate observations. The shared runtime-event owner
-refuses malformed domains, unsigned ranges, and boolean fields through both
-the runner's validator and inventory reader. The trace remains schema v6;
-only the derived inventory layout changed. For EE syscalls and IOP
+The exception category separately labels its observed architectural boundary
+`cpu_exception_transition`, not handler execution. The shared runtime-event owner
+refuses malformed domains, unsigned ranges, boolean fields, and missing or
+malformed transition records through both the runner's validator and inventory
+reader. Trace schema v7 is mandatory. For EE syscalls and IOP
 imports it separately counts observed results, returned void calls, unobserved
 results, and non-returning transfers, and preserves bounded first/last/min/max/
 change observations. It calls the same strict

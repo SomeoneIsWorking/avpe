@@ -82,6 +82,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   entry/return pairing. `NativeBiosTrace.*` owns trace lifecycle, pending-call
   state, and grounded mission progress/boundary capture, and composes the event
   store under its trace lock.
+- `NativeExceptionObservation.*` owns CPU-thread scoped snapshots before and
+  after the actual EE/IOP exception routines, including early returns. It
+  observes registers only; CPU semantics and event storage remain separate owners.
 - `NativeGameSaveBoundary.*` owns the exact normal `CProfile::SaveGame`
   entry/return observation, including capture scoping from the validated
   profile object through its final `jr ra`. It is diagnostic-only and does not

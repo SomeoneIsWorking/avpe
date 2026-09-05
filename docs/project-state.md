@@ -674,7 +674,7 @@ state-recovery, and guest-reset cleanup seams.
 ### S025 — required firmware service inventory: partial
 
 Observed subset: the BIOS-backed IOP import boundary now emits a bounded,
-sequence-ordered v6 diagnostic census containing each reached import's module,
+sequence-ordered v7 diagnostic census containing each reached import's module,
 ordinal, resolved name (or `unknown` when unresolved), first four input
 arguments, handler availability, actual outcome, and occurrence count. A
 handled HLE call carries
@@ -690,8 +690,9 @@ independent of ownership: supported 32-bit results carry signed `v0`, declared
 non-returning calls carry none, and unknown results remain explicitly
 unobserved. The census also records loadcore module registration/release,
 intrman interrupt registration, and sifcmd RPC registration. EE and IOP
-exception-entry boundaries also record the domain, cause code, pre-entry PC,
-and branch-delay state without changing dispatch or fallback behavior. EE and
+exception routines also record the domain, requested code, pre-entry PC,
+branch-delay state, and actual before/after status, resulting Cause/EPC, and
+vector PC without changing dispatch or fallback behavior. EE and
 IOP counter target/overflow paths also record counter state, cycle, and whether
 the interrupt was delivered. The isolated C++ and Python tests prove disabled
 capture, ordering, outcome/result-validity pairs, rejection of legacy or
@@ -736,9 +737,9 @@ This is a profile-list service slice, not profile persistence or normal game
 load evidence. Earlier deferred-title captures retained 150 versus 51 events
 and remain a negative repeatability control, not complete title coverage.
 
-`tools/analyze_bios_traces.py` now turns retained v6 captures into a
+`tools/analyze_bios_traces.py` now turns current v7 captures into a
 deterministic inventory report using the same strict trace validator as the
-runner. Its v5 inventory summary separates observed results, returned oracle calls,
+runner. Its v7 inventory summary separates observed results, returned oracle calls,
 returned void calls, unobserved results, and non-returning transfers. The
 earlier seven-capture v1
 set still proves
@@ -850,8 +851,17 @@ The derived inventory now preserves joint exception/timer identities and
 coalesced occurrence counts. Retained save/load traces supply both asserting
 and non-asserting timer-source observations, and a fresh post-restore run
 passed the shared strict field validator. This proves timer-source IRQ
-assertion/suppression observations, not CPU acceptance or BIOS handler
-entry/return; those downstream seams remain missing (issue #20).
+assertion/suppression observations, not downstream handler execution.
+The v7 exception scope separately observes actual EE/IOP architectural
+transitions, including Status, Cause, EPC, and vector PC. A fresh post-restore
+capture contains both domains, and a clean-boot capture distinguishes two
+IOP status transitions at the same PC, both with zero overflow; synthetic
+production-path tests cover branch delay, nested EXL, bootstrap vectors, reset
+early return, disabled tracing, and transition-sensitive coalescing.
+Source-to-exception pairing and handler-body entry/return remain unobserved
+(issue #20). Historical v6 operation captures lack these transition fields
+and are refused by the current analyzer; their previously recorded service
+evidence is not upgraded to v7 evidence.
 The static IRX scan separately found seven extracted module headers, 61 library
 tables, 260 import stubs, and 19 library identities. Six modules are stripped,
 so 219 entries have no symbol name and remain library/ordinal candidates.

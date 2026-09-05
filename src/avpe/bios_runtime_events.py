@@ -7,6 +7,9 @@ IDENTITY_FIELDS = {
     "exception": ("domain", "code", "pc", "branch_delay"),
     "timer": ("domain", "counter", "overflow", "delivered"),
 }
+EXCEPTION_TRANSITION_FIELDS = (
+    "status_before", "status_after", "cause_after", "epc_after", "vector_pc",
+)
 
 
 def event_occurrences(event: dict[str, Any]) -> int:
@@ -25,8 +28,14 @@ def runtime_event_is_verified(event: dict[str, object]) -> bool:
     if event.get("domain") not in ("ee", "iop"):
         return False
     if event.get("kind") == "exception":
-        return all(_unsigned(event.get(key), 32) for key in ("code", "pc")) and isinstance(
-            event.get("branch_delay"), bool)
+        transition = event.get("transition")
+        return bool(
+            all(_unsigned(event.get(key), 32) for key in ("code", "pc"))
+            and isinstance(event.get("branch_delay"), bool)
+            and isinstance(transition, dict)
+            and set(transition) == set(EXCEPTION_TRANSITION_FIELDS)
+            and all(_unsigned(transition[key], 32) for key in EXCEPTION_TRANSITION_FIELDS)
+        )
     if event.get("kind") == "timer":
         return bool(
             _unsigned(event.get("counter"), 32)
@@ -54,9 +63,13 @@ def summarize_runtime_events(events: list[dict[str, Any]], kind: str) -> dict[st
             raise ValueError(f"invalid {kind} event")
         calls = event_occurrences(event)
         key = tuple(event[field] for field in fields)
+        if kind == "exception":
+            key += tuple(event["transition"][field] for field in EXCEPTION_TRANSITION_FIELDS)
         if key not in grouped:
             entry = {field: event[field] for field in fields}
             entry.update(event_count=0, occurrences=0)
+            if kind == "exception":
+                entry["transition"] = dict(event["transition"])
             if kind == "timer":
                 entry["first_sample"] = {field: event[field] for field in ("count", "target", "cycle")}
             grouped[key] = entry
@@ -66,6 +79,6 @@ def summarize_runtime_events(events: list[dict[str, Any]], kind: str) -> dict[st
         occurrences += calls
     return {
         "event_count": event_count, "occurrences": occurrences,
-        "measurement": "exception_entry" if kind == "exception" else "counter_source_irq_assertion",
+        "measurement": "cpu_exception_transition" if kind == "exception" else "counter_source_irq_assertion",
         "identities": [grouped[key] for key in sorted(grouped)],
     }

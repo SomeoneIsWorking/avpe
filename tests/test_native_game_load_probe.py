@@ -20,7 +20,7 @@ from avpe.native_game_load_probe import (
 
 def _valid_trace() -> dict[str, object]:
     return {
-        "schema": "avpe-bios-trace-v6",
+        "schema": "avpe-bios-trace-v7",
         "enabled": True,
         "capacity": 4096,
         "overflow": 0,

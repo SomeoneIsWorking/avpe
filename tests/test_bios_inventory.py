@@ -42,7 +42,7 @@ def make_artifact() -> dict[str, object]:
         "operation": "menu_down",
         "statefile": "pause-menu.p2s",
         "trace": {
-            "schema": "avpe-bios-trace-v6",
+            "schema": "avpe-bios-trace-v7",
             "enabled": True,
             "capacity": 4096,
             "overflow": 0,
@@ -100,6 +100,8 @@ def make_artifact() -> dict[str, object]:
                     "code": 32,
                     "pc": 4096,
                     "branch_delay": False,
+                    "transition": {"status_before": 0x10001, "status_after": 0x10003,
+                                   "cause_after": 32, "epc_after": 4096, "vector_pc": 0x80000180},
                 },
                 {
                     "sequence": 5,
@@ -147,6 +149,7 @@ class BiosInventoryTests(unittest.TestCase):
         self.assertEqual(summary["exceptions"]["identities"], [{
             "domain": "ee", "code": 32, "pc": 4096, "branch_delay": False,
             "event_count": 1, "occurrences": 1,
+            "transition": make_artifact()["trace"]["events"][3]["transition"],
         }])
         self.assertEqual(summary["timers"]["identities"], [{
             "domain": "iop", "counter": 2, "overflow": True, "delivered": False,
@@ -199,6 +202,32 @@ class BiosInventoryTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         summarize_bios_artifact(artifact)
 
+    def test_exception_transitions_are_mandatory_and_preserve_identity(self) -> None:
+        artifact = make_artifact()
+        events = artifact["trace"]["events"]
+        duplicate = copy.deepcopy(events[3])
+        duplicate.update(sequence=8, calls=7)
+        duplicate["transition"]["vector_pc"] = 0xBFC00380
+        events.append(duplicate)
+        summary = summarize_bios_artifact(artifact)["exceptions"]
+        self.assertEqual(summary["occurrences"], 8)
+        self.assertEqual(len(summary["identities"]), 2)
+        original = make_artifact()["trace"]["events"][3]["transition"]
+        malformed = [None, [], {}, dict(original, extra=0)]
+        for field in original:
+            malformed.append({key: value for key, value in original.items() if key != field})
+            malformed.extend(dict(original, **{field: value}) for value in (-1, True, 1 << 32))
+        for transition in malformed:
+            with self.subTest(transition=transition):
+                artifact = make_artifact()
+                artifact["trace"]["events"][3]["transition"] = transition
+                self.assertFalse(bios_trace_is_verified(artifact["trace"]))
+                with self.assertRaises(ValueError):
+                    summarize_bios_artifact(artifact)
+        artifact = make_artifact()
+        artifact["trace"]["schema"] = "avpe-bios-trace-v6"
+        self.assertFalse(bios_trace_is_verified(artifact["trace"]))
+
     def test_absent_runtime_events_report_zero_observations(self) -> None:
         artifact = make_artifact()
         artifact["trace"]["events"] = artifact["trace"]["events"][:1]
@@ -208,7 +237,7 @@ class BiosInventoryTests(unittest.TestCase):
             self.assertEqual(summary[kind]["occurrences"], 0)
             self.assertEqual(summary[kind]["identities"], [])
         self.assertEqual(summary["timers"]["measurement"], "counter_source_irq_assertion")
-        self.assertEqual(summary["exceptions"]["measurement"], "exception_entry")
+        self.assertEqual(summary["exceptions"]["measurement"], "cpu_exception_transition")
 
     def test_cli_preserves_positive_and_negative_timer_source_outcomes(self) -> None:
         artifact = make_artifact()

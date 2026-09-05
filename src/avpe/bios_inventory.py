@@ -9,7 +9,7 @@ from avpe.native_bios_probe import bios_trace_is_verified
 from avpe.bios_runtime_events import event_occurrences as _event_calls, summarize_runtime_events
 
 
-INVENTORY_SCHEMA = "avpe-bios-inventory-v6"
+INVENTORY_SCHEMA = "avpe-bios-inventory-v7"
 _SERVICE_KINDS = ("ee_syscall", "import", "module", "interrupt", "rpc")
 
 
