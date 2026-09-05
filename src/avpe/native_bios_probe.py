@@ -49,7 +49,7 @@ from avpe.native_title_probe import (
     title_transition_snapshot,
 )
 
-BIOS_TRACE_SCHEMA = "avpe-bios-trace-v6"
+BIOS_TRACE_SCHEMA = "avpe-bios-trace-v7"
 TITLE_MENU_ACTIONS = frozenset(("up", "down", "left", "right", "activate", "cancel"))
 STATEFILE_BIOS_PHASES = (
     "title",

@@ -27,7 +27,7 @@ One mission slice cannot substitute for the complete required firmware contract.
 
 ## Current work
 
-`NativeBiosTrace` v6 retains the v3 EE `SYSCALL` contract through the shared
+`NativeBiosTrace` v7 retains the v3 EE `SYSCALL` contract through the shared
 interpreter implementation, including their four argument registers and
 whether PCSX2 returned directly or dispatched into the BIOS. Return-capable
 BIOS entries pair by guest stack pointer and exact post-syscall PC. A ps2sdk-
@@ -39,10 +39,10 @@ Oracle fallback queues a bounded frame, registers that exact caller return
 block, and pairs the eventual signed `v0` by stack pointer and return PC through
 `NativeIopExecutionHooks`. The recompiler instruments only registered return
 blocks; the interpreter scans the registry only while an oracle call is pending.
-The census also records EE/IOP exception entry,
+The census also records actual EE/IOP exception transitions,
 loadcore module registration and release, interrupt registration, and SIF RPC
 registration. EE and IOP counter target/overflow paths now record the counter
-state, cycle, and whether the interrupt was delivered. All observations use
+state, cycle, and whether the counter source asserted an interrupt. All observations use
 narrow calls at the existing owners, remain observation-only, and are exposed at
 `GET /bios/trace` for control-test diagnostics. Repeated import, syscall,
 exception, and timer identities are coalesced with occurrence counts. Result-
@@ -1110,6 +1110,53 @@ completion or rate measurement. The complete 271-test Python/structure suite
 passes, including CLI positive/negative timer outcomes, cross-domain identity
 separation, coalesced counts, branch-delay identity, absent runtime categories,
 and malformed field refusal. Runtime CPU behavior was not changed.
+
+### Finding (2026-09-05, actual CPU exception transitions)
+
+Pre-entry code/PC observations could not identify the resulting CPU status,
+EPC, Cause, or vector. The new CPU-thread `NativeExceptionObservation` scope
+reads these fields after the existing EE/IOP exception routines, including
+the EE reset/NMI early return. It changes no exception semantics. Trace v7
+requires the transition record; inventory v7/report v6 retain its entire
+identity and refuse older traces rather than silently treating absent fields
+as evidence.
+
+Both fresh surfaceless/null-muted runs used the shipping control runner and
+inventory CLI, exited cleanly, and retained zero overflow:
+
+| Boundary | Retained events | Exception records / occurrences | Timer records / occurrences |
+|---|---|---|---|
+| `mission1.p2s` restore to Running | 290 | 9 / 42 | 1 / 76 |
+| Clean boot to Running | 374 | 6 / 7 | 2 / 9 |
+
+The restore slice's EE syscall transition changes Status `70030C11` to
+`70030C13`, preserves PC `002B41E4` as EPC, sets Cause `20`, and reaches
+vector `80000180`. Its IOP transitions change Status `401` to `404` and
+reach `80000080`. The clean-boot slice supplies a real discriminator:
+the same IOP syscall at PC/EPC `414C`, Cause `20`, and vector `80000080`
+occurs with Status `0 → 0` and `401 → 404`. These remain separate records;
+the old identity would have merged them. Counts are observations, not
+repeatable rates or complete gameplay coverage.
+
+Reproduction: `tools/run_control_test.py --seconds 25 --probe-bios-trace
+--bios-trace-output scratch/control-test/exception-current.json --http-port 0`,
+through `uv run --frozen python`; add
+`--statefile scratch/states/mission1.p2s` for the restore slice. Analyze with
+`tools/analyze_bios_traces.py` through the same locked interpreter.
+
+The production-path C++ regressions exercise real `cpuException`/`psxException`
+routines: ordinary IRQ/syscall, branch delay, nested EXL, bootstrap vectors,
+IOP status stack, reset early return, disabled tracing, and transition-aware
+coalescing. Python tests reject missing/extra transition fields, nonobjects,
+unsigned overflow, negative/bool values, and v6 traces, while retaining
+different transition identities. This observes the architectural transition,
+not execution of the handler body, handler return, or source-IRQ pairing.
+Those downstream contracts and the rest of S025 remain open.
+
+Landing verification: `uv run --frozen python tools/verify.py` passed 272
+Python tests, 87 selected C++ production-path tests, clang-format, and all
+74 clang-tidy translation units. The build metadata identifies Clang; both
+current product and diagnostic executables linked successfully.
 
 ## Resolution
 
