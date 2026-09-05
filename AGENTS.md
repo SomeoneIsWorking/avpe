@@ -12,6 +12,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   guest objects and handles.
 - `NativePointerMotion.*` owns shared normalized-coordinate validation,
   resolution lookup, guest staging, and absolute pointer movement.
+- `NativeConfig.*` owns the immutable typed AVP:E environment snapshot. Product
+  subsystems consume its narrow accessors and never read process environment
+  state directly.
 - `NativeInput.*` owns gameplay pointer and button semantics.
 - `NativeMenuInput.*` owns callback-registry menu discovery, the synchronous
   mission-goals load modal's exact Exit-item discovery/focus, and invocation
