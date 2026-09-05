@@ -17,6 +17,67 @@ def menu_action(
     return request_json(port, "POST", "/input/menu-action", {"action": action})
 
 
+def run_ready_menu_action(
+    port: int,
+    deadline: float,
+    action: str,
+    menu_vtable: object,
+    focused_item_action: object,
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Apply one exact menu action through the title's physical-pad path."""
+    body = {
+        "action": action,
+        "when_menu_vtable": _canonical_word(menu_vtable, "menu vtable"),
+        "when_focused_item_action": _canonical_word(
+            focused_item_action, "focused item action"
+        ),
+    }
+    status, response, detail = request_json(port, "POST", "/input/menu-action", body)
+    action_id = _integer(response.get("readiness_action_id")) if response is not None else -1
+    if status != 202 or response is None or response.get("awaiting_readiness") is not True \
+            or action_id <= 0:
+        raise RuntimeError(
+            "native ready menu action was not admitted through physical input: "
+            f"HTTP {status}: {detail}"
+        )
+    return response, await_ready_menu_action(port, deadline, action_id)
+
+
+def await_ready_menu_action(
+    port: int, deadline: float, action_id: int
+) -> dict[str, object]:
+    """Wait for one admitted menu readiness action to dispatch or reject."""
+    last_state: dict[str, object] | None = None
+    while time.monotonic() < deadline:
+        status, body = request_bytes(port, "GET", "/input/menu-readiness")
+        detail = body.decode(errors="replace").strip()
+        try:
+            state = json.loads(body)
+        except json.JSONDecodeError as error:
+            raise RuntimeError(
+                f"menu readiness returned invalid JSON: HTTP {status}: {detail}"
+            ) from error
+        if status != 200 or not isinstance(state, dict):
+            raise RuntimeError(f"menu readiness returned HTTP {status}: {detail}")
+        if _integer(state.get("id")) != action_id:
+            raise RuntimeError(
+                f"menu readiness did not identify action {action_id}: {state}"
+            )
+        last_state = state
+        if state.get("state") == "dispatched" \
+                and _integer(state.get("dispatched_id")) == action_id:
+            return state
+        if state.get("state") == "rejected" \
+                and _integer(state.get("rejected_id")) == action_id:
+            raise RuntimeError(f"menu readiness action {action_id} was rejected: {state}")
+        if state.get("state") != "pending":
+            raise RuntimeError(f"menu readiness action {action_id} entered an invalid state: {state}")
+        time.sleep(0.05)
+    raise RuntimeError(
+        f"menu readiness action {action_id} did not dispatch before its deadline: {last_state}"
+    )
+
+
 def menu_state(port: int) -> tuple[int, dict[str, object] | None, str]:
     status, body = request_bytes(port, "GET", "/input/menu")
     detail = body.decode(errors="replace").strip()
@@ -365,6 +426,13 @@ def _u32(value: object) -> int | None:
     except ValueError:
         return None
     return parsed if 0 <= parsed <= 0xFFFFFFFF else None
+
+
+def _canonical_word(value: object, description: str) -> str:
+    parsed = _u32(value)
+    if parsed is None:
+        raise ValueError(f"{description} is not an unsigned hexadecimal word: {value!r}")
+    return f"0x{parsed:08x}"
 
 
 def _menu_identity(state: dict[str, object]) -> tuple[object, ...]:

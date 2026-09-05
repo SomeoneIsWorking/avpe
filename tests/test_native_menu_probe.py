@@ -1,3 +1,4 @@
+import json
 import time
 import unittest
 from unittest.mock import ANY, patch
@@ -5,6 +6,8 @@ from unittest.mock import ANY, patch
 from avpe.menu_probe import (
     await_different_menu_input_dispatch,
     await_dispatched_menu_action,
+    await_ready_menu_action,
+    run_ready_menu_action,
     run_menu_action,
 )
 from avpe.native_menu_probe import _complete_directional_action
@@ -96,3 +99,41 @@ class NativeMenuProbeTests(unittest.TestCase):
             return_value=(200, {"rejected_menu_action_id": 41}, ""),
         ), self.assertRaisesRegex(RuntimeError, "was rejected"):
             await_dispatched_menu_action(31234, time.monotonic() + 1.0, 41)
+
+    def test_ready_menu_action_uses_exact_normalized_owner_and_focus(self) -> None:
+        response = {"awaiting_readiness": True, "readiness_action_id": 41}
+        dispatched = {"state": "dispatched", "id": 41, "dispatched_id": 41}
+        with patch(
+            "avpe.menu_probe.request_json", return_value=(202, response, "accepted")
+        ) as request, patch(
+            "avpe.menu_probe.await_ready_menu_action", return_value=dispatched
+        ) as await_ready:
+            result, completion = run_ready_menu_action(
+                31234,
+                time.monotonic() + 1.0,
+                "activate",
+                "0x00342A50",
+                "0x807F1E5F",
+            )
+
+        self.assertEqual(result, response)
+        self.assertEqual(completion, dispatched)
+        request.assert_called_once_with(
+            31234,
+            "POST",
+            "/input/menu-action",
+            {
+                "action": "activate",
+                "when_menu_vtable": "0x00342a50",
+                "when_focused_item_action": "0x807f1e5f",
+            },
+        )
+        await_ready.assert_called_once_with(31234, ANY, 41)
+
+    def test_ready_menu_action_refuses_a_rejected_exact_state(self) -> None:
+        body = json.dumps(
+            {"state": "rejected", "id": 41, "rejected_id": 41}
+        ).encode()
+        with patch("avpe.menu_probe.request_bytes", return_value=(200, body)):
+            with self.assertRaisesRegex(RuntimeError, "was rejected"):
+                await_ready_menu_action(31234, time.monotonic() + 1.0, 41)
