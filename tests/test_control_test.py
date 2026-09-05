@@ -1197,6 +1197,12 @@ class ControlTestPolicyTests(unittest.TestCase):
         ) as reach, patch(
             "avpe.native_bios_probe.start_bios_trace"
         ) as start, patch(
+            "avpe.native_bios_probe.start_title_transition_observation",
+            return_value={"schema": "avpe-title-transition-v1", "armed": True},
+        ) as start_transition, patch(
+            "avpe.native_bios_probe.title_transition_snapshot",
+            return_value={"schema": "avpe-title-transition-v1", "armed": False, "complete": True},
+        ) as transition_snapshot, patch(
             "avpe.menu_probe.menu_action",
             return_value=(202, {"deferred_call_id": 20}, "queued profile activate"),
         ) as menu, patch(
@@ -1230,6 +1236,8 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(result, (trace, "zono_splash_to_profile_menu_action", "start_then_title_and_profile_activate"))
         reach.assert_called_once_with(31234, deadline)
         start.assert_called_once_with(31234)
+        start_transition.assert_called_once_with(31234)
+        transition_snapshot.assert_called_once_with(31234)
         menu.assert_called_once_with(31234, "activate")
         await_call.assert_called_once_with(31234, deadline, 20, "BIOS phase profile activate")
         ready.assert_called_once_with(
@@ -1238,6 +1246,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(state.call_count, 4)
         capture.assert_called_once_with(31234, at_guest_boundary=False)
         self.assertEqual(trace["profile_menu_after_action"]["status"], 409)
+        self.assertTrue(trace["title_transition"]["complete"])
 
     def test_title_down_bios_phase_waits_for_the_settled_focused_action(self) -> None:
         deadline = time.monotonic() + 1.0
@@ -1392,6 +1401,12 @@ class ControlTestPolicyTests(unittest.TestCase):
         ), patch(
             "avpe.native_bios_probe.start_bios_trace"
         ), patch(
+            "avpe.native_bios_probe.start_title_transition_observation",
+            return_value={"schema": "avpe-title-transition-v1", "armed": True},
+        ), patch(
+            "avpe.native_bios_probe.title_transition_snapshot",
+            return_value={"schema": "avpe-title-transition-v1", "armed": True, "complete": False},
+        ), patch(
             "avpe.menu_probe.menu_state",
             side_effect=[
                 (
@@ -1419,6 +1434,29 @@ class ControlTestPolicyTests(unittest.TestCase):
             31234, deadline, "activate", "0x00342A50", "0x807F1E5F"
         )
         capture.assert_not_called()
+
+    def test_title_profile_reports_transition_and_input_dispatch_on_activation_failure(self) -> None:
+        deadline = time.monotonic() + 1.0
+        transition = {"schema": "avpe-title-transition-v1", "armed": True, "complete": False}
+        dispatch = {"schema": "avpe-input-dispatch-v2", "callbacks": []}
+        with patch(
+            "avpe.native_bios_probe._activate_title_menu",
+            side_effect=RuntimeError("title activation did not settle"),
+        ), patch(
+            "avpe.native_bios_probe.start_bios_trace"
+        ), patch(
+            "avpe.native_bios_probe.title_transition_snapshot", return_value=transition
+        ), patch(
+            "avpe.native_bios_probe.title_input_dispatch_snapshot", return_value=dispatch
+        ):
+            with self.assertRaisesRegex(RuntimeError, "title input dispatch") as error:
+                run_bios_phase(
+                    31234, deadline, "title-profile", Path("scratch/states/title-real.p2s"),
+                    Path("scratch/control-test/bios-phase-state.p2s"),
+                )
+
+        self.assertIn(json.dumps(transition, sort_keys=True), str(error.exception))
+        self.assertIn(json.dumps(dispatch, sort_keys=True), str(error.exception))
 
     def test_bios_mission_phase_uses_grounded_boundary_routes(self) -> None:
         with patch(

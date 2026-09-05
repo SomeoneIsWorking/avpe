@@ -43,6 +43,9 @@ from avpe.native_title_probe import (
     activate_title_menu as _activate_title_menu,
     activate_title_menu_after_down as _activate_title_menu_after_down,
     reach_title_menu as _reach_title_menu,
+    title_input_dispatch_snapshot,
+    start_title_transition_observation,
+    title_transition_snapshot,
 )
 
 BIOS_TRACE_SCHEMA = "avpe-bios-trace-v6"
@@ -953,7 +956,20 @@ def run_bios_phase(
         trace["title_menu_after_down_activation"] = title_menu
         return trace, "zono_splash_to_title_menu_transition", "start_then_title_down_activate"
     if phase == "title-profile":
-        title_menu = _activate_title_menu(port, deadline, start_bios_trace)
+        def start_title_profile_observation(active_port: int) -> None:
+            start_bios_trace(active_port)
+            start_title_transition_observation(active_port)
+
+        try:
+            title_menu = _activate_title_menu(port, deadline, start_title_profile_observation)
+        except RuntimeError as error:
+            observation = title_transition_snapshot(port)
+            input_dispatch = title_input_dispatch_snapshot(port)
+            raise RuntimeError(
+                f"{error}; title transition observation: {json.dumps(observation, sort_keys=True)}; "
+                f"title input dispatch: {json.dumps(input_dispatch, sort_keys=True)}"
+            ) from error
+        title_transition = title_transition_snapshot(port)
         profile_state = title_menu["state"]
         if title_menu["status"] != 200 or not isinstance(profile_state, dict) \
                 or profile_state.get("menu_vtable") != PROFILE_MENU_VTABLE:
@@ -967,6 +983,7 @@ def run_bios_phase(
         )
         trace = capture_bios_trace(port, at_guest_boundary=False)
         trace["title_menu_after_action"] = title_menu
+        trace["title_transition"] = title_transition
         trace["profile_menu_after_action"] = {"status": status, "state": next_menu}
         return trace, "zono_splash_to_profile_menu_action", "start_then_title_and_profile_activate"
     if phase == "menu":
