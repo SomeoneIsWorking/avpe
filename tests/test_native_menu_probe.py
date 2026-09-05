@@ -6,6 +6,7 @@ from unittest.mock import ANY, patch
 from avpe.menu_probe import (
     await_different_menu_input_dispatch,
     await_dispatched_menu_action,
+    await_movie_cancellation,
     await_ready_menu_action,
     run_ready_menu_action,
     run_menu_action,
@@ -14,6 +15,48 @@ from avpe.native_menu_probe import _complete_directional_action
 
 
 class NativeMenuProbeTests(unittest.TestCase):
+    def test_movie_action_waits_for_its_own_ticket(self) -> None:
+        queued = {"awaiting_readiness": True, "movie_action_id": 8, "deferred": False}
+        completion = {"movie": {"state": "dispatched", "id": 8}}
+        with patch(
+            "avpe.menu_probe.menu_action", return_value=(202, queued, "queued")
+        ), patch(
+            "avpe.menu_probe.await_movie_cancellation", return_value=completion
+        ) as await_movie:
+            self.assertEqual(
+                run_menu_action(31234, time.monotonic() + 1, "activate"),
+                (queued, completion),
+            )
+        await_movie.assert_called_once_with(31234, ANY, 8)
+
+    def test_movie_completion_requires_safe_deferred_return(self) -> None:
+        dispatched = {"state": "dispatched", "id": 8, "deferred_call_id": 13}
+        complete = {"state": "completed", "stack_restored": True}
+        with patch(
+            "avpe.menu_probe.request_json",
+            side_effect=[(200, {"state": "pending", "id": 8}, "pending"),
+                         (200, dispatched, "dispatched")],
+        ), patch("avpe.menu_probe.time.sleep"), patch(
+            "avpe.menu_probe.await_deferred_call", return_value=complete
+        ) as await_call:
+            self.assertEqual(
+                await_movie_cancellation(31234, time.monotonic() + 1, 8),
+                {"movie": dispatched, "deferred_completion": complete},
+            )
+        await_call.assert_called_once_with(31234, ANY, 13, "movie cancellation")
+
+    def test_movie_completion_refuses_lost_expired_failed_and_missing_call(self) -> None:
+        for state in (
+            {"id": 9, "state": "dispatched"},
+            {"id": 8, "state": "expired"},
+            {"id": 8, "state": "failed"},
+            {"id": 8, "state": "dispatched", "deferred_call_id": 0},
+        ):
+            with self.subTest(state=state), patch(
+                "avpe.menu_probe.request_json", return_value=(200, state, str(state))
+            ), self.assertRaises(RuntimeError):
+                await_movie_cancellation(31234, time.monotonic() + 1, 8)
+
     def test_menu_transition_waits_for_a_different_normal_input_owner(self) -> None:
         old_callback = {
             "owner": "0x012e85a0",

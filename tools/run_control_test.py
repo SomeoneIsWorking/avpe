@@ -62,6 +62,7 @@ from avpe.native_mission_probe import (
 )
 from avpe.native_pause_probe import probe_gameplay_pause_menu
 from avpe.native_camera_probe import probe_native_camera
+from avpe.native_movie_probe import probe_native_movie_cancellation
 from avpe.native_assets import (
     NativeAssetError,
     manifest_sha256,
@@ -441,6 +442,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seconds", type=float, default=30.0)
     parser.add_argument("--statefile", type=Path)
+    parser.add_argument("--probe-native-logo", action="store_true")
     parser.add_argument(
         "--memory-card-source",
         type=Path,
@@ -519,6 +521,7 @@ def main() -> int:
         args.probe_native_pointer,
         args.probe_native_mouse,
         args.probe_native_menu,
+        args.probe_native_logo,
         args.probe_native_pause_menu,
         args.probe_native_menu_activate,
         args.probe_native_menu_pointer,
@@ -692,6 +695,7 @@ def main() -> int:
     memory_card_ready_proof: dict[str, object] | None = None
     memory_card_shutdown_proof: dict[str, object] | None = None
     pointer_proof: dict[str, object] | None = None
+    logo_proof: dict[str, object] | None = None
     mouse_proof: dict[str, object] | None = None
     menu_proof: dict[str, object] | None = None
     pause_menu_proof: dict[str, object] | None = None
@@ -866,6 +870,11 @@ def main() -> int:
                 if args.probe_native_menu and probe_error is None:
                     try:
                         menu_proof = probe_native_menu(port, deadline, LOG_DIR.parent)
+                    except (RuntimeError, ValueError, json.JSONDecodeError) as error:
+                        probe_error = str(error)
+                if args.probe_native_logo and probe_error is None:
+                    try:
+                        logo_proof = probe_native_movie_cancellation(port, deadline, args.statefile)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_menu_activate and probe_error is None:
@@ -1087,6 +1096,8 @@ def main() -> int:
     if not report_json_probe(args.probe_native_mouse, mouse_proof, "native-mouse", probe_error, LOG_DIR):
         return 1
     if not report_json_probe(args.probe_native_menu, menu_proof, "native-menu", probe_error, LOG_DIR):
+        return 1
+    if not report_json_probe(args.probe_native_logo, logo_proof, "native-logo", probe_error, LOG_DIR):
         return 1
     if not report_json_probe(
         args.probe_native_pause_menu, pause_menu_proof, "native-pause-menu", probe_error, LOG_DIR
