@@ -6,7 +6,7 @@ symptom: The AVP:E-specific BIOS/HLE service surface is not yet inventoried
 state_items: S025,S026,S027,S028
 tags: bios,hle,iop,inventory,re
 created: 2026-08-28
-updated: 2026-09-04
+updated: 2026-09-05
 ---
 
 ## Root cause
@@ -546,6 +546,21 @@ then `Replay Intro` (action `0x0B36B742`); an exact-state Down remained on
 `Replay Intro`. Therefore the fully enumerated Extras branch has no direct
 Quit entry, while the Options non-text control remains intentionally
 unclassified rather than being mistaken for `Main_Quit`.
+
+### Finding (2026-09-05, Options non-text control cannot be a shutdown route)
+
+The Options vtable `0x00343850` resolves to `GBaseMenu`, not an
+options-specific subclass. Ghidra decompilation of
+`GBaseMenu::ItemActivated` (`0x002073B0`) and
+`GMenu::ItemActivated` (`0x00124EF0`) establishes the complete relevant
+dispatch: the base owner handles only `LoadLevel` and
+`SwapMenuTransferCommand` specially, then delegates to the generic owner;
+the generic owner calls `CShell::Quit` only for the exact `QuitGame` CRC
+`0x3CF57571`. The observed `0x0ECB1445` action matches none of those actions,
+so it reaches the `GMenuListBox`-specific virtual path instead. Its semantics
+remain unclassified, but it cannot reach `CShell::Quit`; activating it as a
+guessed descendant would be a false shutdown probe. `GMainMenu` likewise has
+only its `Main_LoadGame` special case before the same base dispatch.
 
 ### Finding (2026-08-31, shell-shutdown boundary discriminator)
 
