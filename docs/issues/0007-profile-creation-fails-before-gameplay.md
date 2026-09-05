@@ -6,7 +6,7 @@ symptom: The windowed product reaches profile creation but cannot create a profi
 state_items: S013,S014,S016
 tags: profile,save,memory-card,playability
 created: 2026-08-27
-updated: 2026-08-31
+updated: 2026-09-05
 ---
 
 ## Root cause
@@ -149,5 +149,19 @@ gameplay meaning. Both records contain 189 top-level objects, 1,073 nested
 objects, 1,262 nested end records, one top-level end record, depth 3, and 67
 distinct class IDs with identical histograms. The class IDs remain opaque, and
 no editable-field semantics or load round-trip has been claimed.
+
+### Finding (2026-09-05, title-profile state fails before profile provisioning)
+
+The isolated, surfaceless title-profile control path loaded its existing title
+state with a copied formatted card, waited through the real post-savestate card
+reinsertion, and attempted the title activation. The input owner rejected that
+activation with HTTP 409 because the active menu had no exact registered
+callback for `activate`; it therefore never issued the second `GProfileMenu`
+action or entered profile provisioning. The copied card stayed byte-identical
+through shutdown. This falsifies profile storage as the immediate cause for
+this specific state and leaves the windowed-product symptom unresolved: the
+next discriminator must first establish a title state whose menu callback
+registry admits the normal title action, rather than treating this failed
+precondition as a profile-write failure.
 
 ## Resolution
