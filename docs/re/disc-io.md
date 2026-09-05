@@ -38,6 +38,19 @@ separate file consumers. Movies use the EE file-I/O path, while FSSOUND.IRX
 accesses audio sectors directly through `cdvdman`; both paths are now traced
 below.
 
+`tools/search_tbf.py` inspects the complete authored archive without extracting
+game bytes to disk. `src/avpe/tbf_archive.py` validates RIFF bounds and the
+known chunk/container vocabulary, enforces input/decompression/count/depth
+budgets, and searches all leaf payloads. `CTbdFile::ReadChunk` at `0x00173CB0`
+reads the expanded u32 size before BWJ data; `LoadCore` at `0x00173FC0` pairs
+`DATA/DATX`, `TEMP/TEMX`, and `PLAT/PLAX`. The scanner reuses `decode_bwj`
+and requires both the exact expanded size and full compressed-stream consumption.
+It reports complete match counts with bounded locations (archive chunk and
+decoded-payload offsets); an unknown or malformed chunk fails instead of
+silently reducing coverage. A byte match is not an interpreted object field
+or proof of runtime reachability. The menu-action discriminator and exact
+supported-archive identity are recorded in issue #20.
+
 The movie path is a second game-side file wrapper over the same IOP boundary:
 
 | Address | Function | Grounded role |

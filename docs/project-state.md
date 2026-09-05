@@ -834,8 +834,13 @@ syscall and 86 IOP import identity/result summaries across the load and resumed
 mission initialization, so it is a complete operation boundary but not yet an
 archive-only service slice.
 
-Gap: extend the restored-menu completion pattern to stable title completion and
-add a grounded shutdown phase boundary.
+Gap: extend the restored-menu completion pattern to stable title completion.
+The shutdown observer exists, but no normal title route has reached it. A full
+decoded TBF scan found no authored `QuitGame` CRC while finding known live
+menu actions; the retained `Main_Quit` labels do not establish a selectable
+route. Issue #20 records the exact corpus and positive controls. A newly
+demonstrated runtime producer or asset path is needed before more shutdown
+menu traversal; global unreachability remains unproven.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
 import surface, and additional service-level negative-path semantics remain

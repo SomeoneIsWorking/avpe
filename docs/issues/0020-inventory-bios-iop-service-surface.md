@@ -1012,14 +1012,51 @@ activation, so the absent boundary is a real action-path falsifier, not a
 rejected probe. The confirmation menu's generic fallback resolves through its
 `GPhysical::GetAttachPos` slot at `0x00104C10`, not a shell shutdown handler.
 
-Next complete the already-grounded `CShell::Quit` phase path, and distinguish
-archive-owned service work from resumed guest
-execution. Add a separate grounded
-observation seam for remaining interrupt
+Do not repeat menu traversal merely to find `Main_Quit`: the decoded-archive
+discriminator below found no authored `QuitGame` value. A newly demonstrated
+runtime producer or different asset path is required before resuming that
+route. Add a separate grounded observation seam for remaining interrupt
 delivery, kernel primitives outside the mission slice, executable loading, IOP
 module loads and services outside the recognized import surface, then capture
 service negative paths before designing the HLE
 implementation.
+
+### Finding (2026-09-05, decoded archive has no `QuitGame` action value)
+
+The full supported `TBD/TBF.TBF` is 76,132,970 bytes with SHA-256
+`cd7d76fc2d2fd018b72b3da9197387bcc904f85459dd72e1cd514f1f204f9038`.
+The reproducible command is:
+
+```
+uv run --frozen python tools/search_tbf.py \
+  scratch/native-assets/avpe-native-assets-v1/files/TBD/TBF.TBF \
+  --hex 7175f53c --hex fb8c78ca --hex 5f1e7f80 --text Main_Quit
+```
+
+All 5,558 chunks were structurally traversed, including 933 compressed
+chunks (604 `DATX`, 329 `TEMX`) decoded through the existing BWJ owner.
+All decoded sizes and compressed terminators matched exactly. The complete
+142,258,146-byte leaf-payload corpus contains zero little-endian `QuitGame`
+CRC values (`0x3CF57571`), versus 645 `LoadMenu` values (`0xCA788CFB`) and
+one `ActivateFocused` value (`0x807F1E5F`, decoded offset `0xBF0` in the
+`DATX` chunk at archive offset `0x1F02E8`). These known live actions are
+positive controls; this is not an empty or raw-compressed-byte search.
+
+Both `Main_Quit` strings occur in the `EXTA` chunk at `0x1F2418`, payload
+offsets `0x1BBC` and `0x2BB4`; neither is an encoded `QuitGame` action.
+Ghidra's current reference database reports one direct call to `CShell::Quit`,
+at `0x00125134` in `GMenu::ItemActivated`, behind its exact `QuitGame` CRC
+comparison. Indirect callers and runtime-generated action values are not
+excluded by that static reference result.
+
+This falsifies the inference that the retained `Main_Quit` label implies an
+authored selectable shutdown route in this archive. It does not prove that
+`CShell::Quit` is globally unreachable, complete shutdown inventory, or waive
+the G006 service requirements. Prior main-menu/Options/Extras/Pause probes
+must not be repeated without evidence of a new producer. Nine focused tests
+exercise the actual search/CLI and shared decoder with both match answers,
+missing input, malformed framing, unknown chunks, full-count/bounded-location
+behavior, and each resource limit.
 
 ## Resolution
 
