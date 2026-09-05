@@ -13,7 +13,8 @@ CPS2Input : COSInput            (libpad poller; ctor 0017dc50)
   GetControlValue 0017e220      generic accessor (digital + analog)
   per-port struct stride 0x50 at this+0x414:
     +0x40c flags, +0x414 last state, +0x41c prev paddata[32],
-    +0x43c..43d buttons (active-low), +0x440..443 rx ry lx ly (0x80 center)
+    +0x43c status, +0x43d mode/length, +0x43e..43f buttons (active-low),
+    +0x440..443 rx ry lx ly (0x80 center)
 
 GPS2InputDevice : GInputDevice  (device object; GInputDevice::Process = dispatcher)
   Process         00114490      polls backend via vtable+8/+0xc, walks
@@ -170,10 +171,31 @@ eight-digit guest words. `NativeMenuInput` observes only the ordinary
 `GInputDevice::Process` entry through `NativeEeExecutionHooks`; it waits
 through unrelated menu lifecycles, rejects an invalid candidate for the named
 menu owner, and emits one existing physical-pad input when that owner and its
-focused action are current. It does not synthesize an unregistered directional
+focused action are current and `NativePadReadiness` validates the guest pad.
+It does not synthesize an unregistered directional
 callback, retry after a candidate validation failure, or survive a savestate
 load. `GET /input/menu-readiness` reports the one request as pending,
 dispatched, rejected, or absent.
+
+Menu publication precedes pad initialization. A 2026-09-05 surfaceless
+`title-real.p2s` run admitted Cross while CPS2Input flags were `0x03` and
+libpad state was 5. The full 250 ms hold expired with both report buffers
+neutral; mode negotiation (`flags=0x09`, state 6) and the first valid report
+(`flags=0x51`, state 6) followed afterward. The game never saw that Cross.
+The initialized-pad control recorded `ffbf` in the guest report and the
+focused `{0,0xcc,0}` callback. Controls with and without BIOS tracing reached
+ordered `GPressStartMenu::ItemActivated` then `GProfileMenu::Create` entries.
+
+`GInputDevice::Process` reads its CPS2Input backend at `+0x34`.
+`PollDevices` (`0x0017dde0`) owns port/slot at `+0x404/+0x408`, the low flags
+byte at `+0x40c`, and libpad state at `+0x414`. Readiness requires active,
+reading, and successful-read bits (`0x01|0x10|0x40`), no state/mode negotiation
+bits (`0x02|0x04|0x08`), state 2 or 6, and valid current and previous reports.
+Both reports matter because mode setup fills both buffers with `0xff` before
+normal polling resumes. The diagnostic does not lengthen the hold or alter
+the guest state machine. `GetDigitalInput` (`0x0017e5c0`) reads digital bytes
+at report `+2/+3`; control index 9 maps to Cross mask `0x0040` in
+`GetDigitalInputBitMask` (`0x0017e460`). Missing pressure was not this cause.
 
 `GMenu::Cancel` is virtual at vtable offset `0xfc`; native cancel resolves the
 active menu's actual handler rather than assuming base `0x00124c20`. Pause Save

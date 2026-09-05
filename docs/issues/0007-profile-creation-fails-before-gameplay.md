@@ -175,12 +175,11 @@ the selected item by calling the shared `GMenu::Load` path; it does not directly
 construct a profile menu. `GProfileMenu::Create` at `0x002075F0` has no
 call-type references, consistent with the title's dynamic class/factory
 dispatch. Static callers therefore cannot distinguish a missing title action
-from a successful load followed by an immediate lifecycle loss. The next
-discriminator is a bounded, passive EE observation of those two exact function
-entries, recording their ordered presence without altering input, guest state,
-or profile storage.
+from a successful load followed by an immediate lifecycle loss. The bounded,
+passive EE observer now records those two exact function entries in order,
+without altering input, guest state, or profile storage.
 
-### Finding (2026-09-05, physical title injection did not enter the guest handler)
+### Finding (2026-09-05, physical title injection preceded pad initialization)
 
 The passive observer was armed before the exact-vtable/focus physical Cross
 request. The control runner rebuilds its `pcsx2-qt` surfaceless oracle target
@@ -191,10 +190,24 @@ observer recorded zero entries at both `GPressStartMenu::ItemActivated`
 (`0x00209F30`) and `GProfileMenu::Create` (`0x002075F0`), with zero invalid or
 unexpected entries. The readiness route's `dispatched` state therefore proves
 only that it scheduled pad injection; it does not prove that the normal title
-callback consumed it. This rules out profile construction and card provisioning
-as the immediate failure in this run. The next owner is the input-dispatch
-acceptance boundary that must distinguish a scheduled pad state from the
-guest-owned title callback; it must not replace the route with a direct menu
-call or retry the same input.
+callback consumed it. Live guest-buffer sampling then identified the cause:
+the complete hold occurred during CPS2Input initialization, before its first
+valid report. The state/offset evidence and read-only admission contract are
+in [the input-path authority](../re/input-path.md). This was not a pressure
+mapping, profile-construction, or card-provisioning failure.
+
+`NativePadReadiness` now delays the one queued diagnostic physical action until
+the actual pad is reading with valid current/previous reports. The phase
+driver also waits through the temporary old/new-menu overlap before demanding
+`GProfileMenu`; a 409 transition observation is not a settled menu.
+The unchanged 45-second `title-profile` scenario passed with the original
+`title-real.p2s` and isolated source card: press-start entry ordinal 1, profile
+creation ordinal 2, zero invalid/unexpected entries, settled profile vtable
+`0x00343750`, then the profile action reached `GLoadProfileMenu` vtable
+`0x00343350`. Its census contained 479 records with zero overflow, 950/950
+paired EE calls, and 1,501 returns from 1,506 IOP oracle entries (five pending
+at capture). The card changed zero bytes and the process shut down gracefully.
+This restores the title/profile service-inventory slice; it does not prove
+profile creation, persistence, or normal gameplay.
 
 ## Resolution

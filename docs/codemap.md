@@ -61,6 +61,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native camera input | Original camera move/rotate/zoom calls, minimap pointer integration, and before/after state capture | `thirdparty/pcsx2/pcsx2/AVPE/NativeCameraInput.cpp/.h` | `AVPE::NativeCameraInput::Apply()` | [input-path contract](re/input-path.md) |
 | Native menu input | Callback-registry menu discovery, synchronous mission-goals modal/Exit discovery, exact focus and text-pointer observation, hit-testing, activation/cancel actions, and bounded exact-state physical-pad admission | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp/.h` | `AVPE::NativeMenuInput` | [input-path contract](re/input-path.md) |
 | Native menu control route | Diagnostic HTTP parsing, failure/status mapping, and JSON presentation for typed menu state/actions and readiness requests | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuRoute.cpp/.h` | `AVPE::NativeMenuRoute::HandleAction()`, `HandleState()`, `HandleReadiness()` | [control-channel contract](re/control-channel.md) |
+| Guest pad readiness | Read-only validated CPS2Input owner, port, initialization flags, libpad state, and current/previous reports; no input or menu mutation | `thirdparty/pcsx2/pcsx2/AVPE/NativePadReadiness.cpp/.h` | `AVPE::NativePadReadiness::IsReady()` | [input-path contract](re/input-path.md) |
 | Normal input-dispatch observer | Live `GInputDevice` registry admission, current `GAttractExit`-owner state, callback identities, owner-vtable evidence, and exact queued pointer/menu callback replacement at the shipping dispatch boundary; no title-lifecycle action policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeInputDispatch.cpp/.h` | `AVPE::NativeInputDispatch` | [input-path contract](re/input-path.md) |
 | Title-transition observer | Passive, exact-PC recording of the validated `GPressStartMenu::ItemActivated` and dynamic `GProfileMenu::Create` entry order; no input, guest-memory, or profile-storage mutation | `thirdparty/pcsx2/pcsx2/AVPE/NativeTitleTransition.cpp/.h`, composed by `NativeEeExecutionHooks.*` | `AVPE::NativeTitleTransition::{Start,SnapshotJson}` | [BIOS/IOP contract](re/bios.md) |
 | Title-transition control route | Diagnostic HTTP parsing, status mapping, and JSON presentation for title-to-profile transition observation; no observer policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeTitleTransitionRoute.cpp/.h` | `AVPE::NativeTitleTransitionRoute::{Start,Snapshot}` | [control-channel contract](re/control-channel.md) |
@@ -152,6 +153,7 @@ thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── NativeTitleTransition.*    passive title-to-profile handoff observation
 ├── NativeTitleTransitionRoute.* HTTP adapter for title-transition evidence
 ├── NativeMemoryCardState.*    CPU-thread card readiness observation
+├── NativePadReadiness.*       guest controller initialization/report readiness
 ├── NativeMenuInput.*          callback/menu-modal discovery and typed menu actions
 ├── NativeMenuRoute.*          native-menu diagnostic HTTP adapter
 └── NativePointerMotion.*      shared absolute pointer movement mechanics

@@ -969,6 +969,11 @@ def run_bios_phase(
                 f"{error}; title transition observation: {json.dumps(observation, sort_keys=True)}; "
                 f"title input dispatch: {json.dumps(input_dispatch, sort_keys=True)}"
             ) from error
+        if title_menu["status"] == 409:
+            status, state = _await_settled_menu_state(
+                port, deadline, "BIOS phase profile publication", require_available=True
+            )
+            title_menu = {"status": status, "state": state}
         title_transition = title_transition_snapshot(port)
         profile_state = title_menu["state"]
         if title_menu["status"] != 200 or not isinstance(profile_state, dict) \
