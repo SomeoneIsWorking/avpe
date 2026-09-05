@@ -706,11 +706,16 @@ remaining boundary defect: one had 237 events and its immediate repeat had one
 timer event. Both were bounded valid traces, so the result is a negative
 repeatability control rather than mission-service coverage.
 
-The title phase now advances the Zono splash through Start, waits for the live
-callback-registry title menu, and captures after its deferred activation. Two
-zero-overflow runs reached the same action but retained 150 versus 51 events,
-with 524/524 versus 15/15 paired EE calls and 51/51 versus 0/0 paired IOP calls.
-That is another negative repeatability control, not title service coverage.
+The title/profile phase advances the Zono splash through Start, waits for both
+the live focused title menu and initialized guest pad, and sends one physical
+activation. It observes the ordered title/profile entries, waits through their
+temporary registry overlap, then activates the settled profile menu. The
+current probe passes through `GProfileMenu` into `GLoadProfileMenu`; its bounded
+census and the repaired initialization race are recorded in
+[issue #7](issues/0007-profile-creation-fails-before-gameplay.md).
+This is a profile-list service slice, not profile persistence or normal game
+load evidence. Earlier deferred-title captures retained 150 versus 51 events
+and remain a negative repeatability control, not complete title coverage.
 
 `tools/analyze_bios_traces.py` now turns retained v6 captures into a
 deterministic inventory report using the same strict trace validator as the

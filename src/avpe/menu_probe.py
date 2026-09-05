@@ -333,12 +333,15 @@ def await_settled_menu_state(
     port: int,
     deadline: float,
     context: str,
+    *,
+    require_available: bool = False,
 ) -> tuple[int, dict[str, object]]:
+    """Observe menu state; optionally wait through unavailable/ambiguous owners."""
     last_status = 0
     last_detail = ""
     while time.monotonic() < deadline:
         status, state, detail = menu_state(port)
-        if status in (200, 409) and state is not None:
+        if state is not None and (status == 200 or (status == 409 and not require_available)):
             return status, state
         if status not in (409, 500):
             raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
