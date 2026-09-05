@@ -16,9 +16,11 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   subsystems consume its narrow accessors and never read process environment
   state directly.
 - `NativeInput.*` owns gameplay pointer and button semantics.
-- `NativeMenuInput.*` owns callback-registry menu discovery, the synchronous
-  mission-goals load modal's exact Exit-item discovery/focus, and invocation
-  of AVP:E keyboard and pointer menu actions.
+- `NativeMenuInput.*` owns callback-registry menu discovery, synchronous
+  mission-goals modal focus, and invocation of AVP:E keyboard and pointer actions.
+- `NativeMenuItems.*` owns bounded menu-descendant traversal, activation-hotkey
+  and focused-item callback admission, attract-owner exclusion, and exact
+  mission-goals Exit-item discovery. It reads guest state but never invokes actions.
 - `NativeMenuRoute.*` owns only the diagnostic HTTP parsing, status mapping,
   and JSON presentation for typed native-menu state and actions.
 - `NativePadReadiness.*` owns validated read-only observation of the title's
