@@ -30,6 +30,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Pause Quit confirmation discovery | Bounded selected-rectangle inspection, live text/action validation, and dispatch-bound focus proof for the pause-menu Quit confirmation; no BIOS capture policy | `src/avpe/native_pause_quit_probe.py` | `pause_selection_rectangles()`, `focus_pause_selection()` | [BIOS/IOP contract](re/bios.md) |
 | Native cache proof policy | Bounded-cache snapshot validation and active-cache polling, independent of process orchestration | `src/avpe/native_asset_cache_probe.py` | `cache_snapshot_is_verified()` | [disc-I/O RE contract](re/disc-io.md) |
 | BIOS/IOP trace proof policy | Clean-boot polling, strict bounded/ordered census acceptance, grounded mission-boundary validation, and phase-labelled artifact writing | `src/avpe/native_bios_probe.py` | `bios_trace_is_verified()`, `mission_boundary_is_verified()`, `run_bios_phase()` | [BIOS/IOP contract](re/bios.md) |
+| Title-menu lifecycle proof | Restored-title Start transition, live-menu admission, and exact focused physical activation; no profile persistence or BIOS event policy | `src/avpe/native_title_probe.py` | `reach_title_menu()`, `activate_title_menu()` | [BIOS/IOP contract](re/bios.md) |
 | BIOS/IOP result-summary validation | Strict scalar encoding, range, extrema, and transition-count acceptance shared by trace event validation | `src/avpe/bios_result.py` | `event_result_is_verified()` | [BIOS/IOP contract](re/bios.md) |
 | BIOS/IOP inventory analysis | Deterministic grouping of captured trace events by service and runtime category; no inferred calls | `src/avpe/bios_inventory.py`, `tools/analyze_bios_traces.py` | `summarize_bios_artifact()`, `combine_bios_inventories()` | [BIOS/IOP contract](re/bios.md) |
 | Static EE syscall inventory | Bounded executable-segment scan of direct BIOS wrapper callsites and direct syscall instructions; static candidates only | `src/avpe/ee_syscalls.py`, `tools/analyze_ee_syscalls.py` | `scan_ee_syscalls()` | [BIOS/IOP contract](re/bios.md) |
@@ -100,6 +101,7 @@ src/avpe/                      host-side product orchestration
 ├── native_asset_cache_probe.py bounded-cache proof policy
 ├── native_asset_probe.py       native lifecycle and live save/load proof policy
 ├── native_bios_probe.py        clean-boot BIOS/IOP trace proof policy
+├── native_title_probe.py       title-menu lifecycle and physical activation proof
 ├── native_game_load_probe.py   normal game-load flow and boundary proof policy
 ├── bios_result.py              strict bounded service-result validation
 ├── input_probe.py              observed diagnostic pad press/release lifecycle
