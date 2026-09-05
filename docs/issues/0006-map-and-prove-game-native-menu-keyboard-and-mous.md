@@ -138,6 +138,36 @@ Cancel restored the pause menu with exact deferred-stack restoration. The card
 remained byte-identical. Omitting that fixture's card reaches a different menu
 without valid focus and is not equivalent save-menu regression evidence.
 
+### Finding (2026-09-05, native attract cancellation)
+
+The current `press-start.p2s` run initially had eight title callbacks; normal
+simulation later entered the 52-callback attract state with owner `0x01765D10`.
+Native Activate then refused with “no active game menu owns navigation
+callbacks.” Menu discovery cannot own admission for this non-menu input owner.
+`NativeAttractInput` now selects the exact registered button callback at
+`0x00206A60` (not its analogue peer at `0x002069E0`); its recovered body ignores
+input data and calls the existing `CShell::SetNextLevel` route. `NativeMenuInput`
+composes this before requiring a menu, retaining the synchronous mission-goals
+path and the separate prohibition on activating a menu beneath an attract owner.
+
+From the captured live attract state, one native Activate completed dispatch
+ticket 1 with source `attract-cancellation`. Its exact button descriptor fired
+once, the valid registry changed from 52 to 8 callbacks, and `GPressStartMenu`
+returned while the armed profile observer still had both entry ordinals zero.
+A separate second native Activate completed ticket 2, dispatched the focused
+button, and reached `GProfileMenu` with press-start/profile ordinals 1/2.
+`GET /debug` reported injection masks `0000`/`0000` and neutral pad reports.
+No phase/timer writes, synthetic input data, or chained title activation occur.
+The run was surfaceless/null-muted; this is lifecycle and native-dispatch
+evidence, not real-window event or visual verification.
+
+Four new production-reader tests distinguish absent, available, analogue-only,
+invalid, and competing attract owners; preserve unrelated expired entries;
+coalesce same-owner button aliases; and select cancellation without any menu.
+The matching-card `--probe-native-menu` regression also passed after this
+composition change, preserving pause navigation, hidden-hotkey activation,
+Save-menu entry, and Cancel with zero changed card bytes.
+
 Remaining work: verify real-window key/mouse delivery, implement native
-logo/attract cancellation through its full lifecycle, and cover broader
+logo cancellation through its full lifecycle, and cover broader
 in-game menu variants.

@@ -16,8 +16,9 @@ The currently verified capabilities include:
 - locked Python/`uv` project setup and a tracked PCSX2 fork;
 - a surfaceless, null-audio control-test runtime with loopback diagnostics;
 - game-native absolute pointer movement, mouse selection, contextual commands,
-  pause-menu navigation, title-to-profile activation without controller
-  emulation, and camera/minimap probes (verified through the surfaceless backend);
+  pause-menu navigation, attract cancellation and title-to-profile activation
+  without controller emulation, and camera/minimap probes (verified through the
+  surfaceless backend);
 - validated native asset-store provisioning from the user’s disc image;
 - native reads for the supported AVP:E asset paths, with byte and loading-time
   evidence against the emulator’s optical-I/O path; and

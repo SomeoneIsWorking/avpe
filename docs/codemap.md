@@ -61,6 +61,8 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native camera input | Original camera move/rotate/zoom calls, minimap pointer integration, and before/after state capture | `thirdparty/pcsx2/pcsx2/AVPE/NativeCameraInput.cpp/.h` | `AVPE::NativeCameraInput::Apply()` | [input-path contract](re/input-path.md) |
 | Native menu input | Callback-registry menu discovery, synchronous mission-goals modal focus, exact focus and text-pointer observation, hit-testing, activation/cancel composition, and bounded exact-state physical-pad admission | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp/.h` | `AVPE::NativeMenuInput` | [input-path contract](re/input-path.md) |
 | Native menu-item discovery | Bounded descendant/handle validation, ActivateFocused hotkey precedence, focused-item callback admission, attract-owner exclusion, and exact mission-goals Exit lookup; no action invocation | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuItems.cpp/.h` | `AVPE::NativeMenuItems::{FindActivationCallback,FindMissionGoalsExitItem}` | [input-path contract](re/input-path.md) |
+| Attract cancellation admission | Unique attract-owner and registered button-descriptor discovery; guest callback retains level/owner teardown | `thirdparty/pcsx2/pcsx2/AVPE/NativeAttractInput.cpp/.h` | `AVPE::NativeAttractInput::FindCancellation()` | [input-path contract](re/input-path.md) |
+| Input callback discovery contract | Shared descriptor offsets, bounds, read-only access seam, and admitted target value; no action policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeInputCallbacks.h` | `AVPE::NativeInputCallbacks::{Access,Target}` | [input-path contract](re/input-path.md) |
 | Native menu control route | Diagnostic HTTP parsing, failure/status mapping, and JSON presentation for typed menu state/actions and readiness requests | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuRoute.cpp/.h` | `AVPE::NativeMenuRoute::HandleAction()`, `HandleState()`, `HandleReadiness()` | [control-channel contract](re/control-channel.md) |
 | Guest pad readiness | Read-only validated CPS2Input owner, port, initialization flags, libpad state, and current/previous reports; no input or menu mutation | `thirdparty/pcsx2/pcsx2/AVPE/NativePadReadiness.cpp/.h` | `AVPE::NativePadReadiness::IsReady()` | [input-path contract](re/input-path.md) |
 | Normal input-dispatch observer | Live `GInputDevice` registry admission, current `GAttractExit`-owner state, callback identities, owner-vtable evidence, and exact queued pointer/menu callback replacement at the shipping dispatch boundary; no title-lifecycle action policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeInputDispatch.cpp/.h` | `AVPE::NativeInputDispatch` | [input-path contract](re/input-path.md) |
@@ -150,6 +152,8 @@ thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── NativeIopReturnSites.*     bounded exact IOP caller-return PC registry
 ├── NativeHostYield.*          exact mission-modal host CPU transaction yield
 ├── NativeInput.*              gameplay pointer and button semantics
+├── NativeInputCallbacks.h     shared callback discovery/read contracts
+├── NativeAttractInput.*       exact attract-button cancellation admission
 ├── NativeInputDispatch.*      normal callback-dispatch observation and queued actions
 ├── NativeTitleTransition.*    passive title-to-profile handoff observation
 ├── NativeTitleTransitionRoute.* HTTP adapter for title-transition evidence

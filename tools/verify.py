@@ -145,7 +145,7 @@ def main() -> int:
                 "--gtest_filter=ButtonInjectionTest.*:NativeAssetStoreTest.*:"
                 "NativeCdvdCompletionTest.*:NativeBiosTraceTest.*:"
                 "NativeWindowHandlesTest.*:NativeTitleTransitionTest.*:NativePadReadinessTest.*:"
-                "NativeMenuItemsTest.*",
+                "NativeMenuItemsTest.*:NativeAttractInputTest.*",
             ],
         )
         run(

@@ -240,10 +240,14 @@ HotKeyActivate when no ActivateFocused helper exists. The surfaceless native
 route reaches `GProfileMenu` through ordinary callback dispatch without
 controller injection; issue #6 records the transition observer and isolated
 activation scenario. Menu-item discovery is independently bounded/tested and
-refuses activation beneath a registered attract input owner.
+refuses activation beneath a registered attract input owner. Native Activate
+now admits that owner's exact button cancellation callback before requiring a
+menu. A surfaceless run observed one cancellation dispatch, guest-owned attract
+removal and title restoration, then profile construction only after a separate
+native activation, with zero pad injection (issue #6).
 
 Gap: real window key/mouse delivery remains unobserved because agent tests must
-be windowless. Native logo/attract cancellation and broader in-game menu
+be windowless. Native logo cancellation and broader in-game menu
 coverage remain incomplete.
 The prior Press START saved-state transition is no longer accepted as stable
 evidence: the same deferred call later completed with exact restoration but
