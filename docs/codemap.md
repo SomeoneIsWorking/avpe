@@ -62,6 +62,8 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native menu input | Callback-registry menu discovery, synchronous mission-goals modal/Exit discovery, exact focus and text-pointer observation, hit-testing, activation/cancel actions, and bounded exact-state physical-pad admission | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp/.h` | `AVPE::NativeMenuInput` | [input-path contract](re/input-path.md) |
 | Native menu control route | Diagnostic HTTP parsing, failure/status mapping, and JSON presentation for typed menu state/actions and readiness requests | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuRoute.cpp/.h` | `AVPE::NativeMenuRoute::HandleAction()`, `HandleState()`, `HandleReadiness()` | [control-channel contract](re/control-channel.md) |
 | Normal input-dispatch observer | Live `GInputDevice` registry admission, current `GAttractExit`-owner state, callback identities, owner-vtable evidence, and exact queued pointer/menu callback replacement at the shipping dispatch boundary; no title-lifecycle action policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeInputDispatch.cpp/.h` | `AVPE::NativeInputDispatch` | [input-path contract](re/input-path.md) |
+| Title-transition observer | Passive, exact-PC recording of the validated `GPressStartMenu::ItemActivated` and dynamic `GProfileMenu::Create` entry order; no input, guest-memory, or profile-storage mutation | `thirdparty/pcsx2/pcsx2/AVPE/NativeTitleTransition.cpp/.h`, composed by `NativeEeExecutionHooks.*` | `AVPE::NativeTitleTransition::{Start,SnapshotJson}` | [BIOS/IOP contract](re/bios.md) |
+| Title-transition control route | Diagnostic HTTP parsing, status mapping, and JSON presentation for title-to-profile transition observation; no observer policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeTitleTransitionRoute.cpp/.h` | `AVPE::NativeTitleTransitionRoute::{Start,Snapshot}` | [control-channel contract](re/control-channel.md) |
 | Memory-card readiness observation | CPU-thread slot presence, savestate auto-eject countdown, busy state, and derived readiness; no card policy or mutation | `thirdparty/pcsx2/pcsx2/AVPE/NativeMemoryCardState.cpp/.h` | `AVPE::NativeMemoryCardState::Capture()` | [control-channel contract](re/control-channel.md) |
 | Grounded BIOS-boundary control routes | HTTP status mapping and CPU-thread handoff for the game-load, game-save, and shell-shutdown census boundaries; no capture semantics or menu policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeBiosBoundaryRoute.cpp/.h` | `AVPE::NativeBiosBoundaryRoute::{Start,Capture}*()` | [BIOS/IOP contract](re/bios.md) |
 | Native save bridge | AVP:E save-boundary interception, schema translation, atomic host persistence, and one-time card import | target: a `NativeSaves` peer module under `thirdparty/pcsx2/pcsx2/AVPE/` | target: `AVPE::NativeSaves` | target: save-path RE contract |
@@ -147,6 +149,8 @@ thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── NativeHostYield.*          exact mission-modal host CPU transaction yield
 ├── NativeInput.*              gameplay pointer and button semantics
 ├── NativeInputDispatch.*      normal callback-dispatch observation and queued actions
+├── NativeTitleTransition.*    passive title-to-profile handoff observation
+├── NativeTitleTransitionRoute.* HTTP adapter for title-transition evidence
 ├── NativeMemoryCardState.*    CPU-thread card readiness observation
 ├── NativeMenuInput.*          callback/menu-modal discovery and typed menu actions
 ├── NativeMenuRoute.*          native-menu diagnostic HTTP adapter
