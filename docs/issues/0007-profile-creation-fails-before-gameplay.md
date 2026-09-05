@@ -180,4 +180,21 @@ discriminator is a bounded, passive EE observation of those two exact function
 entries, recording their ordered presence without altering input, guest state,
 or profile storage.
 
+### Finding (2026-09-05, physical title injection did not enter the guest handler)
+
+The passive observer was armed before the exact-vtable/focus physical Cross
+request. The control runner rebuilds its `pcsx2-qt` surfaceless oracle target
+before launch, so this observation ran against current source rather than a
+stale frontend. The emulated controller reported Cross on its active-low wire
+for the full injected interval, but the title menu remained unchanged and the
+observer recorded zero entries at both `GPressStartMenu::ItemActivated`
+(`0x00209F30`) and `GProfileMenu::Create` (`0x002075F0`), with zero invalid or
+unexpected entries. The readiness route's `dispatched` state therefore proves
+only that it scheduled pad injection; it does not prove that the normal title
+callback consumed it. This rules out profile construction and card provisioning
+as the immediate failure in this run. The next owner is the input-dispatch
+acceptance boundary that must distinguish a scheduled pad state from the
+guest-owned title callback; it must not replace the route with a direct menu
+call or retry the same input.
+
 ## Resolution

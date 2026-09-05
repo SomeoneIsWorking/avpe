@@ -13,6 +13,7 @@ import sys
 import time
 from pathlib import Path
 
+from avpe.build import BuildError, prepare_control_test
 from avpe.cli import load_env
 from avpe.control_test import (
     EXPECTED_SERIAL,
@@ -69,7 +70,6 @@ from avpe.native_assets import (
 from avpe.pcsx2_config import ensure_test_config
 
 ROOT = Path(__file__).resolve().parent.parent
-PCSX2 = ROOT / "build" / "bin" / "pcsx2-qt"
 DATA_DIR = ROOT / "scratch" / "control-test" / "pcsx2-home"
 LOG_DIR = ROOT / "scratch" / "control-test" / "logs"
 NATIVE_ASSET_DIR = ROOT / "scratch" / "native-assets"
@@ -603,8 +603,10 @@ def main() -> int:
         or args.probe_bios_phase is not None
     )
 
-    if not PCSX2.is_file():
-        print(f"FATAL built PCSX2 missing: {PCSX2}", file=sys.stderr)
+    try:
+        pcsx2 = prepare_control_test(ROOT)
+    except BuildError as error:
+        print(f"FATAL control-test preparation failed: {error}", file=sys.stderr)
         return 2
 
     project_env = load_env()
@@ -656,7 +658,7 @@ def main() -> int:
         print(f"FATAL control port {args.http_port} is unavailable: {error}", file=sys.stderr)
         return 2
     nonce = secrets.token_hex(16)
-    argv = build_argv(PCSX2, DATA_DIR, LOG_DIR / "emulog.txt", chd, args.statefile)
+    argv = build_argv(pcsx2, DATA_DIR, LOG_DIR / "emulog.txt", chd, args.statefile)
     env = build_environment(
         os.environ,
         port,

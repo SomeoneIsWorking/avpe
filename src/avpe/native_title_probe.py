@@ -1,18 +1,59 @@
 """Guest-owned title-menu lifecycle steps for surfaceless AVP:E probes."""
 
+import json
 import time
 from collections.abc import Callable
 
+from avpe.control_http import request_bytes
 from avpe.input_probe import press_buttons
 from avpe.menu_probe import (
     await_menu_transition,
     await_settled_menu_state,
     complete_menu_action,
+    input_dispatch_state,
     menu_state,
     run_ready_menu_action,
 )
 
 PAD_START_MASK = 1 << 9
+TITLE_TRANSITION_SCHEMA = "avpe-title-transition-v1"
+
+
+def start_title_transition_observation(port: int) -> dict[str, object]:
+    """Arm the passive title-to-profile observer before physical activation."""
+    status, body = request_bytes(port, "POST", "/title-transition/start", {})
+    return _parse_title_transition_snapshot(status, body, "title transition start", True)
+
+
+def title_transition_snapshot(port: int) -> dict[str, object]:
+    """Read the bounded title-to-profile handoff evidence."""
+    status, body = request_bytes(port, "GET", "/title-transition")
+    return _parse_title_transition_snapshot(status, body, "title transition snapshot", None)
+
+
+def title_input_dispatch_snapshot(port: int) -> dict[str, object]:
+    """Read the bounded normal-dispatch evidence for title input delivery."""
+    status, snapshot, detail = input_dispatch_state(port)
+    if status != 200 or snapshot is None:
+        raise RuntimeError(f"title input dispatch returned HTTP {status}: {detail}")
+    return snapshot
+
+
+def _parse_title_transition_snapshot(
+    status: int, body: bytes, context: str, expected_armed: bool | None
+) -> dict[str, object]:
+    detail = body.decode(errors="replace").strip()
+    try:
+        snapshot = json.loads(body)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"{context} returned invalid JSON: HTTP {status}: {detail}") from error
+    if status != 200 or not isinstance(snapshot, dict):
+        raise RuntimeError(f"{context} returned HTTP {status}: {detail}")
+    if snapshot.get("schema") != TITLE_TRANSITION_SCHEMA:
+        raise RuntimeError(f"{context} returned an unknown schema: {snapshot}")
+    if expected_armed is not None and snapshot.get("armed") is not expected_armed:
+        raise RuntimeError(f"{context} did not arm the observer: {snapshot}")
+    return snapshot
 
 
 def reach_title_menu(port: int, deadline: float) -> None:

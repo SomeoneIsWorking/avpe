@@ -4,7 +4,13 @@ from pathlib import Path
 import sys
 from unittest.mock import Mock, call, patch
 
-from avpe.build import BuildError, BuildPaths, install_hint, prepare_product
+from avpe.build import (
+    BuildError,
+    BuildPaths,
+    install_hint,
+    prepare_control_test,
+    prepare_product,
+)
 from avpe.dependency_prefix import DependencyPrefixError
 
 
@@ -35,6 +41,7 @@ class ProductPreparationTests(unittest.TestCase):
         self.assertEqual(paths.build_dir, Path("/repo/build"))
         self.assertEqual(paths.dependency_prefix, Path("/repo/build/deps"))
         self.assertEqual(paths.product_binary, Path("/repo/build/bin/avpe"))
+        self.assertEqual(paths.control_test_binary, Path("/repo/build/bin/pcsx2-qt"))
 
     @patch("avpe.launch.launch", return_value=0)
     @patch("avpe.cli.prepare_product")
@@ -139,6 +146,43 @@ class ProductPreparationTests(unittest.TestCase):
                 str(paths.build_dir),
                 "--target",
                 "avpe",
+                "--parallel",
+            ],
+            Path("/repo"),
+            {},
+        )
+
+    @patch("avpe.build._run")
+    @patch("avpe.build._require_build_tools")
+    @patch("avpe.build._ensure_submodule")
+    @patch("avpe.build.dependency_prefix_complete", return_value=True)
+    @patch("avpe.build.BuildPaths")
+    def test_control_test_rebuilds_its_oracle_target(
+        self,
+        paths_type: Mock,
+        _prefix_complete: Mock,
+        ensure: Mock,
+        _require_tools: Mock,
+        run: Mock,
+    ) -> None:
+        paths = paths_type.return_value
+        paths.control_test_binary.is_file.return_value = True
+        paths.dependency_prefix = Path("/repo/build/deps")
+
+        with tempfile.TemporaryDirectory() as directory:
+            paths.build_dir = Path(directory)
+            (paths.build_dir / "build.ninja").write_text("# test build tree\n")
+            result = prepare_control_test(Path("/repo"), {})
+
+        self.assertIs(result, paths.control_test_binary)
+        ensure.assert_called_once_with(Path("/repo"))
+        run.assert_called_once_with(
+            [
+                "cmake",
+                "--build",
+                str(paths.build_dir),
+                "--target",
+                "pcsx2-qt",
                 "--parallel",
             ],
             Path("/repo"),

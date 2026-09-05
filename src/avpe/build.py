@@ -36,6 +36,10 @@ class BuildPaths:
     def product_binary(self) -> Path:
         return self.build_dir / "bin" / "avpe"
 
+    @property
+    def control_test_binary(self) -> Path:
+        return self.build_dir / "bin" / "pcsx2-qt"
+
 
 class BuildError(RuntimeError):
     """A preparation prerequisite or build command failed."""
@@ -139,28 +143,47 @@ def _configure_command(paths: BuildPaths) -> list[str]:
     ]
 
 
-def _build_product(paths: BuildPaths, root: Path, environment: dict[str, str]) -> None:
+def _build_target(
+    paths: BuildPaths, root: Path, environment: dict[str, str], target: str
+) -> None:
     if not (paths.build_dir / "build.ninja").is_file():
         _run(_configure_command(paths), root, environment)
     _run(
-        ["cmake", "--build", str(paths.build_dir), "--target", "avpe", "--parallel"],
+        ["cmake", "--build", str(paths.build_dir), "--target", target, "--parallel"],
         root,
         environment,
     )
 
 
-def prepare_product(root: Path, environment: dict[str, str] | None = None) -> Path:
-    """Provision source dependencies and build the current AVPE target."""
-    paths = BuildPaths(root)
-    env = dict(os.environ if environment is None else environment)
-    _require_build_tools(env)
+def _prepare_target(
+    paths: BuildPaths,
+    root: Path,
+    environment: dict[str, str] | None,
+    target: str,
+    binary: Path,
+) -> Path:
+    """Provision dependencies, rebuild one source target, and verify its output."""
+    environment_snapshot = dict(os.environ if environment is None else environment)
+    _require_build_tools(environment_snapshot)
     _ensure_submodule(root)
     if not dependency_prefix_complete(paths.dependency_prefix):
         try:
-            provision_dependency_prefix(root, paths.dependency_prefix, env)
+            provision_dependency_prefix(root, paths.dependency_prefix, environment_snapshot)
         except DependencyPrefixError as error:
             raise BuildError(str(error)) from error
-    _build_product(paths, root, env)
-    if not paths.product_binary.is_file():
-        raise BuildError(f"build completed without producing {paths.product_binary}")
-    return paths.product_binary
+    _build_target(paths, root, environment_snapshot, target)
+    if not binary.is_file():
+        raise BuildError(f"build completed without producing {binary}")
+    return binary
+
+
+def prepare_product(root: Path, environment: dict[str, str] | None = None) -> Path:
+    """Provision source dependencies and build the standalone AVPE product."""
+    paths = BuildPaths(root)
+    return _prepare_target(paths, root, environment, "avpe", paths.product_binary)
+
+
+def prepare_control_test(root: Path, environment: dict[str, str] | None = None) -> Path:
+    """Provision source dependencies and rebuild the surfaceless oracle frontend."""
+    paths = BuildPaths(root)
+    return _prepare_target(paths, root, environment, "pcsx2-qt", paths.control_test_binary)
