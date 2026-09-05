@@ -11,7 +11,7 @@ from typing import Any
 from avpe.bios_inventory import combine_bios_inventories, summarize_bios_artifact
 
 
-REPORT_SCHEMA = "avpe-bios-inventory-report-v4"
+REPORT_SCHEMA = "avpe-bios-inventory-report-v5"
 
 
 def main() -> int:
