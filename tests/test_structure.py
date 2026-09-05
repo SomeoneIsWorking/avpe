@@ -94,6 +94,32 @@ class ProjectStructureTests(unittest.TestCase):
         self.assertNotIn("-avpe-host", qt_host)
         self.assertNotIn("HostWindow", qt_host)
 
+    def test_native_environment_reads_have_one_owner(self) -> None:
+        native_config = (
+            ROOT
+            / "thirdparty"
+            / "pcsx2"
+            / "pcsx2"
+            / "AVPE"
+            / "NativeConfig.cpp"
+        )
+        violations: list[Path] = []
+        for source_root in AVPE_CPP_ROOTS:
+            for source in source_root.rglob("*"):
+                if (
+                    source.suffix.lower() in CPP_SUFFIXES
+                    and source.is_file()
+                    and source != native_config
+                    and "getenv" in source.read_text(encoding="utf-8")
+                ):
+                    violations.append(source.relative_to(ROOT))
+
+        self.assertFalse(
+            violations,
+            "native environment access must be owned by AVPE/NativeConfig.cpp: "
+            + ", ".join(str(path) for path in sorted(violations)),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

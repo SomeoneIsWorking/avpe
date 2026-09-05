@@ -52,6 +52,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | EE execution observation composition | One narrow interpreter/recompiler dispatch point for AVPE mission timing, BIOS tracing, and demand-driven title yield observers | `thirdparty/pcsx2/pcsx2/AVPE/NativeEeExecutionHooks.cpp/.h`; narrow calls in both EE engines | `AVPE::NativeEeExecutionHooks::Observe()` | [BIOS/IOP contract](re/bios.md) |
 | IOP return observation composition | Exact registered caller-return observation for oracle import result pairing; registered blocks only in the recompiler and a pending-call gate in the interpreter | `thirdparty/pcsx2/pcsx2/AVPE/NativeIopExecutionHooks.cpp/.h`; narrow calls in both IOP engines | `AVPE::NativeIopExecutionHooks::ObserveIopExecution()` | [BIOS/IOP contract](re/bios.md) |
 | IOP return-site registry | Fixed process-lifetime serialized admission and lock-free exact membership lookup for oracle caller return PCs; no event or import policy | `thirdparty/pcsx2/pcsx2/AVPE/NativeIopReturnSites.cpp/.h` | `AVPE::NativeIopReturnSites::Register()`, `Contains()` | [BIOS/IOP contract](re/bios.md) |
+| Native runtime configuration | One immutable, typed AVP:E environment snapshot for diagnostic switches, control-server settings, and native asset admission; product subsystems receive narrow accessors and never read process environment state | `thirdparty/pcsx2/pcsx2/AVPE/NativeConfig.cpp/.h` | `AVPE::NativeConfig` | [control-channel contract](re/control-channel.md) |
 | Mission-modal host yield | Demand-driven host CPU message pumping only at the exact AVP:E mission-goals load loop while an EE-call transaction is pending | `thirdparty/pcsx2/pcsx2/AVPE/NativeHostYield.cpp/.h`; frontend pump in `pcsx2-avpe/EmulationThread.*` and `HostServices.cpp` | `AVPE::NativeHostYield::Observe()` | [BIOS/IOP contract](re/bios.md) |
 | Shared pointer motion | Normalized-coordinate validation, resolution lookup, bounded guest staging, and absolute game-pointer movement | `thirdparty/pcsx2/pcsx2/AVPE/NativePointerMotion.cpp/.h` | `AVPE::NativePointerMotion::MoveAbsolute()` | [input-path contract](re/input-path.md) |
 | Shared native input staging | Little-endian encoding of AVP:E's eight-byte float-pair `CInputData` prefix | `thirdparty/pcsx2/pcsx2/AVPE/NativeInputData.cpp/.h` | `AVPE::NativeInputData::EncodeFloatPair()` | [input-path contract](re/input-path.md) |
@@ -123,6 +124,7 @@ tools/                         project automation and control clients
 └── ghidra_scripts/            maintainer-only RE extraction
 thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── GuestObjects.*             validated AVP:E guest object/handle reads
+├── NativeConfig.*             immutable typed runtime configuration owner
 ├── NativeAssets.*             title-gated ioman/CDVD native asset boundary and observations
 ├── NativeAssetByteTrace.*     bounded native/ISO canonical-chunk evidence
 ├── NativeAssetCache.*         bounded immutable-page LRU and transient host reads
