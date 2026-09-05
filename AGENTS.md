@@ -21,6 +21,11 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeMenuItems.*` owns bounded menu-descendant traversal, activation-hotkey
   and focused-item callback admission, attract-owner exclusion, and exact
   mission-goals Exit-item discovery. It reads guest state but never invokes actions.
+- `NativeAttractInput.*` owns exact registered attract-button cancellation
+  admission; `NativeMenuInput` composes it before requiring a menu. The guest
+  callback owns the complete next-level and attract-owner teardown lifecycle.
+- `NativeInputCallbacks.h` owns the shared callback descriptor layout, bounded
+  discovery access contract, and admitted target value; it owns no action policy.
 - `NativeMenuRoute.*` owns only the diagnostic HTTP parsing, status mapping,
   and JSON presentation for typed native-menu state and actions.
 - `NativePadReadiness.*` owns validated read-only observation of the title's

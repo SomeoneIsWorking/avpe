@@ -145,6 +145,19 @@ descriptor `{0, 0xcc, 0}` and creates `GProfileMenu`. The host must preserve
 that cancellation sequence; neither its input policy nor a title diagnostic may
 skip directly to the profile menu.
 
+Native Activate follows that same two-action contract. `NativeAttractInput`
+discovers the unique registered attract owner and its exact button descriptor
+before `NativeMenuInput` requires an active menu. The button body ignores
+`CInputData` and invokes `CShell::SetNextLevel`; normal dispatch and the guest's
+level lifecycle perform cancellation. The response names source
+`attract-cancellation`, leaves menu identity empty, and reports the actual
+owner/handler and dispatch ticket. It neither fabricates a menu nor chains a
+profile activation. An analogue-only owner, conflicting owners, or invalid
+descriptors fail closed. `NativeInputCallbacks.h` shares the descriptor layout,
+reader boundary, and admitted target between attract and menu-item discovery.
+Issue #6 records the native two-action runtime discriminator and zero injected
+pad masks. Startup movie/logo cancellation remains a separate unimplemented path.
+
 `GMenu::Input` is `0x00125330`; actions are Up=0, Down=1, Left=2, Right=3,
 Activate=4. The active focused-item handle is `menu+0x26c`. Returning
 directional calls are safe through the EE-call transaction and changed pause
@@ -178,7 +191,7 @@ Before this discovery change, native Activate returned HTTP 409 while physical
 Cross worked. Native Activate now dispatches that exact button once, observes
 `GPressStartMenu::ItemActivated` followed by `GProfileMenu::Create`, and reaches
 the profile menu without Cross injection. This verifies the native backend
-used by Enter/Space, not real-window event delivery or logo/attract cancellation.
+used by Enter/Space, not real-window event delivery or logo cancellation.
 
 `POST /input/menu-action` may additionally arm one diagnostic readiness
 request with `when_menu_vtable` and `when_focused_item_action`, both exact
