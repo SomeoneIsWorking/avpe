@@ -846,6 +846,12 @@ slice, executable loading, IOP module loads and services outside the recognized
 import surface, and additional service-level negative-path semantics remain
 incomplete;
 S025 cannot become verified from this mission census alone.
+The derived inventory now preserves joint exception/timer identities and
+coalesced occurrence counts. Retained save/load traces supply both asserting
+and non-asserting timer-source observations, and a fresh post-restore run
+passed the shared strict field validator. This proves timer-source IRQ
+assertion/suppression observations, not CPU acceptance or BIOS handler
+entry/return; those downstream seams remain missing (issue #20).
 The static IRX scan separately found seven extracted module headers, 61 library
 tables, 260 import stubs, and 19 library identities. Six modules are stripped,
 so 219 entries have no symbol name and remain library/ordinal candidates.

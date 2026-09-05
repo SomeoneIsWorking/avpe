@@ -1058,6 +1058,59 @@ exercise the actual search/CLI and shared decoder with both match answers,
 missing input, malformed framing, unknown chunks, full-count/bounded-location
 behavior, and each resource limit.
 
+### Finding (2026-09-05, timer inventory preserves the actual source boundary)
+
+The trace already coalesced repeated timer/exception identities with `calls`,
+but inventory v5 reduced them to unrelated domain/counter/outcome histograms
+and counted each retained record once. That lost both occurrence denominators
+and the joint identity needed to attribute positive/negative timer behavior.
+Inventory v6 replaces those marginals with joint identities, retained event
+counts, occurrence counts, and explicitly first-only counter samples. The
+report envelope is v5; the underlying trace schema and C++ sink are unchanged.
+
+Reanalyzing the three retained schema-v6 operation captures through the
+shipping `tools/analyze_bios_traces.py` gives:
+
+| Capture | Exception records / occurrences | Timer records / occurrences |
+|---|---|---|
+| `archive-bios-trace.json` | 69 / 22,872 | 4 / 3,616 |
+| `game-save-bios.json` | 83 / 69,020 | 5 / 28,592 |
+| `game-load-bios.json` | 140 / 44,310 | 6 / 16,095 |
+
+The save slice's positive source assertions are EE counter 3 target (597)
+and IOP counter 5 target (12). Non-asserting EE events are counter 2 target
+(9), counter 2 overflow (27,971), and counter 3 overflow (3). The load slice
+also contains both answers for EE counter 3 target: 177 asserting occurrences
+and one non-asserting occurrence. These are retained observations, not claims
+that exact counts repeat across runs.
+
+The source code narrows the meaning of `delivered`: EE `_cpuTestTarget` and
+`_cpuTestOverflow` set it when calling `hwIntcIrq`; IOP `_rcntFireInterrupt`
+sets it when asserting `HW_ISTAT` and calling `iopTestIntc`. Neither proves
+CPU exception acceptance, handler entry/return, or the reason a non-asserting
+event was suppressed. The inventory labels this measurement
+`counter_source_irq_assertion`; it must not be used to close downstream
+interrupt-delivery coverage. First count/target/cycle samples do not establish
+timing extrema, rates, or per-occurrence values.
+
+A fresh current-binary observation used:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-trace \
+  --bios-trace-output scratch/control-test/runtime-current.json --http-port 0
+```
+
+The surfaceless/null-muted run exited cleanly, and both the runner and the
+shipping inventory CLI accepted the stronger field validation. Its
+`statefile_to_running` slice retained 291 events: nine exception records
+represent 126 occurrences, and one EE counter-2 non-asserting overflow record
+represents 226 occurrences. This is a post-restore observation, not a gameplay
+completion or rate measurement. The complete 271-test Python/structure suite
+passes, including CLI positive/negative timer outcomes, cross-domain identity
+separation, coalesced counts, branch-delay identity, absent runtime categories,
+and malformed field refusal. Runtime CPU behavior was not changed.
+
 ## Resolution
 
 Not resolved. The current census is the first partial S025 slice; it does not

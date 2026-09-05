@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from avpe.bios_result import event_result_is_verified
+from avpe.bios_runtime_events import event_occurrences, runtime_event_is_verified
 from avpe.control_http import request_bytes, request_json
 from avpe.menu_probe import (
     await_menu_transition as _await_menu_transition,
@@ -195,8 +196,11 @@ def bios_trace_is_verified(trace: object) -> bool:
                 or not isinstance(event.get("kind"), str) \
                 or event["kind"] not in BIOS_EVENT_KINDS:
             return False
-        calls = event.get("calls", 1)
-        if isinstance(calls, bool) or not isinstance(calls, int) or calls <= 0:
+        try:
+            calls = event_occurrences(event)
+        except ValueError:
+            return False
+        if event["kind"] in {"exception", "timer"} and not runtime_event_is_verified(event):
             return False
         if event["kind"] in {"ee_syscall", "import"} \
                 and not _service_event_is_verified(event, calls):

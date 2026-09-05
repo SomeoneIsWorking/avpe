@@ -321,11 +321,23 @@ shutdown, so the artifact and card comparison describe flushed state.
 ## Inventory analysis
 
 `tools/analyze_bios_traces.py` consumes one or more captured artifact files and
-emits `avpe-bios-inventory-report-v4`. Its summaries preserve the phase and
+emits `avpe-bios-inventory-report-v5` with `avpe-bios-inventory-v6` summaries.
+Its summaries preserve the phase and
 statefile labels, count retained event identities, group observed EE syscalls
 and IOP imports by identity with occurrence counts, and group module,
-interrupt, and RPC registrations. Exception domains/codes/PCs and timer
-delivery/overflow outcomes are reported separately. For EE syscalls and IOP
+interrupt, and RPC registrations. Exceptions retain joint domain/cause/PC/
+branch-delay identities; timers retain joint domain/counter/overflow/delivery
+identities. Each category and identity distinguishes retained `event_count`
+from weighted `occurrences`; timer `first_sample` contains only the first
+recorded count/target/cycle, not extrema, duration, or every occurrence.
+`measurement: counter_source_irq_assertion` makes the timer boundary explicit:
+EE `Counters.cpp` calls `hwIntcIrq`, while IOP `_rcntFireInterrupt` sets
+`HW_ISTAT` and calls `iopTestIntc`. Their `delivered` flag proves source
+assertion, not subsequent CPU exception acceptance or BIOS handler execution.
+The latter require separate observations. The shared runtime-event owner
+refuses malformed domains, unsigned ranges, and boolean fields through both
+the runner's validator and inventory reader. The trace remains schema v6;
+only the derived inventory layout changed. For EE syscalls and IOP
 imports it separately counts observed results, returned void calls, unobserved
 results, and non-returning transfers, and preserves bounded first/last/min/max/
 change observations. It calls the same strict

@@ -1,12 +1,17 @@
 import copy
+import contextlib
+import io
 import json
 import unittest
+from unittest.mock import patch
 
 from avpe.bios_inventory import (
     INVENTORY_SCHEMA,
     combine_bios_inventories,
     summarize_bios_artifact,
 )
+from avpe.native_bios_probe import bios_trace_is_verified
+from tools.analyze_bios_traces import main as analyze_main
 
 
 def make_result_summary(
@@ -139,9 +144,86 @@ class BiosInventoryTests(unittest.TestCase):
             summary["services"]["ee_syscall"][0]["unobserved_result_calls"], 0
         )
         self.assertEqual(summary["services"]["module"][0]["operations"], ["register"])
-        self.assertEqual(summary["exceptions"]["pcs"], {"4096": 1})
-        self.assertEqual(summary["timers"]["delivered"], {"false": 1})
+        self.assertEqual(summary["exceptions"]["identities"], [{
+            "domain": "ee", "code": 32, "pc": 4096, "branch_delay": False,
+            "event_count": 1, "occurrences": 1,
+        }])
+        self.assertEqual(summary["timers"]["identities"], [{
+            "domain": "iop", "counter": 2, "overflow": True, "delivered": False,
+            "event_count": 1, "occurrences": 1,
+            "first_sample": {"count": 4, "target": 4, "cycle": 100},
+        }])
         json.dumps(summary)
+
+    def test_runtime_identities_preserve_domains_outcomes_and_occurrence_denominators(self) -> None:
+        artifact = make_artifact()
+        events = artifact["trace"]["events"]
+        events[3]["calls"] = 100
+        events[4]["calls"] = 50
+        for changes in ({"calls": 7, "cycle": 300},
+                        {"calls": 3, "delivered": True},
+                        {"calls": 9, "domain": "ee"}):
+            duplicate = dict(events[4], **changes, sequence=len(events) + 1)
+            events.append(duplicate)
+        summary = summarize_bios_artifact(artifact)
+        self.assertEqual(summary["exceptions"]["occurrences"], 100)
+        timers = summary["timers"]
+        self.assertEqual((timers["event_count"], timers["occurrences"]), (4, 69))
+        identities = timers["identities"]
+        self.assertEqual([(item["domain"], item["delivered"], item["occurrences"])
+                          for item in identities], [("ee", False, 9), ("iop", False, 57), ("iop", True, 3)])
+        self.assertEqual(identities[1]["event_count"], 2)
+        self.assertEqual(identities[1]["first_sample"]["cycle"], 100)
+
+    def test_exception_branch_delay_remains_part_of_identity(self) -> None:
+        artifact = make_artifact()
+        events = artifact["trace"]["events"]
+        events.append(dict(events[3], branch_delay=True, calls=11, sequence=8))
+        summary = summarize_bios_artifact(artifact)["exceptions"]
+        self.assertEqual(summary["occurrences"], 12)
+        self.assertEqual(len(summary["identities"]), 2)
+
+    def test_runtime_malformed_fields_are_refused_by_trace_and_inventory(self) -> None:
+        for index, field, values in (
+            (3, "domain", ["unknown", None]), (3, "pc", [-1, 1 << 32, True, None]),
+            (3, "code", [-1, "32", None]), (3, "branch_delay", [0, None]),
+            (4, "counter", [-1, True, None]), (4, "count", [-1, 1 << 64, None]),
+            (4, "target", [True, None]), (4, "cycle", [-1, None]),
+            (4, "overflow", [1, None]), (4, "delivered", [0, None]),
+        ):
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    artifact = make_artifact()
+                    artifact["trace"]["events"][index][field] = value
+                    self.assertFalse(bios_trace_is_verified(artifact["trace"]))
+                    with self.assertRaises(ValueError):
+                        summarize_bios_artifact(artifact)
+
+    def test_absent_runtime_events_report_zero_observations(self) -> None:
+        artifact = make_artifact()
+        artifact["trace"]["events"] = artifact["trace"]["events"][:1]
+        summary = summarize_bios_artifact(artifact)
+        for kind in ("exceptions", "timers"):
+            self.assertEqual(summary[kind]["event_count"], 0)
+            self.assertEqual(summary[kind]["occurrences"], 0)
+            self.assertEqual(summary[kind]["identities"], [])
+        self.assertEqual(summary["timers"]["measurement"], "counter_source_irq_assertion")
+        self.assertEqual(summary["exceptions"]["measurement"], "exception_entry")
+
+    def test_cli_preserves_positive_and_negative_timer_source_outcomes(self) -> None:
+        artifact = make_artifact()
+        events = artifact["trace"]["events"]
+        events[4]["calls"] = 5
+        events.append(dict(events[4], sequence=8, delivered=True, calls=19))
+        output = io.StringIO()
+        with patch("sys.argv", ["analyze_bios_traces", "fixture.json"]), patch(
+            "pathlib.Path.read_text", return_value=json.dumps(artifact)
+        ), contextlib.redirect_stdout(output):
+            self.assertEqual(analyze_main(), 0)
+        report = json.loads(output.getvalue())
+        identities = report["captures"][0]["timers"]["identities"]
+        self.assertEqual([(item["delivered"], item["occurrences"]) for item in identities],
+                         [(False, 5), (True, 19)])
 
     def test_repeated_service_identity_is_counted_without_losing_results(self) -> None:
         artifact = make_artifact()

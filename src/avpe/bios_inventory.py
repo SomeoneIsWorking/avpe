@@ -6,9 +6,10 @@ from collections import Counter
 from typing import Any
 
 from avpe.native_bios_probe import bios_trace_is_verified
+from avpe.bios_runtime_events import event_occurrences as _event_calls, summarize_runtime_events
 
 
-INVENTORY_SCHEMA = "avpe-bios-inventory-v5"
+INVENTORY_SCHEMA = "avpe-bios-inventory-v6"
 _SERVICE_KINDS = ("ee_syscall", "import", "module", "interrupt", "rpc")
 
 
@@ -36,8 +37,8 @@ def summarize_bios_artifact(artifact: object) -> dict[str, Any]:
             sorted(Counter(event["kind"] for event in events).items())
         ),
         "services": {kind: [] for kind in _SERVICE_KINDS},
-        "exceptions": _summarize_exceptions(events),
-        "timers": _summarize_timers(events),
+        "exceptions": summarize_runtime_events(events, "exception"),
+        "timers": summarize_runtime_events(events, "timer"),
     }
 
     for kind in _SERVICE_KINDS:
@@ -265,13 +266,6 @@ def _summarize_ee_syscalls(events: list[dict[str, Any]]) -> list[dict[str, Any]]
     return sorted(result, key=lambda entry: (entry["number"], entry["name"]))
 
 
-def _event_calls(event: dict[str, Any]) -> int:
-    calls = event.get("calls", 1)
-    if isinstance(calls, bool) or not isinstance(calls, int) or calls <= 0:
-        raise ValueError("BIOS service calls must be a positive integer")
-    return calls
-
-
 def _service_identity(event: dict[str, Any], kind: str) -> tuple[Any, ...]:
     return tuple(value for _, value in _identity_fields(event, kind))
 
@@ -304,59 +298,6 @@ def _identity_fields(event: dict[str, Any], kind: str) -> list[tuple[str, Any]]:
     if kind == "rpc":
         return [("rpc_id", _required_int(event, "rpc_id"))]
     raise ValueError(f"unsupported BIOS service kind: {kind}")
-
-
-def _summarize_exceptions(events: list[dict[str, Any]]) -> dict[str, Any]:
-    exceptions = [event for event in events if event["kind"] == "exception"]
-    return {
-        "count": len(exceptions),
-        "domains": dict(
-            sorted(
-                Counter(_required_string(event, "domain") for event in exceptions).items()
-            )
-        ),
-        "codes": dict(
-            sorted(
-                Counter(str(_required_int(event, "code")) for event in exceptions).items()
-            )
-        ),
-        "pcs": dict(
-            sorted(
-                Counter(str(_required_int(event, "pc")) for event in exceptions).items()
-            )
-        ),
-    }
-
-
-def _summarize_timers(events: list[dict[str, Any]]) -> dict[str, Any]:
-    timers = [event for event in events if event["kind"] == "timer"]
-    return {
-        "count": len(timers),
-        "domains": dict(
-            sorted(Counter(_required_string(event, "domain") for event in timers).items())
-        ),
-        "counters": dict(
-            sorted(
-                Counter(str(_required_int(event, "counter")) for event in timers).items()
-            )
-        ),
-        "overflow": dict(
-            sorted(
-                Counter(
-                    str(_required_bool(event, "overflow")).lower()
-                    for event in timers
-                ).items()
-            )
-        ),
-        "delivered": dict(
-            sorted(
-                Counter(
-                    str(_required_bool(event, "delivered")).lower()
-                    for event in timers
-                ).items()
-            )
-        ),
-    }
 
 
 def _required_string(event: dict[str, Any], key: str) -> str:
