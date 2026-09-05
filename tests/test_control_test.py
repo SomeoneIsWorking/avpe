@@ -1128,7 +1128,7 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(trace["quit_confirmation"]["focused_item_text"], "Yes")
         self.assertEqual(trace["quit_menu_parent_action_handler"]["item_activated_handler"], "0x002073b0")
 
-    def test_title_bios_phase_selects_the_profile_row_before_activation(self) -> None:
+    def test_title_bios_phase_physically_activates_the_current_title_row(self) -> None:
         deadline = time.monotonic() + 1.0
         trace = {
             "schema": BIOS_TRACE_SCHEMA,
@@ -1140,22 +1140,24 @@ class ControlTestPolicyTests(unittest.TestCase):
             "events": [make_bios_import_event(1)],
         }
         with patch(
-            "avpe.native_bios_probe._reach_title_menu"
+            "avpe.native_title_probe.reach_title_menu"
         ) as reach, patch(
             "avpe.native_bios_probe.start_bios_trace"
         ) as start, patch(
-            "avpe.menu_probe.menu_action",
-            side_effect=[
-                (202, {"deferred_call_id": 19}, "queued down"),
-                (202, {"deferred_call_id": 20}, "queued activate"),
-            ],
-        ) as menu, patch(
-            "avpe.menu_probe.await_deferred_call"
-        ) as await_call, patch(
             "avpe.menu_probe.menu_state",
-            return_value=(409, {"menu": "0x00123456", "callback_count": 2}, "ambiguous"),
+            side_effect=[
+                (
+                    200,
+                    {
+                        "menu_vtable": "0x00342A50",
+                        "focused_item_action": "0x807F1E5F",
+                    },
+                    "title",
+                ),
+                (409, {"menu": "0x00123456", "callback_count": 2}, "ambiguous"),
+            ],
         ) as state, patch(
-            "avpe.native_bios_probe._run_ready_menu_action",
+            "avpe.native_title_probe.run_ready_menu_action",
             return_value=({}, {"state": "dispatched", "id": 7}),
         ) as ready, patch(
             "avpe.native_bios_probe.capture_bios_trace", return_value=trace
@@ -1167,15 +1169,13 @@ class ControlTestPolicyTests(unittest.TestCase):
 
         self.assertEqual(
             result,
-            (trace, "zono_splash_to_title_menu_action", "start_then_title_down_activate"),
+            (trace, "zono_splash_to_title_menu_action", "start_then_title_activate"),
         )
         reach.assert_called_once_with(31234, deadline)
         start.assert_called_once_with(31234)
-        menu.assert_called_once_with(31234, "down")
-        await_call.assert_called_once_with(
-            31234, deadline, 19, "BIOS phase title profile selection"
+        ready.assert_called_once_with(
+            31234, deadline, "activate", "0x00342A50", "0x807F1E5F"
         )
-        ready.assert_called_once_with(31234, deadline, "activate", None, None)
         self.assertEqual(state.call_count, 2)
         capture.assert_called_once_with(31234, at_guest_boundary=False)
         self.assertEqual(trace["title_menu_after_action"]["status"], 409)
@@ -1193,15 +1193,12 @@ class ControlTestPolicyTests(unittest.TestCase):
             "events": [make_bios_import_event(1)],
         }
         with patch(
-            "avpe.native_bios_probe._reach_title_menu"
+            "avpe.native_title_probe.reach_title_menu"
         ) as reach, patch(
             "avpe.native_bios_probe.start_bios_trace"
         ) as start, patch(
             "avpe.menu_probe.menu_action",
-            side_effect=[
-                (202, {"deferred_call_id": 19}, "queued down"),
-                (202, {"deferred_call_id": 20}, "queued profile activate"),
-            ],
+            return_value=(202, {"deferred_call_id": 20}, "queued profile activate"),
         ) as menu, patch(
             "avpe.menu_probe.await_deferred_call"
         ) as await_call, patch(
@@ -1220,7 +1217,7 @@ class ControlTestPolicyTests(unittest.TestCase):
                 (409, {"menu": "0x00123456", "callback_count": 2}, "ambiguous"),
             ],
         ) as state, patch(
-            "avpe.native_bios_probe._run_ready_menu_action",
+            "avpe.native_title_probe.run_ready_menu_action",
             return_value=({}, {"state": "dispatched", "id": 7}),
         ) as ready, patch(
             "avpe.native_bios_probe.capture_bios_trace", return_value=trace
@@ -1230,28 +1227,11 @@ class ControlTestPolicyTests(unittest.TestCase):
                 Path("scratch/control-test/bios-phase-state.p2s"),
             )
 
-        self.assertEqual(
-            result,
-            (
-                trace,
-                "zono_splash_to_profile_menu_action",
-                "start_then_title_down_and_profile_activate",
-            ),
-        )
+        self.assertEqual(result, (trace, "zono_splash_to_profile_menu_action", "start_then_title_and_profile_activate"))
         reach.assert_called_once_with(31234, deadline)
         start.assert_called_once_with(31234)
-        self.assertEqual(
-            menu.call_args_list,
-            [call(31234, "down"), call(31234, "activate")],
-        )
-        self.assertEqual(
-            await_call.call_args_list[0],
-            call(31234, deadline, 19, "BIOS phase title profile selection"),
-        )
-        self.assertEqual(
-            await_call.call_args_list[1],
-            call(31234, deadline, 20, "BIOS phase profile activate"),
-        )
+        menu.assert_called_once_with(31234, "activate")
+        await_call.assert_called_once_with(31234, deadline, 20, "BIOS phase profile activate")
         ready.assert_called_once_with(
             31234, deadline, "activate", "0x00342A50", "0x807F1E5F"
         )
@@ -1323,7 +1303,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "focused_item_action": "0x807F1E5F",
         }
         destination_state = {"menu": "0x01346910", "focused_item_action": "0xC1D97EAC"}
-        with patch("avpe.native_bios_probe._reach_title_menu") as reach, patch(
+        with patch("avpe.native_title_probe.reach_title_menu") as reach, patch(
             "avpe.native_bios_probe.start_bios_trace"
         ) as start, patch(
             "avpe.menu_probe.menu_action",
@@ -1334,7 +1314,7 @@ class ControlTestPolicyTests(unittest.TestCase):
             "avpe.menu_probe.menu_state",
             side_effect=[(200, down_state, "down"), (200, destination_state, "destination")],
         ) as menu_state_mock, patch(
-            "avpe.native_bios_probe._run_ready_menu_action",
+            "avpe.native_title_probe.run_ready_menu_action",
             return_value=({}, {"state": "dispatched", "id": 7}),
         ) as ready, patch(
             "avpe.native_bios_probe.capture_bios_trace", return_value=trace
@@ -1408,14 +1388,9 @@ class ControlTestPolicyTests(unittest.TestCase):
     def test_title_profile_bios_phase_refuses_another_menu_before_second_activation(self) -> None:
         deadline = time.monotonic() + 1.0
         with patch(
-            "avpe.native_bios_probe._reach_title_menu"
+            "avpe.native_title_probe.reach_title_menu"
         ), patch(
             "avpe.native_bios_probe.start_bios_trace"
-        ), patch(
-            "avpe.menu_probe.menu_action",
-            return_value=(202, {"deferred_call_id": 19}, "queued"),
-        ) as menu, patch(
-            "avpe.menu_probe.await_deferred_call"
         ), patch(
             "avpe.menu_probe.menu_state",
             side_effect=[
@@ -1430,7 +1405,7 @@ class ControlTestPolicyTests(unittest.TestCase):
                 (200, {"menu_vtable": "0x00000000"}, "another menu"),
             ],
         ), patch(
-            "avpe.native_bios_probe._run_ready_menu_action",
+            "avpe.native_title_probe.run_ready_menu_action",
             return_value=({}, {"state": "dispatched", "id": 7}),
         ) as ready, patch(
             "avpe.native_bios_probe.capture_bios_trace"
@@ -1440,7 +1415,6 @@ class ControlTestPolicyTests(unittest.TestCase):
                 Path("scratch/control-test/bios-phase-state.p2s"),
             )
 
-        menu.assert_called_once_with(31234, "down")
         ready.assert_called_once_with(
             31234, deadline, "activate", "0x00342A50", "0x807F1E5F"
         )
