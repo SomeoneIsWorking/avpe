@@ -21,6 +21,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   of AVP:E keyboard and pointer menu actions.
 - `NativeMenuRoute.*` owns only the diagnostic HTTP parsing, status mapping,
   and JSON presentation for typed native-menu state and actions.
+- `NativeTitleTransition.*` owns passive, exact-PC observation of the
+  title-to-profile handoff. It neither sends input nor mutates guest/profile
+  state; `NativeTitleTransitionRoute.*` owns its diagnostic HTTP presentation.
 - `NativeEeExecutionHooks.*` composes AVPE's narrow EE instruction observers;
   the interpreter and recompiler call this owner rather than individual
   diagnostic modules.
