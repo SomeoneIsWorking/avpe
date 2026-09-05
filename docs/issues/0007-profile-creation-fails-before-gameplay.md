@@ -150,18 +150,22 @@ objects, 1,262 nested end records, one top-level end record, depth 3, and 67
 distinct class IDs with identical histograms. The class IDs remain opaque, and
 no editable-field semantics or load round-trip has been claimed.
 
-### Finding (2026-09-05, title-profile state fails before profile provisioning)
+### Finding (2026-09-05, title profile transition stops before provisioning)
 
 The isolated, surfaceless title-profile control path loaded its existing title
-state with a copied formatted card, waited through the real post-savestate card
-reinsertion, and attempted the title activation. The input owner rejected that
-activation with HTTP 409 because the active menu had no exact registered
-callback for `activate`; it therefore never issued the second `GProfileMenu`
-action or entered profile provisioning. The copied card stayed byte-identical
+state with a copied formatted card and waited through real post-savestate card
+reinsertion. Its first direct activation was correctly rejected: the selected
+`LoadMenuKillMe` row has no direct registered activation callback. The phase
+now instead uses the established one-shot physical-pad route, admitted only
+for the exact live title-menu vtable and focused action; it reported the action
+as dispatched through the normal input owner. After that dispatch, the game
+published no active menu (all menu, focus, and vtable addresses zero) instead
+of the expected `GProfileMenu`, and the copied card remained byte-identical
 through shutdown. This falsifies profile storage as the immediate cause for
-this specific state and leaves the windowed-product symptom unresolved: the
-next discriminator must first establish a title state whose menu callback
-registry admits the normal title action, rather than treating this failed
-precondition as a profile-write failure.
+this state: the ungrounded boundary is the guest transition after
+`LoadMenuKillMe` and before profile-menu publication. The windowed-product
+symptom remains unresolved; the next discriminator must observe that title
+lifecycle transition rather than treating a missing direct callback or a card
+write as its cause.
 
 ## Resolution

@@ -19,6 +19,7 @@ from avpe.menu_probe import (
     complete_menu_action as _complete_menu_action,
     menu_action,
     menu_state,
+    run_ready_menu_action as _run_ready_menu_action,
 )
 from avpe.native_asset_probe import await_native_stream_reads
 from avpe.native_game_load_probe import (
@@ -848,15 +849,30 @@ def _reach_title_menu(port: int, deadline: float) -> None:
     )
 
 
-def _activate_title_menu(port: int, deadline: float) -> dict[str, object]:
+def _transition_title_to_profile(
+    port: int, deadline: float
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Follow AVP:E's title selection before activating its profile branch."""
     _reach_title_menu(port, deadline)
-    _, before = _await_settled_menu_state(port, deadline, "BIOS phase title pre-action menu discovery")
-    start_bios_trace(port)
-    _complete_menu_action(port, deadline, "activate", "BIOS phase title activate")
-    status, title_menu = _await_menu_transition(
-        port, deadline, before, "BIOS phase title post-action menu transition"
+    _complete_menu_action(port, deadline, "down", "BIOS phase title profile selection")
+    down_status, down_menu = _await_settled_menu_state(
+        port, deadline, "BIOS phase title post-down menu discovery"
     )
-    return {"status": status, "state": title_menu}
+    start_bios_trace(port)
+    _run_ready_menu_action(
+        port,
+        deadline,
+        "activate",
+        down_menu.get("menu_vtable"),
+        down_menu.get("focused_item_action"),
+    )
+    status, title_menu = _await_menu_transition(
+        port, deadline, down_menu, "BIOS phase title profile transition"
+    )
+    return (
+        {"status": down_status, "state": down_menu},
+        {"status": status, "state": title_menu},
+    )
 
 
 def _focus_quit_game(port: int, deadline: float) -> tuple[dict[str, object], list[dict[str, object]]]:
@@ -939,10 +955,10 @@ def run_bios_phase(
         trace["mission_transition_proof"] = transition
         return trace, "clean_boot_to_mission", "shell_set_next_level"
     if phase == "title":
-        title_menu = _activate_title_menu(port, deadline)
+        _, title_menu = _transition_title_to_profile(port, deadline)
         trace = capture_bios_trace(port, at_guest_boundary=False)
         trace["title_menu_after_action"] = title_menu
-        return trace, "zono_splash_to_title_menu_action", "start_then_title_activate"
+        return trace, "zono_splash_to_title_menu_action", "start_then_title_down_activate"
     if phase == "title-actions":
         if not title_actions:
             raise ValueError("title-actions phase requires at least one action")
@@ -977,22 +993,13 @@ def run_bios_phase(
         trace["title_menu_after_down"] = {"status": status, "state": title_menu}
         return trace, "zono_splash_to_title_menu_direction", "start_then_title_down"
     if phase == "title-down-activate":
-        _reach_title_menu(port, deadline)
-        _complete_menu_action(port, deadline, "down", "BIOS phase title down")
-        down_status, down_menu = _await_settled_menu_state(
-            port, deadline, "BIOS phase title post-down menu discovery"
-        )
-        start_bios_trace(port)
-        _complete_menu_action(port, deadline, "activate", "BIOS phase title down activation")
-        status, title_menu = _await_menu_transition(
-            port, deadline, down_menu, "BIOS phase title post-down activation menu transition"
-        )
+        down_menu, title_menu = _transition_title_to_profile(port, deadline)
         trace = capture_bios_trace(port, at_guest_boundary=False)
-        trace["title_menu_after_down"] = {"status": down_status, "state": down_menu}
-        trace["title_menu_after_down_activation"] = {"status": status, "state": title_menu}
+        trace["title_menu_after_down"] = down_menu
+        trace["title_menu_after_down_activation"] = title_menu
         return trace, "zono_splash_to_title_menu_transition", "start_then_title_down_activate"
     if phase == "title-profile":
-        title_menu = _activate_title_menu(port, deadline)
+        _, title_menu = _transition_title_to_profile(port, deadline)
         profile_state = title_menu["state"]
         if title_menu["status"] != 200 or not isinstance(profile_state, dict) \
                 or profile_state.get("menu_vtable") != PROFILE_MENU_VTABLE:
@@ -1007,7 +1014,7 @@ def run_bios_phase(
         trace = capture_bios_trace(port, at_guest_boundary=False)
         trace["title_menu_after_action"] = title_menu
         trace["profile_menu_after_action"] = {"status": status, "state": next_menu}
-        return trace, "zono_splash_to_profile_menu_action", "start_then_title_and_profile_activate"
+        return trace, "zono_splash_to_profile_menu_action", "start_then_title_down_and_profile_activate"
     if phase == "menu":
         start_bios_trace(port)
         _complete_menu_action(port, deadline, "down", "BIOS phase menu down")
