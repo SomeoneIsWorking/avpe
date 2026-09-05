@@ -168,4 +168,16 @@ symptom remains unresolved; the next discriminator must observe that title
 lifecycle transition rather than treating a missing direct callback or a card
 write as its cause.
 
+### Finding (2026-09-05, title handoff requires passive runtime observation)
+
+Ghidra confirms that `GPressStartMenu::ItemActivated` at `0x00209F30` handles
+the selected item by calling the shared `GMenu::Load` path; it does not directly
+construct a profile menu. `GProfileMenu::Create` at `0x002075F0` has no
+call-type references, consistent with the title's dynamic class/factory
+dispatch. Static callers therefore cannot distinguish a missing title action
+from a successful load followed by an immediate lifecycle loss. The next
+discriminator is a bounded, passive EE observation of those two exact function
+entries, recording their ordered presence without altering input, guest state,
+or profile storage.
+
 ## Resolution
