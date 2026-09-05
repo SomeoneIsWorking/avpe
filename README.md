@@ -41,7 +41,7 @@ The supported development path currently targets Linux and macOS and requires:
 - the user-supplied AVP:E CHD and PCSX2 BIOS directory.
 
 The launcher provisions the project’s Qt/dependency prefix under ignored
-`scratch/` when needed. It does not install system packages or copyrighted
+`build/deps/` when needed. It does not install system packages or copyrighted
 assets. If a native dependency is missing, `doctor` reports the missing name
 and a platform-specific command for the user to run. Windows is not currently
 an automatic provisioning target.

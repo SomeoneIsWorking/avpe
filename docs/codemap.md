@@ -40,6 +40,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Save object-stream evidence parser | Bounded recursive object structures, descriptor bodies, delayed handle-ordered `SaveEx` payloads, and JSON evidence reports; no native backend ownership | `src/avpe/save_stream.py` | `parse_serialized_object_stream()`, `serialize_object_stream()` | [save-path RE contract](re/save-path.md) |
 | Save message-type evidence parser | Bounded decoding of the live 256-slot CMessage creator/size table and strict fixed-size lookup | `src/avpe/save_message_types.py`, `tools/inspect_message_types.py` | `parse_message_type_database()`, `fixed_message_size()` | [save-path RE contract](re/save-path.md) |
 | Project verification | Python behavior, isolation, dependency, and source-structure regressions | `tests/`, `tools/verify.py` | `tools/verify.py` | — |
+| Hosted verification | Asset-free supported-host preparation and normal verification composition; workflow owns only runner/bootstrap selection | `src/avpe/ci.py`, `tools/ci.py`, `.github/workflows/verify.yml` | `verify_host()`, `tools/ci.py` | — |
 | Project logging | Single Python log-level gate | `src/avpe/log.py` | `log()` | — |
 | Raw-sector conversion | Streaming, validated 2352-byte-sector to ISO block conversion | `src/avpe/raw_sector.py`; CLI in `tools/raw2352.py` | `strip_image()` | — |
 | ISO asset extraction | Strict ISO9660 traversal and bounded file extraction | `src/avpe/iso9660.py` | `IsoImage` | [disc-I/O RE contract](re/disc-io.md) |
@@ -88,6 +89,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 run.sh                         locked launcher shim
 src/avpe/                      host-side product orchestration
 ├── cli.py                     command and prerequisite owner
+├── ci.py                      hosted asset-free verification composition
 ├── control_http.py            isolated loopback control transport
 ├── dependencies.py            submodule inspection/provisioning owner
 ├── iso9660.py                 strict user-disc filesystem reader
