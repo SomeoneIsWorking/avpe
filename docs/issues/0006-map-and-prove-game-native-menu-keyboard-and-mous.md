@@ -6,7 +6,7 @@ symptom: pause-menu keyboard and pointer actions are native, but product-window 
 state_items: S010
 tags: input,menu,keyboard,mouse,re
 created: 2026-08-27
-updated: 2026-09-04
+updated: 2026-09-05
 ---
 
 ## Root cause
@@ -103,5 +103,41 @@ remaining `Keyboard/...` binding rejections are separate standalone input
 configuration warnings, not the GS failure's cause. Do not claim real-window
 routing until visible events reach `HostInputRouter`.
 
-Remaining work: verify the real windowed key/mouse path in a user-visible run,
-then cover title and broader in-game menu variants.
+### Finding (2026-09-05, native title activation)
+
+The live eight-callback title registry exposes two bindings on the focused
+`GMenuButton`, both resolving through `{0,0xcc,0}` to `GMenuItem::HotKeyActivate`
+at `0x00120F40`. It has no ActivateFocused helper or menu-owned activation
+callback. The native route therefore returned HTTP 409 even though the
+physical route worked. `NativeMenuItems` now owns the extracted bounded
+descendant/handle lookup, preserves ActivateFocused precedence, and admits the
+current focused descendant's exact registered HotKeyActivate as its fallback.
+The body ignores CInputData and invokes the item's existing focus/activation
+virtuals. No pad state, phase pointer, or synthetic execution frame is needed.
+
+The live native action dispatched the focused title button exactly once,
+completed ticket 1 through normal dispatch, observed the press-start and
+profile-construction entries in order, and reached `GProfileMenu` vtable
+`0x00343750`. The standalone `--probe-native-menu-activate` scenario from that
+captured title state also passed with zero card changes and graceful shutdown.
+Its before/after image hashes were identical, so this is callback/lifecycle
+evidence, not visual presentation evidence.
+
+The new discovery tests retain the unique mission-goals Exit contract, reject
+unreadable or conflicting selected owners, enforce the 256-descendant bound,
+coalesce same-item bindings, and refuse underlying menu activation when either
+grounded `GAttractExit` callback remains registered. Unrelated expired callback
+owners must remain ignorable: inspecting every owner before classification
+broke the pause fixture. The exact attract function prefilter preserves that
+existing registry contract without weakening selected-owner validation.
+
+The retained `--probe-native-menu` pause scenario passed with its matching
+isolated card: Down moved focus, activation selected the existing hidden
+ActivateFocused owner (preserving its precedence), `GSaveGameMenu` opened, and
+Cancel restored the pause menu with exact deferred-stack restoration. The card
+remained byte-identical. Omitting that fixture's card reaches a different menu
+without valid focus and is not equivalent save-menu regression evidence.
+
+Remaining work: verify real-window key/mouse delivery, implement native
+logo/attract cancellation through its full lifecycle, and cover broader
+in-game menu variants.

@@ -235,8 +235,16 @@ rectangle and correctly clears focus. `HostInputRouter` now uses the grounded
 dispatch-bound movement path for every discovered menu; real-window delivery
 remains unverified (issue #6).
 
+Native title activation now resolves the focused button's exact registered
+HotKeyActivate when no ActivateFocused helper exists. The surfaceless native
+route reaches `GProfileMenu` through ordinary callback dispatch without
+controller injection; issue #6 records the transition observer and isolated
+activation scenario. Menu-item discovery is independently bounded/tested and
+refuses activation beneath a registered attract input owner.
+
 Gap: real window key/mouse delivery remains unobserved because agent tests must
-be windowless. Title and broader in-game menu coverage remains incomplete.
+be windowless. Native logo/attract cancellation and broader in-game menu
+coverage remain incomplete.
 The prior Press START saved-state transition is no longer accepted as stable
 evidence: the same deferred call later completed with exact restoration but
 left menu `0x01346590` active through the 90-second deadline, falsifying C012's

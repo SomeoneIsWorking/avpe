@@ -156,14 +156,29 @@ by `ExecuteUntil`. Deferred calls instead exit the current EE block, run under
 the ordinary VM scheduler, and force the saved return PC through a completion
 hook that restores the interrupted architectural context and reserved stack.
 
-Activation now first traverses the active menu's bounded descendant tree and
+`NativeMenuItems` first traverses the active menu's bounded descendant tree and
 finds the unique registered item whose action is `ActivateFocused` and whose
 resolved member function is `GMenuItem::HotKeyActivate` at `0x00120F40`. It
 queues that original callback owner and descriptor through
 `GInputDevice::Process`; it does not overwrite an unrelated menu callback to
-make it call the focused item. If no descendant hotkey exists, only the exact
-registered active-menu activation callback is eligible. Ambiguous or invalid
-owners fail closed.
+make it call the focused item. If no ActivateFocused hotkey exists, the current
+focused descendant's registered `GMenuItem::HotKeyActivate` is eligible, then
+the exact registered active-menu callback is the final fallback. The focused
+button's `+0xcc` virtual slot resolves to `0x00120f40`; that function ignores
+`CInputData`, calls its focus virtual at `+0xb8` with zero, and invokes its
+activation virtual at `+0xc8` with one. It therefore needs no fabricated pad
+state or synthetic EE frame. Equivalent bindings on the same item coalesce
+into one action; unrelated focus, other functions, conflicting hotkeys, and
+invalid owners fail closed. A registered `GAttractExit` owner refuses menu
+activation, preserving its separate cancellation lifecycle.
+
+The title's normal registry has two aliases (Start and Cross) on its focused
+button, not an ActivateFocused helper or menu-owned activation callback.
+Before this discovery change, native Activate returned HTTP 409 while physical
+Cross worked. Native Activate now dispatches that exact button once, observes
+`GPressStartMenu::ItemActivated` followed by `GProfileMenu::Create`, and reaches
+the profile menu without Cross injection. This verifies the native backend
+used by Enter/Space, not real-window event delivery or logo/attract cancellation.
 
 `POST /input/menu-action` may additionally arm one diagnostic readiness
 request with `when_menu_vtable` and `when_focused_item_action`, both exact
