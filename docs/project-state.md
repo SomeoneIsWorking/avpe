@@ -245,10 +245,17 @@ now admits that owner's exact button cancellation callback before requiring a
 menu. A surfaceless run observed one cancellation dispatch, guest-owned attract
 removal and title restoration, then profile construction only after a separate
 native activation, with zero pad injection (issue #6).
+Native Zono-logo cancellation now reaches the eight-callback title through
+the original abort/teardown route in two explicit player lifetimes separated
+by a savestate reload. Both calls execute from the movie reader, return in
+four EE cycles with exact stack restoration, and leave title/profile activation
+and pad injection at zero. Production-path tests cover readiness, caller
+admission, and stale-player rejection. Issue #6 records the caller-safety
+failures that falsified the earlier implementation and the corrected evidence.
 
 Gap: real window key/mouse delivery remains unobserved because agent tests must
-be windowless. Native logo cancellation and broader in-game menu
-coverage remain incomplete.
+be windowless. Other startup movies and broader in-game menu coverage remain
+unverified.
 The prior Press START saved-state transition is no longer accepted as stable
 evidence: the same deferred call later completed with exact restoration but
 left menu `0x01346590` active through the 90-second deadline, falsifying C012's

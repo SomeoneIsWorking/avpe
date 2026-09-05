@@ -24,10 +24,19 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeAttractInput.*` owns exact registered attract-button cancellation
   admission; `NativeMenuInput` composes it before requiring a menu. The guest
   callback owns the complete next-level and attract-owner teardown lifecycle.
+- `NativeMovieInput.*` owns one-shot movie cancellation admission and readiness.
+  EE hooks only observe player/MPEG lifetime; the host input poll dispatches the
+  original abort function through the deferred shuttle. CPU reset and savestate
+  preparation discard pending input. The guest retains all movie teardown.
+- `EECallShuttle.*` owns deferred request admission separately from guest
+  context installation. `VMManager::Execute` brackets its safe outer execution
+  boundary; event callbacks never install a deferred EE call mid-interrupt.
+  CPU reset and savestate preparation own cancellation of shuttle state.
 - `NativeInputCallbacks.h` owns the shared callback descriptor layout, bounded
   discovery access contract, and admitted target value; it owns no action policy.
 - `NativeMenuRoute.*` owns only the diagnostic HTTP parsing, status mapping,
-  and JSON presentation for typed native-menu state and actions.
+  typed menu/movie endpoint dispatch, and JSON presentation for native-menu
+  state and actions.
 - `NativePadReadiness.*` owns validated read-only observation of the title's
   CPS2Input initialization and report readiness. Diagnostic menu admission
   consumes it; it does not initialize controllers or own menu actions.

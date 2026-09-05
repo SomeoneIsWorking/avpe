@@ -33,11 +33,12 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | POST `/input/mouse-button` | `{"button":"primary","edge":"press"}` | typed edge through the corresponding original AVP:E mouse handler |
 | GET `/input/menu` | — | read-only active AVP:E menu owner, callback count, focus, and raw focused-item text pointer |
 | GET `/input/menu-readiness` | — | state of the single bounded exact-menu physical-pad request |
-| POST `/input/menu-action` | `{"action":"down"}` | typed direction, activate, or cancel through the active AVP:E `GMenu` owner; paired `when_menu_vtable` and `when_focused_item_action` arm one exact-state physical-pad action |
+| GET `/input/movie-cancellation` | — | native movie ticket, player/decoder identity, pending/dispatch/lifetime outcome, and matching deferred-call ID |
+| POST `/input/menu-action` | `{"action":"down"}` | typed menu direction, activate, or cancel; Activate first admits a live movie or attract cancellation without chaining into the next menu; paired `when_menu_vtable` and `when_focused_item_action` arm one exact-state physical-pad action |
 | GET `/input/menu-pointer` | — | read-only active menu-capable pointer owner and focused item |
 | POST `/input/menu-pointer-move` | `{"x":0.7,"y":0.4}` | absolute motion followed by deferred AVP:E menu hit-testing |
 | POST `/input/menu-pointer-activate` | `{}` | deferred activation through the focused menu pointer item |
-| GET `/ee/deferred` | — | current deferred guest-call identity, completion, and restoration evidence |
+| GET `/ee/deferred` | — | current deferred guest-call identity, queued/running/completed/failed state, saved caller, and restoration evidence |
 | POST `/ee/call` | `{"function":"0x..","a0":"0x..",...,"cycle_budget":N}` | bounded VM-thread guest call through the AVPE EE-call shuttle |
 | POST `/shutdown` | `{}` | graceful VM shutdown for the isolated control-test owner |
 

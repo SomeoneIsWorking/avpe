@@ -315,15 +315,7 @@ def complete_menu_action(
     """Complete either an ordinary dispatched action or a synchronous modal action."""
     status, response, detail = menu_action(port, action)
     if status == 202 and response is not None:
-        action_id = _integer(response.get("dispatch_action_id"))
-        if action_id > 0:
-            return await_dispatched_menu_action(port, deadline, action_id)
-        call_id = _integer(response.get("deferred_call_id"))
-        if call_id <= 0:
-            raise RuntimeError(
-                f"{context} returned no dispatch or deferred completion id: {detail}"
-            )
-        return await_deferred_call(port, deadline, call_id, context)
+        return _await_queued_menu_action(port, deadline, response, context)
     if status != 200 or response is None:
         raise RuntimeError(f"{context} failed: HTTP {status}: {detail}")
     return response
@@ -384,22 +376,51 @@ def run_menu_action(
     action: str,
 ) -> tuple[dict[str, object], dict[str, object]]:
     status, response, detail = menu_action(port, action)
-    if status != 202 or response is None or response.get("deferred") is not True:
+    if status != 202 or response is None:
         raise RuntimeError(
             f"native menu {action} was not queued through guest input dispatch: "
             f"HTTP {status}: {detail}"
         )
+    return response, _await_queued_menu_action(port, deadline, response, f"menu {action}")
+
+
+def _await_queued_menu_action(
+    port: int, deadline: float, response: dict[str, object], context: str,
+) -> dict[str, object]:
+    movie_id = _integer(response.get("movie_action_id"))
+    if movie_id > 0:
+        return await_movie_cancellation(port, deadline, movie_id)
     action_id = _integer(response.get("dispatch_action_id"))
     if action_id > 0:
-        completion = await_dispatched_menu_action(port, deadline, action_id)
-        return response, completion
+        return await_dispatched_menu_action(port, deadline, action_id)
     call_id = _integer(response.get("deferred_call_id"))
     if call_id <= 0:
         raise RuntimeError(
-            f"native menu {action} returned no dispatch or deferred completion id: {detail}"
+            f"{context} returned no dispatch or deferred completion id: {response}"
         )
-    completion = await_deferred_call(port, deadline, call_id, f"menu {action}")
-    return response, completion
+    return await_deferred_call(port, deadline, call_id, context)
+
+
+def await_movie_cancellation(
+    port: int, deadline: float, action_id: int,
+) -> dict[str, object]:
+    """Wait for the admitted abort call, not for a guessed destination menu."""
+    last = None
+    while time.monotonic() < deadline:
+        status, candidate, detail = request_json(port, "GET", "/input/movie-cancellation", {})
+        if status != 200 or candidate is None or candidate.get("id") != action_id:
+            raise RuntimeError(f"movie cancellation {action_id} lost its identity: {detail}")
+        last = candidate
+        if candidate.get("state") in ("dispatched", "player-exited"):
+            call_id = _integer(candidate.get("deferred_call_id"))
+            if call_id <= 0:
+                raise RuntimeError(f"movie cancellation has no deferred call: {candidate}")
+            completion = await_deferred_call(port, deadline, call_id, "movie cancellation")
+            return {"movie": candidate, "deferred_completion": completion}
+        if candidate.get("state") != "pending":
+            raise RuntimeError(f"movie cancellation did not dispatch: {candidate}")
+        time.sleep(0.05)
+    raise RuntimeError(f"movie cancellation {action_id} remained pending: {last}")
 
 
 def deferred_completion_is_safe(value: object) -> bool:

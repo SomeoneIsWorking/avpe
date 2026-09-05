@@ -168,6 +168,64 @@ The matching-card `--probe-native-menu` regression also passed after this
 composition change, preserving pause navigation, hidden-hotkey activation,
 Save-menu entry, and Cancel with zero changed card bytes.
 
-Remaining work: verify real-window key/mouse delivery, implement native
-logo cancellation through its full lifecycle, and cover broader
-in-game menu variants.
+### Finding (2026-09-05, native Zono-logo cancellation)
+
+The apparent `GVideoPlayer::Input_Cancel` route is a no-op. The grounded
+abort, readiness, and complete cleanup contract is in `docs/re/input-path.md`.
+A diagnostic call to original `videoDecAbort` first demonstrated that route,
+but was not used as shipping execution evidence.
+
+The first native implementation was not caller-safe. One deferred call
+returned, but a later 50-second observation remained `running` with no menu
+while the EE advanced through `0x002B3CD8` and 2,236 pad transfers. Moving
+installation outside event processing exposed a second refusal: the current
+BIOS exception had no valid main-RAM call frame. These failures reject both
+"one successful call is enough" and "any outer executor entry is safe."
+
+The corrected shuttle admits request data without changing registers, waits
+for a user-code/main-RAM-stack context, yields before CPU event processing
+starts, and installs the context at the outer VM executor entry. Movie calls
+add the exact reader interval `0x00180D70..0x00180F40`: cleanup can terminate
+decoder/default worker threads, so they are not valid cancellation callers.
+The same player/decoder/readiness check runs again immediately before guest
+execution. Flush/destruction cancels a call still queued; CPU reset and
+savestate preparation discard both movie admission and shuttle state.
+
+The retained observation command is:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 85 \
+  --statefile scratch/states/title-real.p2s --probe-native-logo --http-port 0
+```
+
+This surfaceless/null-muted scenario passed two explicit player lifetimes,
+not retries: ticket/call 1 returned at `0x00180EC0`; reloading the source state
+cleared the ticket to idle; ticket/call 2 returned at `0x00180E78`. Both calls
+used reader-stack staging `0x01FFE880`, completed in four EE cycles, and
+reported exact stack restoration. Both reached `GPressStartMenu`
+`0x01346590` with eight callbacks and focused action `0x807F1E5F`.
+The title/profile observer remained 0/0 after cancellation, and pad injection
+masks remained `0000`/`0000`. An earlier independent second-press observation
+advanced title/profile ordinals to 1/2 only after a separate native activation.
+
+Production-policy tests cover early input, signed frame readiness, invalid
+and changed decoder/player identity, kernel/worker caller exclusion, teardown,
+reset, failed dispatch without retry, and lifetime revalidation before guest
+execution. Probe tests refuse a non-movie action, incomplete deferred return,
+leaked title activation, or inherited ticket. The scenario observes behavior;
+it is not a build gate or a claim of real-window event/visual verification.
+
+Remaining work: verify real-window key/mouse delivery, cover other startup
+movies and broader in-game menu variants.
+
+The corrected shuttle also passed the matching-card pause-menu observation:
+Down selected Save, hidden-hotkey activation entered the normal Save menu,
+and Cancel restored Pause. The deferred Cancel returned at `0x002CE110`
+after 137,194 EE cycles with exact stack restoration. The card comparison
+reported zero changed bytes. This preserves the existing menu contract
+independently of the new movie path.
+
+Landing verification: `uv run --frozen python tools/verify.py` passed the
+Python unit/structure suite, all 84 native production-path tests, clang-format,
+and clang-tidy across 73 translation units with Clang. Project-state validation
+checked 30 capability items, six goals, and 29 issue links with zero problems.

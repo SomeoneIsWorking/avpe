@@ -343,6 +343,60 @@ restored memory card to become available, enters `GSaveGameMenu` through Pause
 `GSavePacifyMenu::Process` calls and the exact `CProfile::SaveGame` entry and
 return; no pointer coordinate is inferred from pixels or retargeted to a slot.
 
+## Movie cancellation
+
+`GVideoPlayer::Input_Cancel` (`0x0016B800`) is an empty function;
+`GVideoPlayer::Cancel` (`0x0016B9E0`) merely calls it. Neither is a usable skip
+route. The live singleton is `0x003672BC`, its exact vtable is `0x00334420`,
+and its `+0x3C` field becomes the skip-disabled argument to `PS2_PlayMovie`
+(`0x00180730`). The constructor (`0x0016B6A0`) publishes the singleton, pauses
+the game timer when `+0x40` is set, shuts down sample audio, plays the named
+`.pss`, then swaps both framebuffers and reinitializes sample audio.
+
+The original physical-input abort is inside `readMpeg` (`0x00180D70`). Its
+loop at `0x00180DC0` holds the decoder in `s2`; the skip-disabled argument is
+in `s8`. A successful pad read produces active-high rising edges. The
+`0x8C0` prefilter, signed decoder frame count `+8 >= 11`, and `0x840` final
+mask admit the call at `0x00180E2C` to `videoDecAbort` (`0x00183C20`) with
+`pVideoDec` (`0x0036741C`) in `a0`. That original function requests abort at
+decoder `+0xA8`; the worker advances it to terminal state 3. These are
+Ghidra EE-plugin instruction/decompilation findings, not inferred pad names.
+
+Cancellation leaves the normal cleanup intact: the loop reaches
+`videoDecFlush` at `0x00180F40`, waits for flush/abort completion, ends display,
+and resets movie audio. `PS2_PlayMovie` then calls `termAll` (`0x00180BB0`),
+which removes the decoder threads/handlers, deletes decoder/read/output
+buffers, closes the stream, and frees the allocations. `GVideoPlayer::Process`
+(`0x0016B810`) schedules its authored `+0x38` next level and deletes the player;
+the destructor (`0x0016B950`) clears the singleton and resumes the game timer.
+
+`NativeMovieInput::Cancellation` retains one native Activate for that live
+player, respecting the authored skip-disabled field and signed eleven-frame
+condition. It reads but never writes decoder state, pad data, timers, or scene
+pointers. Fixed instruction hooks observe the MPEG loop/flush and player
+constructor/destructor even without a pending action, including after restoring
+a state. They never dispatch a call: a deferred shuttle call from inside an
+instruction observer could change registers while the original instruction
+still executes. `VMManager::Internal::PollInputOnCPUThread` instead services the
+pending action at the host event boundary and queues only request data. The
+shuttle waits for a user-code/main-RAM-stack context in the movie reader
+`0x00180D70..0x00180F40`, yields before event processing, and installs the
+original abort at the outer VM executor entry. Decoder/default worker threads
+are excluded because movie cleanup can terminate them. Immediately before
+execution, the same player/decoder/readiness check revalidates the ticket.
+End-of-playback and player replacement/destruction cancel a still-queued call;
+CPU reset and savestate preparation discard admission and shuttle state.
+A failed dispatch is terminal, not automatically retried.
+
+`POST /input/menu-action` with `activate` returns source `movie-cancellation`,
+`execution: pending`, and `movie_action_id` before inspecting menus. Poll
+`GET /input/movie-cancellation` for `pending`, `dispatched`, `player-exited`,
+`expired`, or `failed`, and match its `deferred_call_id` against `/ee/deferred`.
+`player-exited` describes the observed player lifetime, not an independently
+counted inventory of every freed resource. Python's shared menu-action waiter
+requires a matching ticket and safe deferred return; destination transitions
+remain separately observed. Issue #6 records the real Zono-logo result.
+
 ## Native bridge
 
 - `NativePointerMotion::MoveAbsolute` accepts normalized coordinates, validates
@@ -356,10 +410,11 @@ return; no pointer coordinate is inferred from pixels or retargeted to a slot.
   the outer scheduler service deferred events. Recursively entering PCSX2's
   recompiler would overwrite its global dispatch jump buffer.
 - Non-returning callback-registry menu transitions use the shuttle's deferred
-  mode. It reserves a
-  guest o32 caller frame, clears the saved return-PC recompiler word, exits the
-  current EE block, and completes from the normal interpreter/recompiler
-  boundary after AVP:E returns. This keeps IOP, CDVD, timers, and VSync live.
+  mode. It queues request data, yields before event processing in an eligible
+  user context, then reserves the guest o32 caller frame and clears the saved
+  return-PC recompiler word outside the executor. It completes from the normal
+  interpreter/recompiler boundary after AVP:E returns. This keeps IOP, CDVD,
+  timers, and VSync live without replacing registers inside an event callback.
   The synchronous mission-goals load modal is the explicit grounded exception
   described above.
 - `NativeInput::ApplyButtonEdge` owns typed primary/secondary press state,

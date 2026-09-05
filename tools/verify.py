@@ -53,7 +53,7 @@ CORE_SCOPED_SOURCES = {
 	ROOT / "thirdparty/pcsx2/pcsx2/Counters.cpp": ((1, 20), (488, 494), (682, 723)),
 	ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp": (
 		(1, 18), (910, 925), (1059, 1063), (1196, 1201), (1206, 1210)),
-    ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp": ((1, 18), (96, 99)),
+    ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp": ((1, 20), (63, 67), (100, 103), (366, 373)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (177, 182), (563, 620), (688, 720)),
     ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp": ((1, 10), (50, 57), (64, 69)),
@@ -61,9 +61,10 @@ CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/x86/iR3000A.cpp": (
         (1, 15), (705, 765), (1685, 1695)),
     ROOT / "thirdparty/pcsx2/pcsx2/SaveState.cpp": (
-        (90, 105), (315, 325), (1080, 1130), (1140, 1165), (1175, 1215)),
+        (1, 7), (53, 57), (94, 109), (319, 329), (1084, 1134),
+        (1144, 1169), (1179, 1219)),
     ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp": (
-        (1, 10), (1690, 1710), (2335, 2400)),
+        (1, 12), (1692, 1712), (2337, 2402), (2770, 2774), (2938, 2945)),
 	ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": (
 		(1, 10), (47, 51), (398, 410), (779, 805), (1_698, 1_707),
 		(2_205, 2_220), (2_354, 2_357)),
@@ -145,7 +146,7 @@ def main() -> int:
                 "--gtest_filter=ButtonInjectionTest.*:NativeAssetStoreTest.*:"
                 "NativeCdvdCompletionTest.*:NativeBiosTraceTest.*:"
                 "NativeWindowHandlesTest.*:NativeTitleTransitionTest.*:NativePadReadinessTest.*:"
-                "NativeMenuItemsTest.*:NativeAttractInputTest.*",
+                "NativeMenuItemsTest.*:NativeAttractInputTest.*:NativeMovieInputTest.*",
             ],
         )
         run(
