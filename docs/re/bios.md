@@ -270,14 +270,14 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
 
 ## Diagnostic EE system-query results
 
-The restored state also supports eight side-effect-free EE query wrappers. Two
-isolated runs returned the following values with restored guest stacks:
+The restored state also supports seven side-effect-free EE query wrappers; six
+have observed results and `PSMode` is explicitly void. Two isolated runs
+returned the following values with restored guest stacks:
 
 | Wrapper | Address | Syscall | Observed result |
 |---|---:|---:|---:|
 | `GetThreadId` | `0x002B3D10` | `0x2F` | `1` |
 | `EndOfHeap` | `0x002B3E00` | `0x3E` | `0x01FF5000` |
-| `GetGsHParam` | `0x002B3EE0` | `0x4C` | `0x00000000` |
 | `GetGsVParam` | `0x002B3EF0` | `0x4D` | `0x00000080` |
 | `GsGetIMR` | `0x002B4140` | `0x70` | `u64 0x000000000000FF00` |
 | `PSMode` | `0x002B4260` | `0x7D` | void; result unobserved |
