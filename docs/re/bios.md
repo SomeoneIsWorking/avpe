@@ -345,6 +345,21 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/sif-dma-negative-phase.json --http-port 0
 ```
 
+## Diagnostic EE OSD-config output
+
+`GetOsdConfigParam` at `0x002B3ED0` (syscall `0x4B`) is a void
+output-pointer service. The repeatable phase seeds `0x01FF0000` with 32 bytes
+of `0xCC`, calls the wrapper, and reads the buffer back. Two isolated runs
+wrote the same four-byte prefix `10 20 81 DA` and left the remaining sentinel
+bytes unchanged, with restored guest stacks. This proves the observed write
+shape only; it does not decode the OSD structure or implement OSD policy.
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase osd-config-output \
+  --bios-trace-output scratch/control-test/osd-config-output-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
