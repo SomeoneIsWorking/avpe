@@ -6,7 +6,7 @@ symptom: The windowed product reaches profile creation but cannot create a profi
 state_items: S013,S014,S016
 tags: profile,save,memory-card,playability
 created: 2026-08-27
-updated: 2026-09-05
+updated: 2026-09-08
 ---
 
 ## Root cause
@@ -143,6 +143,17 @@ BIOS-backed Pause → Save run captured object `0x003B2620`, payload
 known 32-byte profile payload. This is the runtime input seam for the future
 native bridge; it remains read-only evidence and does not intercept the card
 writer or claim native persistence.
+
+### Finding (2026-09-08, existing-card import)
+
+The host importer now reads the PS2 card's superblock, indirect FAT, and
+logical directory/file chains with bounded traversal. It validates the exact
+AVP:E profile directory and profile record, skips zero-padded save files, and
+passes every non-empty numbered slot through the shipping BWJ/object-stream
+parser before atomically replacing the native container. The ignored supplied
+card produced one valid 0x20-byte profile and no populated slots. This advances
+provisioning only; live profile/game-slot interception and two distinct import
+records remain open.
 
 ### Finding (2026-08-29, message type table)
 
