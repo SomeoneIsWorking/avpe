@@ -337,20 +337,25 @@ StarCraft-informed PC RTS control scheme.
 
 Observed subset: `.github/workflows/verify.yml` defines cold, asset-free Linux,
 Intel macOS, and Apple Silicon macOS jobs. Each builds through
-`src/avpe/ci.py`, which composes the shipping `prepare_product()` owner with
-the normal `tools/verify.py` gate; the workflow does not upload game data,
-derived game data, or a runtime cache. Its bootstrap action revisions and the
-`uv` wheel hashes are pinned. The Apple Silicon job is newly declared but has
-no hosted result yet. Windows is currently inapplicable because
+`src/avpe/ci.py`, which now builds an explicit CMake install prefix, stages only
+the `avpe` binary and redistributable AVPE resources, rejects unowned files and
+known game/BIOS asset suffixes, and then runs the normal `tools/verify.py` gate;
+the workflow does not upload game data, derived game data, or a runtime cache.
+Its bootstrap action revisions and the `uv` wheel hashes are pinned. A local
+Linux run has passed the staged package assertion with Clang. The Apple Silicon
+job is newly declared but has no hosted result yet. Windows is currently
+inapplicable because
 `dependency_prefix.select_workflow()` has no Windows implementation, so the
 product cannot provision or build its declared target there.
 
-Gap: obtain successful hosted runs on all three declared hosts, add an
-asset-free installable package assertion, and implement/qualify the missing
-Windows host path before claiming a complete desktop release matrix.
+Gap: obtain successful hosted runs on all three declared hosts and implement
+and qualify the missing Windows host path before claiming a complete desktop
+release matrix.
 
-Evidence: the version-controlled hosted-verification owner, workflow, and
-focused `tests/test_ci.py` policy tests. Hosted execution evidence is pending.
+Evidence: the version-controlled hosted-verification owner, the standalone
+AVPE install rule at the pinned PCSX2 fork commit, the local Clang package run,
+and focused `tests/test_ci.py` policy tests. Hosted execution evidence is
+pending.
 
 ### S014 — save boundary and schema: partial
 
