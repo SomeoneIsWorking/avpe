@@ -12,6 +12,7 @@ from avpe.build import (
     prepare_product,
 )
 from avpe.dependency_prefix import DependencyPrefixError
+from avpe.memory_card_import import ImportedMemoryCard
 
 
 class BuildHintTests(unittest.TestCase):
@@ -35,6 +36,30 @@ class BuildHintTests(unittest.TestCase):
 
 
 class ProductPreparationTests(unittest.TestCase):
+    @patch("avpe.cli.log")
+    @patch(
+        "avpe.cli.import_memory_card",
+        return_value=ImportedMemoryCard(b"profile", {0: b"save"}, "BASLUS-20147TEST"),
+    )
+    def test_import_saves_cli_uses_validated_importer(self, importer: Mock, log: Mock) -> None:
+        from avpe.cli import main
+
+        result = main(
+            [
+                "import-saves",
+                "--memory-card",
+                "/cards/source.ps2",
+                "--destination",
+                "/data/avpe.avpesave",
+            ]
+        )
+
+        self.assertEqual(result, 0)
+        importer.assert_called_once_with(
+            Path("/cards/source.ps2"), Path("/data/avpe.avpesave")
+        )
+        log.assert_called_once()
+
     def test_build_paths_use_the_top_level_build_root(self) -> None:
         paths = BuildPaths(Path("/repo"))
 

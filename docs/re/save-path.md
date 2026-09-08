@@ -25,6 +25,8 @@ payload; non-empty numbered `.SAV` files are passed through
 all inputs validate, the destination is atomically replaced so a malformed
 slot cannot leave a partially imported container. The importer consumes a
 user-supplied card and does not intercept the running game's card calls.
+The `avpe import-saves` command is the explicit provisioning entry point; the
+zero-argument launcher does not inspect or require a memory card.
 
 This is a host persistence owner only. It does not yet intercept the live
 `CProfile::SaveGame`/`LoadGame` calls or translate editable object fields;

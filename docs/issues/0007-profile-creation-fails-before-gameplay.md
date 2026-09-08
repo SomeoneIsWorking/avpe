@@ -152,8 +152,9 @@ AVP:E profile directory and profile record, skips zero-padded save files, and
 passes every non-empty numbered slot through the shipping BWJ/object-stream
 parser before atomically replacing the native container. The ignored supplied
 card produced one valid 0x20-byte profile and no populated slots. This advances
-provisioning only; live profile/game-slot interception and two distinct import
-records remain open.
+provisioning only; the explicit `avpe import-saves` command now exposes the
+validated operation, while live profile/game-slot interception and two distinct
+import records remain open.
 
 ### Finding (2026-08-29, message type table)
 

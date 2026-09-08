@@ -438,7 +438,8 @@ the AVP:E profile identity/revision/payload, skips empty padded slots, rejects
 malformed non-empty slots, and atomically replaces an `avpe-native-save-v1`
 container. A real ignored source card imported its profile successfully and
 contained no non-empty game slots; synthetic card tests cover a valid layout and
-a cyclic FAT negative.
+a cyclic FAT negative. The `avpe import-saves` CLI now exposes this validated
+operation for a user-selected card and destination.
 
 Gap: S014 and S015 still block product wiring. Verification requires importing
 at least two distinct real AVP:E saves from a user-selected memory-card image,
