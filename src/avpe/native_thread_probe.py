@@ -11,7 +11,9 @@ from avpe.native_bios_call import BiosCallError, call_signed_v0
 DELETE_THREAD = 0x002B3C30
 START_THREAD = 0x002B3C40
 WAKEUP_THREAD = 0x002B3D50
+I_WAKEUP_THREAD = 0x002B3D60
 CANCEL_WAKEUP_THREAD = 0x002B3D70
+I_CANCEL_WAKEUP_THREAD = 0x002B3D80
 INVALID_ID = 0xFFFFFFFF
 
 
@@ -32,7 +34,9 @@ def probe_thread_invalid_id(port: int, deadline: float) -> dict[str, object]:
         ("delete_thread", DELETE_THREAD),
         ("start_thread", START_THREAD),
         ("wakeup_thread", WAKEUP_THREAD),
+        ("i_wakeup_thread", I_WAKEUP_THREAD),
         ("cancel_wakeup_thread", CANCEL_WAKEUP_THREAD),
+        ("i_cancel_wakeup_thread", I_CANCEL_WAKEUP_THREAD),
     ):
         try:
             invalid[label], _ = call_signed_v0(port, deadline, label, function, INVALID_ID)
@@ -67,5 +71,6 @@ def thread_probe_is_verified(trace: object) -> bool:
     if not isinstance(invalid, dict):
         return False
     return all(invalid.get(label) == -1 for label in (
-        "delete_thread", "start_thread", "wakeup_thread", "cancel_wakeup_thread"
+        "delete_thread", "start_thread", "wakeup_thread", "i_wakeup_thread",
+        "cancel_wakeup_thread", "i_cancel_wakeup_thread"
     ))

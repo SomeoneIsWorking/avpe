@@ -1000,9 +1000,10 @@ observed results remain in [`re/bios.md`](../re/bios.md#diagnostic-ee-semaphore-
 
 The shipping control runner now has `--probe-bios-phase thread-negative`. From
 the same `mission1.p2s` state it calls the exact `DeleteThread` (`0x002B3C30`),
-`StartThread` (`0x002B3C40`), `WakeupThread` (`0x002B3D50`), and
-`CancelWakeupThread` (`0x002B3D70`) wrappers with `0xFFFFFFFF`. One current
-surfaceless/null-muted run returned signed `-1` from all four calls with stack
+`StartThread` (`0x002B3C40`), `WakeupThread` (`0x002B3D50`), `iWakeupThread`
+(`0x002B3D60`), `CancelWakeupThread` (`0x002B3D70`), and
+`iCancelWakeupThread` (`0x002B3D80`) wrappers with `0xFFFFFFFF`. One current
+surfaceless/null-muted run returned signed `-1` from all six calls with stack
 restoration, and the v7 trace plus shipping inventory analyzer accepted the
 artifact. The calls complete without creating a thread or admitting a wakeup
 target. This closes only the safe invalid-ID result slice; live thread IDs,

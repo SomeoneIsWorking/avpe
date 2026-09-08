@@ -160,7 +160,9 @@ non-creating thread services. The exact target wrappers are:
 | `DeleteThread` | `0x002B3C30` | `0x21` |
 | `StartThread` | `0x002B3C40` | `0x22` |
 | `WakeupThread` | `0x002B3D50` | `0x33` |
+| `iWakeupThread` | `0x002B3D60` | `0x34` |
 | `CancelWakeupThread` | `0x002B3D70` | `0x35` |
+| `iCancelWakeupThread` | `0x002B3D80` | `0x36` |
 
 Each call receives `0xFFFFFFFF`, returns sign-extended `-1`, and restores the
 guest stack. The calls complete immediately and do not create a thread or
