@@ -294,6 +294,29 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/system-query-phase.json --http-port 0
 ```
 
+## Diagnostic EE SIF-register results
+
+The restored state also supports a bounded `sceSifGetReg` query slice at
+`0x002B4230` (syscall `0x7A`). Selectors `0` through `4` returned the same
+values across two isolated runs, with restored guest stacks:
+
+| Selector | Observed result |
+|---:|---:|
+| `0` | `0x00000000` |
+| `1` | `0x00000000` |
+| `2` | `0x0001D1E0` |
+| `3` | `0x00010000` |
+| `4` | `0x00070000` |
+
+These are grounded register snapshots for the restored AVP:E state, not a
+general SIF protocol or mutation contract. The repeatable phase is:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase sif-query \
+  --bios-trace-output scratch/control-test/sif-query-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a

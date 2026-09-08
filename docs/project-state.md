@@ -894,6 +894,10 @@ validated as the BIOS trace's declared u64 result. `GetGsHParam` remains
 unclaimed because its output-pointer service is declared void; `PSMode` is also
 explicitly unobserved, so stale register contents are not claimed as ABI
 values.
+The separate SIF-register phase records selectors `0` through `4` from
+`sceSifGetReg` (`0`, `0`, `0x0001D1E0`, `0x00010000`, and `0x00070000`) across
+two restored-state runs. These are state snapshots only; register identity,
+mutation, DMA ordering, and HLE behavior remain unproven.
 The thread-control phase extends the safe invalid-ID slice to suspend/resume
 and join: both suspend variants and both resume variants return `-1`, while
 `JoinThread` returns `0`, across two isolated runs with restored stacks. Live
