@@ -1011,6 +1011,15 @@ record, or admitting a wakeup target. This closes only the safe invalid-ID
 result slice; live thread IDs, sleep/wakeup ordering, cancellation ownership,
 and scheduler behavior remain open.
 
+### Finding (2026-09-08, thread-control wrapper result slice)
+
+The repeatable `thread-control-negative` phase calls the exact suspend, resume,
+and join wrappers (`0x002B3D90`–`0x002B3DD0`) with `0xFFFFFFFF`. Two isolated
+surfaceless/null-muted runs returned signed `-1` from both suspend variants and
+both resume variants, and signed `0` from `JoinThread`, with restored stacks and
+no bounded-call timeout. These are observed token result shapes only; live
+thread suspension, resumption, joining, and scheduler ordering remain open.
+
 ### Finding (2026-09-08, interrupt-handler wrapper result slice)
 
 The repeatable `interrupt-handler-negative` phase calls the exact INTC and

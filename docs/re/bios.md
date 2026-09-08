@@ -182,6 +182,26 @@ This grounds only invalid-ID admission and result shape. Thread creation,
 start/wakeup ordering for live IDs, cancellation ownership, sleeping threads,
 and scheduler wake behavior remain outside the evidence.
 
+## Diagnostic EE thread-control negative results
+
+The same state supports a second bounded invalid-ID slice for suspend, resume,
+and join services. `SuspendThread`/`iSuspendThread` at
+`0x002B3D90`/`0x002B3DA0` (syscalls `0x37`/`0x38`) and
+`ResumeThread`/`iResumeThread` at `0x002B3DB0`/`0x002B3DC0` (syscalls
+`0x39`/`0x3A`) each returned signed `-1` for `0xFFFFFFFF`. `JoinThread` at
+`0x002B3DD0` (syscall `0x3B`) returned signed `0`. Two isolated runs matched,
+all calls restored the guest stack, and no call blocked. These are observed
+token result shapes; live-thread suspension, resumption, joining, and scheduler
+ordering remain unproven.
+
+The repeatable phase is:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase thread-control-negative \
+  --bios-trace-output scratch/control-test/thread-control-negative-phase.json --http-port 0
+```
+
 ## Diagnostic EE event-flag candidate results
 
 The same state supports a repeatable nonblocking call slice over the target's

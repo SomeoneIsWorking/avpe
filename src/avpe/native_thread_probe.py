@@ -18,6 +18,11 @@ WAKEUP_THREAD = 0x002B3D50
 I_WAKEUP_THREAD = 0x002B3D60
 CANCEL_WAKEUP_THREAD = 0x002B3D70
 I_CANCEL_WAKEUP_THREAD = 0x002B3D80
+SUSPEND_THREAD = 0x002B3D90
+I_SUSPEND_THREAD = 0x002B3DA0
+RESUME_THREAD = 0x002B3DB0
+I_RESUME_THREAD = 0x002B3DC0
+JOIN_THREAD = 0x002B3DD0
 INVALID_ID = 0xFFFFFFFF
 EXPECTED_RESULTS = {
     "delete_thread": -1,
@@ -30,6 +35,13 @@ EXPECTED_RESULTS = {
     "i_wakeup_thread": -1,
     "cancel_wakeup_thread": -1,
     "i_cancel_wakeup_thread": -1,
+}
+CONTROL_EXPECTED_RESULTS = {
+    "suspend_thread": -1,
+    "i_suspend_thread": -1,
+    "resume_thread": -1,
+    "i_resume_thread": -1,
+    "join_thread": 0,
 }
 
 
@@ -91,3 +103,51 @@ def thread_probe_is_verified(trace: object) -> bool:
     if not isinstance(invalid, dict):
         return False
     return invalid == EXPECTED_RESULTS
+
+
+def probe_thread_control_invalid_id(port: int, deadline: float) -> dict[str, object]:
+    """Capture nonblocking invalid-ID suspend/resume/join result shapes."""
+    status, body = request_bytes(port, "POST", "/bios/trace/start", {})
+    if status != 200:
+        raise ThreadProbeError(
+            f"thread-control BIOS trace start returned HTTP {status}: "
+            f"{body.decode(errors='replace').strip()}"
+        )
+    results: dict[str, int] = {}
+    for label, function in (
+        ("suspend_thread", SUSPEND_THREAD),
+        ("i_suspend_thread", I_SUSPEND_THREAD),
+        ("resume_thread", RESUME_THREAD),
+        ("i_resume_thread", I_RESUME_THREAD),
+        ("join_thread", JOIN_THREAD),
+    ):
+        try:
+            results[label], _ = call_signed_v0(port, deadline, label, function, INVALID_ID)
+        except BiosCallError as error:
+            raise ThreadProbeError(str(error)) from error
+    if results != CONTROL_EXPECTED_RESULTS:
+        raise ThreadProbeError(f"thread-control results diverged: {results}")
+
+    status, body = request_bytes(port, "POST", "/bios/trace/capture", {}, timeout=7.0)
+    if status != 200:
+        raise ThreadProbeError(
+            f"thread-control BIOS trace capture returned HTTP {status}: "
+            f"{body.decode(errors='replace').strip()}"
+        )
+    try:
+        trace = json.loads(body)
+    except json.JSONDecodeError as error:
+        raise ThreadProbeError("thread-control trace returned malformed JSON") from error
+    if not isinstance(trace, dict):
+        raise ThreadProbeError("thread-control trace returned a non-object")
+    trace["diagnostic_thread_control"] = {"invalid_id": results}
+    return trace
+
+
+def thread_control_probe_is_verified(trace: object) -> bool:
+    if not isinstance(trace, dict):
+        return False
+    diagnostic = trace.get("diagnostic_thread_control")
+    if not isinstance(diagnostic, dict):
+        return False
+    return diagnostic.get("invalid_id") == CONTROL_EXPECTED_RESULTS
