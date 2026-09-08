@@ -904,6 +904,10 @@ module identity, and executable-loader behavior remain missing.
 The SIF-DMA negative phase returns signed `-1` for the all-ones
 `sceSifDmaStat` token across two restored-state runs. DMA creation, completion
 ordering, and HLE behavior remain missing.
+The OSD-config output phase now proves that the void `GetOsdConfigParam`
+wrapper writes `10 20 81 DA` to a caller buffer and preserves the remaining
+sentinel bytes across two restored-state runs. The OSD structure, configuration
+semantics, and HLE behavior remain missing.
 The thread-control phase extends the safe invalid-ID slice to suspend/resume
 and join: both suspend variants and both resume variants return `-1`, while
 `JoinThread` returns `0`, across two isolated runs with restored stacks. Live

@@ -73,6 +73,7 @@ STATEFILE_BIOS_PHASES = (
     "sif-query",
     "entry-address-negative",
     "sif-dma-negative",
+    "osd-config-output",
 )
 BIOS_EVENT_KINDS = frozenset(
     {

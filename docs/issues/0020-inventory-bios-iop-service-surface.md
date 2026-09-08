@@ -1081,6 +1081,15 @@ The repeatable `sif-dma-negative` phase calls `sceSifDmaStat` at `0x002B41C0`
 `-1` with restored stacks. This closes only the invalid-token status shape;
 DMA creation, completion ordering, and HLE behavior remain unproven.
 
+### Finding (2026-09-08, EE OSD-config output-pointer slice)
+
+The repeatable `osd-config-output` phase seeds a 32-byte guest buffer at
+`0x01FF0000`, calls the void `GetOsdConfigParam` wrapper at `0x002B3ED0`
+(`0x4B`), and reads the buffer back. Two isolated restored-state runs wrote
+the same four-byte prefix `10 20 81 DA` and left the remaining sentinel bytes
+unchanged. This closes only the observed output-write shape; the OSD structure,
+configuration semantics, and HLE behavior remain unproven.
+
 ### Finding (2026-08-31, static IRX import census)
 
 The new `tools/analyze_iop_modules.py` parser reads the `.iopmod` header and
