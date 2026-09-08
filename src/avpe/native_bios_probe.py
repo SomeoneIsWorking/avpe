@@ -71,6 +71,7 @@ STATEFILE_BIOS_PHASES = (
     "alarm-negative",
     "system-query",
     "sif-query",
+    "entry-address-negative",
 )
 BIOS_EVENT_KINDS = frozenset(
     {

@@ -1066,6 +1066,14 @@ with restored stacks. This closes only these five register snapshots; it does
 not establish SIF register names, mutation semantics, DMA ordering, or an HLE
 implementation.
 
+### Finding (2026-09-08, EE entry-address invalid-token slice)
+
+The repeatable `entry-address-negative` phase calls `GetEntryAddress` at
+`0x002B3FD0` (`0x5B`) with `0xFFFFFFFF`. Two isolated restored-state runs
+returned signed `0` with restored stacks. This closes only the invalid-token
+result shape; valid entry lookup, module identity, and executable-loader
+behavior remain unproven.
+
 ### Finding (2026-08-31, static IRX import census)
 
 The new `tools/analyze_iop_modules.py` parser reads the `.iopmod` header and

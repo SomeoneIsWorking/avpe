@@ -317,6 +317,20 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/sif-query-phase.json --http-port 0
 ```
 
+## Diagnostic EE entry-address negative result
+
+The restored state also supports a bounded invalid-token call to
+`GetEntryAddress` at `0x002B3FD0` (syscall `0x5B`). Passing `0xFFFFFFFF`
+returned signed `0` across two isolated runs and restored the guest stack. This
+is an invalid-token result shape only; valid entry lookup, module identity, and
+loader behavior remain open. The repeatable phase is:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase entry-address-negative \
+  --bios-trace-output scratch/control-test/entry-address-negative-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
