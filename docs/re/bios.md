@@ -78,7 +78,7 @@ Earlier operation captures cited below remain historical measurements only.
 The BIOS-backed `mission1.p2s` state supports a bounded, nonblocking semaphore
 probe through the existing `/ee/call` stack-buffer interface. This is deliberate
 diagnostic guest execution, not a normal title operation or dynarec gameplay
-measurement. The exact target ELF contains these four wrappers, each encoded as
+measurement. The exact target ELF contains these wrappers, each encoded as
 `addiu v1, zero, number; syscall; jr ra; nop`:
 
 | Wrapper | Address | Syscall number |
@@ -86,7 +86,12 @@ measurement. The exact target ELF contains these four wrappers, each encoded as
 | `CreateSema` | `0x002B3E20` | `0x40` |
 | `DeleteSema` | `0x002B3E30` | `0x41` |
 | `SignalSema` | `0x002B3E40` | `0x42` |
+| `iSignalSema` | `0x002B3E50` | `0x43` |
+| `WaitSema` | `0x002B3E60` | `0x44` |
 | `PollSema` | `0x002B3E70` | `0x45` |
+| `iPollSema` | `0x002B3E80` | `0x46` |
+| `ReferSemaStatus` | `0x002B3E90` | `0x47` |
+| `iReferSemaStatus` | `0x002B3EA0` | `0x48` |
 
 The retained `strFileRead` callsite decompilation (`0x001819D0`, with shared
 implementation code near `0x002B8760`) initializes descriptor offset `+4` to
@@ -103,7 +108,7 @@ Two isolated surfaceless/null-muted runs produced these signed `v0` results;
 | Operation sequence | Observed results |
 |---|---|
 | Create → poll empty → signal → poll available → poll consumed → delete | `id, -1, id, id, -1, id` |
-| Poll, signal, and delete with argument `0xFFFFFFFF` | `-1, -1, -1` |
+| Poll, signal, wait, and delete with argument `0xFFFFFFFF` | `-1, -1, 0xFFFFFFFF, -1` |
 | Create → poll empty → signal twice → poll twice → delete | `id, -1, id, id, id, id, id` |
 
 Every diagnostic call returned through its wrapper and reported restored stack
@@ -116,10 +121,10 @@ the running game can reuse released IDs. Future negative tests use
 `0xFFFFFFFF`, not a previously freed positive ID.
 
 The admitted phase also exercises the ordinary and interrupt-context invalid-ID
-variants: `PollSema`, `SignalSema`, `iPollSema`, `iSignalSema`,
-`ReferSemaStatus`, `iReferSemaStatus`, and `DeleteSema`. All seven returned
-`-1` in the current run. No interrupt-context call receives a live title or
-probe ID.
+variants: `PollSema`, `SignalSema`, `iSignalSema`, `WaitSema`, `iPollSema`,
+`ReferSemaStatus`, `iReferSemaStatus`, and `DeleteSema`. Seven return signed
+`-1`; `WaitSema` returns the zero-extended raw `0xFFFFFFFF`. No
+interrupt-context call receives a live title or probe ID.
 
 The shipping phase runner now owns this sequence:
 
@@ -135,13 +140,15 @@ paired 25/25 EE calls and 215/214 IOP calls, with zero overflow, sequence
 errors, or pending EE calls; one background IOP call was live at the capture
 endpoint. The shipping analyzer accepted the resulting v7 trace and
 the probe-specific positive/negative fields. Background service calls are
-included in those totals; they are not counts of the ten diagnostic calls.
+included in those totals; they are not counts of the fifteen diagnostic calls.
 The fixed ignored outputs are the phase trace and its analyzer inventory under
 `scratch/control-test/`.
 
-This grounds nonblocking success, empty-count consumption, and an invalid-ID
-error class only. Waiting threads, wake order, interrupt-context variants,
-capacity/exhaustion, and other invalid descriptors remain unproven.
+This grounds nonblocking success, empty-count consumption, and the observed
+invalid-ID result shapes only. The admitted `WaitSema` call returns immediately
+and does not create a waiter; it does not prove thread blocking or wakeup.
+Waiting threads, wake order, interrupt-context variants, capacity/exhaustion,
+and other invalid descriptors remain unproven.
 
 ## Static EE syscall candidates
 

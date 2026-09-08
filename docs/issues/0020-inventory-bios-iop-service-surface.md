@@ -1191,6 +1191,25 @@ Python tests, 87 selected C++ production-path tests, clang-format, and all
 74 clang-tidy translation units. The build metadata identifies Clang; both
 current product and diagnostic executables linked successfully.
 
+### Finding (2026-09-08, WaitSema invalid-ID result shape)
+
+The semaphore phase was tested against the blocking entry point before adding
+its result shape to the shipping diagnostic contract:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase semaphore \
+  --bios-trace-output scratch/control-test/semaphore-phase.json --http-port 0
+```
+
+On the current binary, `WaitSema(0xFFFFFFFF)` returned the zero-extended
+`0x00000000FFFFFFFF` (`4294967295`), while the admitted invalid-ID wrappers
+returned sign-extended `-1`. The shipping probe now records that exact raw
+result separately and accepts it without treating it as a signed error. The
+call returned immediately, created no waiter, and did not reach a blocking
+operation; this grounds only the safe invalid-ID entry and its ABI result
+shape, not thread wakeup or blocking semantics.
+
 ## Resolution
 
 Not resolved. The current census is the first partial S025 slice; it does not

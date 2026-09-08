@@ -854,8 +854,11 @@ route. Issue #20 records the exact corpus and positive controls. A newly
 demonstrated runtime producer or asset path is needed before more shutdown
 menu traversal; global unreachability remains unproven.
 Controlled diagnostic semaphore calls now establish the nonblocking subset
-documented in [the BIOS contract](re/bios.md#diagnostic-ee-semaphore-results);
-blocking/wakeup and interrupt-context behavior remain outside that evidence.
+documented in [the BIOS contract](re/bios.md#diagnostic-ee-semaphore-results),
+including the safe invalid-ID `WaitSema` entry, whose raw zero-extended result
+is distinct from the signed `-1` returned by the other admitted invalid-ID
+wrappers. Blocking/wakeup and live interrupt-context behavior remain outside
+that evidence.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
 import surface, and additional service-level negative-path semantics remain

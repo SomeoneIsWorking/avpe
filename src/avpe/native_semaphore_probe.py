@@ -14,6 +14,7 @@ CREATE_SEMA = 0x002B3E20
 DELETE_SEMA = 0x002B3E30
 SIGNAL_SEMA = 0x002B3E40
 I_SIGNAL_SEMA = 0x002B3E50
+WAIT_SEMA = 0x002B3E60
 POLL_SEMA = 0x002B3E70
 I_POLL_SEMA = 0x002B3E80
 REFER_SEMA = 0x002B3E90
@@ -68,14 +69,16 @@ def probe_semaphore_lifecycle(port: int, deadline: float) -> dict[str, object]:
         ("poll_invalid", POLL_SEMA),
         ("signal_invalid", SIGNAL_SEMA),
         ("i_signal_invalid", I_SIGNAL_SEMA),
+        ("wait_invalid", WAIT_SEMA),
         ("i_poll_invalid", I_POLL_SEMA),
         ("refer_invalid", REFER_SEMA),
         ("i_refer_invalid", I_REFER_SEMA),
         ("delete_invalid", DELETE_SEMA),
     ):
         invalid[label], _ = _call(port, deadline, label, function, INVALID_ID)
-    if any(value != -1 for value in invalid.values()):
-        raise SemaphoreProbeError(f"invalid semaphore ID results were not -1: {invalid}")
+    if any(invalid[label] != -1 for label in invalid if label != "wait_invalid") \
+            or invalid["wait_invalid"] != INVALID_ID:
+        raise SemaphoreProbeError(f"invalid semaphore ID results diverged: {invalid}")
 
     semaphore_id, _ = _call(
         port, deadline, "create", CREATE_SEMA, stack_hex=DESCRIPTOR.hex()
@@ -135,7 +138,7 @@ def semaphore_probe_is_verified(trace: object) -> bool:
     if any(invalid.get(label) != -1 for label in (
         "poll_invalid", "signal_invalid", "i_signal_invalid", "i_poll_invalid",
         "refer_invalid", "i_refer_invalid", "delete_invalid"
-    )):
+    )) or invalid.get("wait_invalid") != INVALID_ID:
         return False
     semaphore_id = operations.get("create")
     if not isinstance(semaphore_id, int) or isinstance(semaphore_id, bool) \
