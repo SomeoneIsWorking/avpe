@@ -12,12 +12,20 @@ ENABLE_INTC = 0x002B3FE0
 I_ENABLE_INTC = 0x002B3FF0
 DISABLE_INTC = 0x002B4000
 I_DISABLE_INTC = 0x002B4010
+ENABLE_DMAC = 0x002B4020
+I_ENABLE_DMAC = 0x002B4030
+DISABLE_DMAC = 0x002B4040
+I_DISABLE_DMAC = 0x002B4050
 INVALID_ID = 0xFFFFFFFF
 EXPECTED_RESULTS = {
     "enable_intc": 0xFFFFFFFF,
     "i_enable_intc": 0xFFFFFFFF,
     "disable_intc": 0xFFFFFFFF,
     "i_disable_intc": 0xFFFFFFFF,
+    "enable_dmac": 0xFFFFFFFF,
+    "i_enable_dmac": 0xFFFFFFFF,
+    "disable_dmac": 0xFFFFFFFF,
+    "i_disable_dmac": 0xFFFFFFFF,
 }
 
 
@@ -38,6 +46,10 @@ def probe_interrupt_handler_invalid_id(port: int, deadline: float) -> dict[str, 
         ("i_enable_intc", I_ENABLE_INTC),
         ("disable_intc", DISABLE_INTC),
         ("i_disable_intc", I_DISABLE_INTC),
+        ("enable_dmac", ENABLE_DMAC),
+        ("i_enable_dmac", I_ENABLE_DMAC),
+        ("disable_dmac", DISABLE_DMAC),
+        ("i_disable_dmac", I_DISABLE_DMAC),
     ):
         try:
             invalid[label], _ = call_signed_v0(

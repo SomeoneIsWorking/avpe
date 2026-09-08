@@ -1013,9 +1013,8 @@ and scheduler behavior remain open.
 
 ### Finding (2026-09-08, interrupt-handler wrapper result slice)
 
-The repeatable `interrupt-handler-negative` phase calls the exact
-`EnableIntcHandler`, `iEnableIntcHandler`, `DisableIntcHandler`, and
-`iDisableIntcHandler` wrappers (`0x002B3FE0`–`0x002B4010`) with an all-ones
+The repeatable `interrupt-handler-negative` phase calls the exact INTC and
+DMAC enable/disable wrappers (`0x002B3FE0`–`0x002B4050`) with an all-ones
 handler token. Two isolated runs returned the raw zero-extended
 `0x00000000FFFFFFFF` value from every wrapper with restored stacks. This is
 only an observed result encoding; handler registration, delivery, and

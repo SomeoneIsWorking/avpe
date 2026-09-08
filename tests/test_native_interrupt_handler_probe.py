@@ -9,6 +9,8 @@ class InterruptHandlerProbeValidationTests(unittest.TestCase):
             "diagnostic_interrupt_handler": {"invalid_id": {
                 "enable_intc": 0xFFFFFFFF, "i_enable_intc": 0xFFFFFFFF,
                 "disable_intc": 0xFFFFFFFF, "i_disable_intc": 0xFFFFFFFF,
+                "enable_dmac": 0xFFFFFFFF, "i_enable_dmac": 0xFFFFFFFF,
+                "disable_dmac": 0xFFFFFFFF, "i_disable_dmac": 0xFFFFFFFF,
             }}
         }))
 
@@ -22,5 +24,7 @@ class InterruptHandlerProbeValidationTests(unittest.TestCase):
             "diagnostic_interrupt_handler": {"invalid_id": {
                 "enable_intc": 0, "i_enable_intc": 0xFFFFFFFF,
                 "disable_intc": 0xFFFFFFFF, "i_disable_intc": 0xFFFFFFFF,
+                "enable_dmac": 0xFFFFFFFF, "i_enable_dmac": 0xFFFFFFFF,
+                "disable_dmac": 0xFFFFFFFF, "i_disable_dmac": 0xFFFFFFFF,
             }}
         }))
