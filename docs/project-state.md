@@ -44,6 +44,9 @@ entry/return with result zero, completed the synchronous mission-goals modal,
 and left the source card unchanged. The remaining work is the shutdown,
 service-level negative-path inventory, plus required runtime operations outside
 the current boot, archive, save, and load slices.
+The diagnostic EE semaphore lifecycle now supplies controlled nonblocking
+success, empty-count, and invalid-ID results; its exact inputs and remaining
+ordering/capacity gaps are recorded in [the BIOS contract](re/bios.md#diagnostic-ee-semaphore-results).
 Static IRX analysis now narrows the IOP candidate surface to seven retained
 modules, 61 import tables, 260 import stubs, and 19 library identities; it is
 explicitly not runtime coverage.
@@ -849,6 +852,9 @@ menu actions; the retained `Main_Quit` labels do not establish a selectable
 route. Issue #20 records the exact corpus and positive controls. A newly
 demonstrated runtime producer or asset path is needed before more shutdown
 menu traversal; global unreachability remains unproven.
+Controlled diagnostic semaphore calls now establish the nonblocking subset
+documented in [the BIOS contract](re/bios.md#diagnostic-ee-semaphore-results);
+blocking/wakeup and interrupt-context behavior remain outside that evidence.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
 import surface, and additional service-level negative-path semantics remain
