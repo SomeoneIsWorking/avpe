@@ -8,6 +8,7 @@ from avpe.native_gs_h_param_probe import probe_gs_h_param_output
 from avpe.native_osd_config_probe import probe_osd_config_output
 from avpe.native_interrupt_handler_probe import probe_interrupt_handler_invalid_id
 from avpe.native_alarm_probe import probe_alarm_invalid_id
+from avpe.native_osd_config2_probe import probe_osd_config2_output
 from avpe.native_semaphore_probe import probe_semaphore_lifecycle
 from avpe.native_sif_dma_probe import probe_invalid_sif_dma
 from avpe.native_sif_query_probe import probe_sif_registers
@@ -89,5 +90,11 @@ def run_diagnostic_phase(
             probe_gs_h_param_output(port, deadline),
             "statefile_to_diagnostic_gs_h_param_output",
             "grounded_gs_h_param_output_buffers",
+        )
+    if phase == "osd-config2-output":
+        return (
+            probe_osd_config2_output(port, deadline),
+            "statefile_to_diagnostic_osd_config2_output",
+            "grounded_osd_config2_output_buffer",
         )
     return None

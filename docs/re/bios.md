@@ -376,6 +376,24 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/gs-h-param-output-phase.json --http-port 0
 ```
 
+## Diagnostic EE OSD-config v2 output
+
+`GetOsdConfigParam2` at `0x002B4130` (syscall `0x6F`) is a void service with a
+buffer, size, and offset argument. The repeatable phase seeds a 16-byte buffer
+at `0x01FF0000` with `0xCC`, calls it with size 16 and offset 0, and reads the
+buffer back. Two isolated runs wrote the complete span as
+`00 00 02 01 00 00 00 00 00 00 00 00 00 00 00 00`; the four-byte prefix is
+the only structure-level claim, and the remaining zeroes are recorded as the
+observed full-span write. Guest stacks were restored on both runs. This proves
+the observed output shape only; it does not decode OSD v2 fields or implement
+OSD policy.
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase osd-config2-output \
+  --bios-trace-output scratch/control-test/osd-config2-output-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
