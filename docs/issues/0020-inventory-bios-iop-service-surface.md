@@ -1057,6 +1057,15 @@ preserved from the production trace for the same reason. This closes only
 these query observations, not cache, coprocessor, loader, or execution-control
 services.
 
+### Finding (2026-09-08, EE SIF-register query slice)
+
+The repeatable `sif-query` phase calls `sceSifGetReg` at `0x002B4230`
+(`0x7A`) with selectors `0` through `4`. Two isolated restored-state runs
+returned `0`, `0`, `0x0001D1E0`, `0x00010000`, and `0x00070000`, respectively,
+with restored stacks. This closes only these five register snapshots; it does
+not establish SIF register names, mutation semantics, DMA ordering, or an HLE
+implementation.
+
 ### Finding (2026-08-31, static IRX import census)
 
 The new `tools/analyze_iop_modules.py` parser reads the `.iopmod` header and
