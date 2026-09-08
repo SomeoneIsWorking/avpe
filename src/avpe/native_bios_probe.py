@@ -31,6 +31,10 @@ from avpe.native_menu_pointer_dispatch_probe import (
     focus_dispatched_menu_pointer,
 )
 from avpe.native_pause_probe import probe_gameplay_pause_menu
+from avpe.native_semaphore_probe import (
+    SemaphoreProbeError,
+    probe_semaphore_lifecycle,
+)
 from avpe.native_pause_quit_probe import (
     LOAD_MENU_ACTION,
     PAUSE_QUIT_TEXT,
@@ -62,6 +66,7 @@ STATEFILE_BIOS_PHASES = (
     "game-load",
     "shutdown",
     "shutdown-pointer",
+    "semaphore",
 )
 BIOS_EVENT_KINDS = frozenset(
     {
@@ -118,7 +123,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help=(
             "capture a bounded BIOS/IOP phase after a title or observed "
             "profile-menu action, control save/load, a pointer-driven pause "
-            "Quit confirmation, clean-boot mission load, or complete native movie I/O"
+            "Quit confirmation, a private semaphore lifecycle, clean-boot mission load, "
+            "or complete native movie I/O"
         ),
     )
     parser.add_argument(
@@ -891,6 +897,12 @@ def run_bios_phase(
     state_path: Path,
     title_actions: tuple[str, ...] = (),
 ) -> tuple[dict[str, object], str, str]:
+    if phase == "semaphore":
+        return (
+            probe_semaphore_lifecycle(port, deadline),
+            "statefile_to_diagnostic_semaphore",
+            "invalid_id_create_poll_signal_poll_delete",
+        )
     if phase == "movie":
         return (
             capture_bios_movie_boundary(port),

@@ -115,24 +115,27 @@ that is an observation at those instants, not a stable invalid-ID test because
 the running game can reuse released IDs. Future negative tests use
 `0xFFFFFFFF`, not a previously freed positive ID.
 
-The first capture paired 525/525 EE and 98/98 IOP calls with zero pending calls,
-sequence errors, or overflow. The tighter second capture retained 16/16 paired
-EE calls and 549/556 paired IOP calls, with seven IOP calls live at the endpoint
-and zero overflow or EE pairing errors. Background service calls are included;
-these totals are not counts of the ten diagnostic calls. The current strict
-trace validator accepts both. The second artifact and its shipping-analyzer
-inventory use the fixed ignored paths
-`scratch/control-test/semaphore-bios.json` and
-`scratch/control-test/semaphore-inventory.json`.
+The shipping phase runner now owns this sequence:
 
-Reproduce in a manual `tools/run_control_test.py --seconds 25 --statefile
-scratch/states/mission1.p2s --http-port 0` run through the locked interpreter.
-After verified `Running`, start `/bios/trace/start`, issue the sequence through
-`/ee/call` with the addresses above and the returned ID as `a0`, then capture
-`/bios/trace/capture` immediately after deletion. The runner owns graceful
-shutdown. This grounds nonblocking success, empty-count consumption, and an
-invalid-ID error class only. Waiting threads, wake order, interrupt-context
-variants, capacity/exhaustion, and other invalid descriptors remain unproven.
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase semaphore \
+  --bios-trace-output scratch/control-test/semaphore-phase.json --http-port 0
+```
+
+The current run reached `statefile_to_diagnostic_semaphore`, captured the
+declared operation, and exited through graceful control-channel shutdown. It
+paired 15/15 EE calls and 1,746/1,739 IOP calls, with zero overflow, sequence
+errors, or pending EE calls; seven background IOP calls were live at the
+capture endpoint. The shipping analyzer accepted the resulting v7 trace and
+the probe-specific positive/negative fields. Background service calls are
+included in those totals; they are not counts of the ten diagnostic calls.
+The fixed ignored outputs are the phase trace and its analyzer inventory under
+`scratch/control-test/`.
+
+This grounds nonblocking success, empty-count consumption, and an invalid-ID
+error class only. Waiting threads, wake order, interrupt-context variants,
+capacity/exhaustion, and other invalid descriptors remain unproven.
 
 ## Static EE syscall candidates
 

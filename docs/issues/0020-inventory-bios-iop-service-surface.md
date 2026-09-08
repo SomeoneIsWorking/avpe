@@ -6,7 +6,7 @@ symptom: The AVP:E-specific BIOS/HLE service surface is not yet inventoried
 state_items: S025,S026,S027,S028
 tags: bios,hle,iop,inventory,re
 created: 2026-08-28
-updated: 2026-09-05
+updated: 2026-09-08
 ---
 
 ## Root cause
@@ -962,6 +962,23 @@ sets; their 1,358 versus 1,353 retained event identities again show that
 hot-path totals are not a repeatability contract.
 
 ## Remaining work
+
+### Finding (2026-09-08, repeatable diagnostic semaphore phase)
+
+The one-off semaphore lifecycle has been promoted into the shipping control
+runner as `--probe-bios-phase semaphore`. It starts the existing v7 census,
+uses only private guest semaphore IDs, validates each signed result and stack
+restoration, captures the census, and requires graceful teardown. The phase
+also exercises `0xFFFFFFFF` as a stable invalid-ID negative instead of reusing
+a released positive ID. A current `mission1.p2s` run paired 15/15 EE calls and
+1,746/1,739 IOP calls with zero overflow and zero EE pending calls; seven
+background IOP calls remained live at capture. The shipping analyzer and
+probe-specific validator accepted the artifact.
+
+This closes a repeatable nonblocking semaphore slice only. It does not close
+thread wakeup, blocking semaphore, interrupt-context, capacity, executable
+loader, module-release, or shutdown inventory. The exact descriptor and
+observed results remain in [`re/bios.md`](../re/bios.md#diagnostic-ee-semaphore-results).
 
 ### Finding (2026-08-31, static IRX import census)
 

@@ -44,9 +44,10 @@ entry/return with result zero, completed the synchronous mission-goals modal,
 and left the source card unchanged. The remaining work is the shutdown,
 service-level negative-path inventory, plus required runtime operations outside
 the current boot, archive, save, and load slices.
-The diagnostic EE semaphore lifecycle now supplies controlled nonblocking
-success, empty-count, and invalid-ID results; its exact inputs and remaining
-ordering/capacity gaps are recorded in [the BIOS contract](re/bios.md#diagnostic-ee-semaphore-results).
+The shipping `--probe-bios-phase semaphore` now supplies controlled
+nonblocking success, empty-count, and invalid-ID results through a repeatable
+statefile phase; its exact inputs and remaining ordering/capacity gaps are
+recorded in [the BIOS contract](re/bios.md#diagnostic-ee-semaphore-results).
 Static IRX analysis now narrows the IOP candidate surface to seven retained
 modules, 61 import tables, 260 import stubs, and 19 library identities; it is
 explicitly not runtime coverage.
