@@ -35,6 +35,9 @@ from avpe.native_semaphore_probe import (
     SemaphoreProbeError,
     probe_semaphore_lifecycle,
 )
+from avpe.native_thread_probe import (
+    probe_thread_invalid_id,
+)
 from avpe.native_pause_quit_probe import (
     LOAD_MENU_ACTION,
     PAUSE_QUIT_TEXT,
@@ -67,6 +70,7 @@ STATEFILE_BIOS_PHASES = (
     "shutdown",
     "shutdown-pointer",
     "semaphore",
+    "thread-negative",
 )
 BIOS_EVENT_KINDS = frozenset(
     {
@@ -123,7 +127,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help=(
             "capture a bounded BIOS/IOP phase after a title or observed "
             "profile-menu action, control save/load, a pointer-driven pause "
-            "Quit confirmation, a private semaphore lifecycle, clean-boot mission load, "
+            "Quit confirmation, private semaphore/thread diagnostics, clean-boot mission load, "
             "or complete native movie I/O"
         ),
     )
@@ -902,6 +906,12 @@ def run_bios_phase(
             probe_semaphore_lifecycle(port, deadline),
             "statefile_to_diagnostic_semaphore",
             "invalid_id_create_poll_signal_poll_delete",
+        )
+    if phase == "thread-negative":
+        return (
+            probe_thread_invalid_id(port, deadline),
+            "statefile_to_diagnostic_thread_negative",
+            "invalid_id_thread_service_calls",
         )
     if phase == "movie":
         return (

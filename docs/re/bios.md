@@ -150,6 +150,32 @@ and does not create a waiter; it does not prove thread blocking or wakeup.
 Waiting threads, wake order, interrupt-context variants, capacity/exhaustion,
 and other invalid descriptors remain unproven.
 
+## Diagnostic EE thread-service negative results
+
+The same `mission1.p2s` state supports a bounded invalid-ID probe for four
+non-creating thread services. The exact target wrappers are:
+
+| Wrapper | Address | Syscall number |
+|---|---|---|
+| `DeleteThread` | `0x002B3C30` | `0x21` |
+| `StartThread` | `0x002B3C40` | `0x22` |
+| `WakeupThread` | `0x002B3D50` | `0x33` |
+| `CancelWakeupThread` | `0x002B3D70` | `0x35` |
+
+Each call receives `0xFFFFFFFF`, returns sign-extended `-1`, and restores the
+guest stack. The calls complete immediately and do not create a thread or
+admit a wakeup target. The repeatable phase is:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase thread-negative \
+  --bios-trace-output scratch/control-test/thread-negative-phase.json --http-port 0
+```
+
+This grounds only invalid-ID admission and result shape. Thread creation,
+start/wakeup ordering for live IDs, cancellation ownership, sleeping threads,
+and scheduler wake behavior remain outside the evidence.
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
