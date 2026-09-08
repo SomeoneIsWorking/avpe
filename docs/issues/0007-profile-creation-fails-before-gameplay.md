@@ -53,6 +53,17 @@ register diagnostic call cannot reproduce the `CProfile::SaveGame` ABI. The
 remaining work is to decode the differing payloads, prove a load round-trip,
 and identify the native interception boundary.
 
+### Finding (2026-09-08, first product persistence seam)
+
+The live `CProfile` layout is now a shared validated owner. At the grounded
+`CProfile::SaveGame` entry/return PCs, the product captures the fixed 0x20-byte
+profile payload and, on a zero result, atomically updates the existing
+`avpe-native-save-v1` container under the PCSX2 user-data root. Before the
+grounded `CProfile::LoadGame` entry it validates the stored revision, slot count,
+payload size, and SHA-256 before restoring the payload to the live guest buffer.
+This is a real profile persistence seam, but it does not yet replace the
+numbered game-record card writes or establish a card-free path.
+
 ### Finding (2026-08-29, two normal game saves)
 
 Two isolated BIOS-backed runs exercised the title's Save Game menu. The first
