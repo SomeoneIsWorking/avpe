@@ -126,9 +126,10 @@ no derived game bytes are tracked.
 
 The new `src/avpe/native_save_store.py` provides an `avpe-native-save-v1`
 container bound to the supported serial/CRC, stores independently validated
-slots with SHA-256 integrity, and atomically replaces the host file. Shipping
-parser-backed tests round-trip two distinct records and reject truncated,
-corrupt, and incompatible containers. This advances the host persistence
+profile payload and slots with SHA-256 integrity, and atomically replaces the
+host file. Shipping parser-backed tests round-trip the grounded profile plus
+two distinct records and reject truncated, corrupt, and incompatible
+containers. This advances the host persistence
 boundary only; live CProfile interception, profile/settings/autosave ownership,
 and memory-card import remain unresolved.
 

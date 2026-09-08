@@ -4,12 +4,15 @@
 
 `src/avpe/native_save_store.py` now owns the first host-side persistence
 boundary. It writes an `avpe-native-save-v1` JSON container bound to serial
-`SLUS-20147` and CRC `0x64DA78A3`. Each slot stores the original validated
-record bytes as hexadecimal plus a SHA-256 digest. `write_slot()` validates the
-record with `parse_game_save_record()`, writes a temporary file in the target
-directory, flushes and synchronizes it, atomically replaces the destination,
-and synchronizes the directory on platforms that support directory fsync.
-`read_slot()` and `list_slots()` revalidate every retained record, so truncated,
+`SLUS-20147` and CRC `0x64DA78A3`. The container can preserve the grounded
+0x20-byte profile payload with revision `0x1CD9DEE3` and four save targets;
+each slot stores the original validated record bytes as hexadecimal plus a
+SHA-256 digest. `write_profile()` validates the grounded profile contract and
+`write_slot()` validates records with `parse_game_save_record()`; both write a
+temporary file in the target directory, flush and synchronize it, atomically
+replace the destination, and synchronize the directory on platforms that
+support directory fsync.
+`read_profile()`, `read_slot()`, and `list_slots()` revalidate retained data, so truncated,
 corrupt, incompatible, or structurally invalid containers fail by name.
 
 This is a host persistence owner only. It does not yet intercept the live

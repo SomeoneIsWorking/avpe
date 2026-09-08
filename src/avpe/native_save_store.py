@@ -17,10 +17,30 @@ TITLE_SERIAL = "SLUS-20147"
 TITLE_CRC = 0x64DA78A3
 MAX_SLOTS = 16
 MAX_RECORD_BYTES = 0x7E400
+PROFILE_PAYLOAD_BYTES = 0x20
+PROFILE_REVISION = 0x1CD9DEE3
+PROFILE_SLOT_COUNT = 4
 
 
 class NativeSaveStoreError(ValueError):
     """A native save container is missing, incompatible, or invalid."""
+
+
+def write_profile(path: Path, payload: bytes) -> None:
+    """Atomically replace the title profile payload while preserving slots."""
+    _validate_profile(payload)
+    container = _read_container(path) if path.exists() else _empty_container()
+    container["profile"] = _encode_profile(payload)
+    _atomic_write(path, container)
+
+
+def read_profile(path: Path) -> bytes:
+    """Read and validate the title profile payload from a native container."""
+    container = _read_container(path)
+    encoded = container.get("profile")
+    if encoded is None:
+        raise NativeSaveStoreError("native save profile is empty")
+    return _decode_profile(encoded)
 
 
 def write_slot(path: Path, slot: int, record: bytes) -> None:
@@ -67,6 +87,7 @@ def _empty_container() -> dict[str, object]:
     return {
         "schema": SCHEMA,
         "title": {"serial": TITLE_SERIAL, "crc": TITLE_CRC},
+        "profile": None,
         "slots": {},
     }
 
@@ -97,6 +118,9 @@ def _read_container(path: Path) -> dict[str, object]:
             raise NativeSaveStoreError("native save contains a non-numeric slot") from error
         _validate_slot(slot)
         _decode_record(encoded, slot)
+    profile = container.get("profile")
+    if profile is not None:
+        _decode_profile(profile)
     return container
 
 
@@ -105,6 +129,33 @@ def _encode_record(record: bytes) -> dict[str, object]:
         "record_hex": record.hex(),
         "sha256": hashlib.sha256(record).hexdigest(),
     }
+
+
+def _encode_profile(payload: bytes) -> dict[str, object]:
+    return {
+        "payload_hex": payload.hex(),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "revision": PROFILE_REVISION,
+        "slot_count": PROFILE_SLOT_COUNT,
+    }
+
+
+def _decode_profile(encoded: Any) -> bytes:
+    if not isinstance(encoded, dict) or encoded.get("revision") != PROFILE_REVISION or \
+            encoded.get("slot_count") != PROFILE_SLOT_COUNT:
+        raise NativeSaveStoreError("native save profile contract is incompatible")
+    payload_hex = encoded.get("payload_hex")
+    digest = encoded.get("sha256")
+    if not isinstance(payload_hex, str) or not isinstance(digest, str):
+        raise NativeSaveStoreError("native save profile is missing its payload")
+    try:
+        payload = bytes.fromhex(payload_hex)
+    except ValueError as error:
+        raise NativeSaveStoreError("native save profile is not hexadecimal") from error
+    if hashlib.sha256(payload).hexdigest() != digest:
+        raise NativeSaveStoreError("native save profile failed its integrity check")
+    _validate_profile(payload)
+    return payload
 
 
 def _decode_record(encoded: Any, slot: int) -> bytes:
@@ -131,6 +182,13 @@ def _validate_record(record: bytes) -> None:
         parse_game_save_record(record)
     except ValueError as error:
         raise NativeSaveStoreError(f"native save record failed title validation: {error}") from error
+
+
+def _validate_profile(payload: bytes) -> None:
+    if not isinstance(payload, bytes) or len(payload) != PROFILE_PAYLOAD_BYTES:
+        raise NativeSaveStoreError(
+            f"native save profile payload must be exactly {PROFILE_PAYLOAD_BYTES} bytes"
+        )
 
 
 def _validate_slot(slot: int) -> None:
