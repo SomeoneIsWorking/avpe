@@ -872,6 +872,10 @@ The repeatable event-flag phase now covers seven non-waiting wrappers over the
 grounded `RFU080`–`RFU090` range with the stable all-ones-token result vector
 `10, 0, 1, -1, -1, -1, 0`; wait and clear calls remain bounded-out after the
 earlier timeout and are not inferred from this slice.
+The interrupt-handler phase also captures all four `EnableIntcHandler` and
+`DisableIntcHandler` wrappers returning raw zero-extended
+`0x00000000FFFFFFFF` for the all-ones token; this does not establish handler
+delivery or interrupt ordering.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
 import surface, and additional service-level negative-path semantics remain
