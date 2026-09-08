@@ -598,6 +598,15 @@ renderer's native coordinates, so the next discriminator is a bounded snapshot
 of these production rectangles and their resolved menu items—not another
 screen-space transform.
 
+### Finding (2026-09-08, repeated mission focus remains non-quit)
+
+A fresh mission-state shutdown attempt reached the live pause callback registry,
+but settled focus repeatedly resolved to the same mission item rather than the
+grounded `QuitGame` CRC. The phase refused the repeated non-target focus and
+recorded the competing action identity. This independently reproduces the
+existing negative discriminator; a QuitGame-owned fixture is still required
+before the shell-shutdown service boundary can be claimed.
+
 ### Finding (2026-08-31, normal game-load owner)
 
 `GLoadPacifyMenu::Process` at `0x00202C20` waits for two process ticks, clears
