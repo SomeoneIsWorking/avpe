@@ -248,6 +248,29 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/alarm-negative-phase.json --http-port 0
 ```
 
+## Diagnostic EE system-query results
+
+The restored state also supports five side-effect-free EE query wrappers. Two
+isolated runs returned the following values with restored guest stacks:
+
+| Wrapper | Address | Syscall | Observed result |
+|---|---:|---:|---:|
+| `GetThreadId` | `0x002B3D10` | `0x2F` | `1` |
+| `EndOfHeap` | `0x002B3E00` | `0x3E` | `0x01FF5000` |
+| `PSMode` | `0x002B4260` | `0x7D` | void; result unobserved |
+| `MachineType` | `0x002B4270` | `0x7E` | `0x00008000` |
+| `GetMemorySize` | `0x002B4280` | `0x7F` | `0x02000000` |
+
+`PSMode` is deliberately retained as a void query because the production trace
+marks its result as unobserved; a stale register value is not promoted to an
+ABI result. The repeatable phase is:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase system-query \
+  --bios-trace-output scratch/control-test/system-query-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a

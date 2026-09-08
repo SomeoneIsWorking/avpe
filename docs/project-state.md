@@ -886,6 +886,11 @@ with the same all-ones token, returning signed `0` and `-1` respectively on two
 isolated runs with restored stacks. The differing shapes are recorded as an
 observation only; alarm creation, callback delivery, cancellation ordering,
 and timer scheduling remain unproven.
+The repeatable system-query phase now captures `GetThreadId`, `EndOfHeap`,
+`MachineType`, and `GetMemorySize` results (`1`, `0x01FF5000`, `0x00008000`,
+and `0x02000000`) plus the grounded void `PSMode` call. Its result remains
+explicitly unobserved, so stale register contents are not claimed as an ABI
+value.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
 import surface, and additional service-level negative-path semantics remain
@@ -923,6 +928,8 @@ the `NativeBiosTraceTest` production tests, and ignored repeated artifacts
 `scratch/control-test/game-save-bios.json` and its deterministic inventory,
 plus the ignored alarm-phase artifact
 `scratch/control-test/alarm-negative-phase.json` and its inventory.
+The system-query evidence is the ignored artifact
+`scratch/control-test/system-query-phase.json` and its inventory.
 The normal-load evidence is `scratch/control-test/game-load-bios.json` and its
 deterministic inventory.
 The native-movie evidence is
