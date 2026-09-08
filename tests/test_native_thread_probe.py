@@ -11,7 +11,9 @@ class ThreadProbeValidationTests(unittest.TestCase):
                     "delete_thread": -1,
                     "start_thread": -1,
                     "wakeup_thread": -1,
+                    "i_wakeup_thread": -1,
                     "cancel_wakeup_thread": -1,
+                    "i_cancel_wakeup_thread": -1,
                 }
             }
         }
