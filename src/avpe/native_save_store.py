@@ -34,6 +34,27 @@ def write_profile(path: Path, payload: bytes) -> None:
     _atomic_write(path, container)
 
 
+def replace_container(path: Path, profile: bytes, slots: dict[int, bytes]) -> None:
+    """Atomically replace a native container after validating every imported item."""
+    _validate_profile(profile)
+    if len(slots) > MAX_SLOTS:
+        raise NativeSaveStoreError("native save import has too many slots")
+    encoded_slots: dict[str, object] = {}
+    for slot, record in slots.items():
+        _validate_slot(slot)
+        _validate_record(record)
+        encoded_slots[str(slot)] = _encode_record(record)
+    _atomic_write(
+        path,
+        {
+            "schema": SCHEMA,
+            "title": {"serial": TITLE_SERIAL, "crc": TITLE_CRC},
+            "profile": _encode_profile(profile),
+            "slots": encoded_slots,
+        },
+    )
+
+
 def read_profile(path: Path) -> bytes:
     """Read and validate the title profile payload from a native container."""
     container = _read_container(path)

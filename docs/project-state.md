@@ -77,7 +77,7 @@ Current focus is attention, not a separate state.
 | S014 | AVP:E save/load boundary and on-card data schema | partial | S001 | G003 |
 | S015 | Atomic versioned PC-native save backend for AVP:E profiles and slots | partial | S014 | G003 |
 | S016 | Game save/load path operates without a virtual PS2 memory card | blocked | S014, S015 | G001, G003 |
-| S017 | Existing AVP:E memory-card progress imports into native saves | blocked | S014, S015 | G003 |
+| S017 | Existing AVP:E memory-card progress imports into native saves | partial | S014, S015 | G003 |
 | S018 | Desktop options are integrated into AVP:E's own menu system | missing | S010, S020 | G004 |
 | S019 | Graphics, display, and resolution settings enumerate, apply, and persist | blocked | S018 | G004 |
 | S020 | AVPE-owned host shell owns the visible window and presentation lifecycle | partial | S003, S004 | G001, G004 |
@@ -421,7 +421,7 @@ and incompatible containers, including corrupt or incorrectly sized profiles.
 
 Gap: the store is not yet connected to the live `CProfile::SaveGame` and
 `CProfile::LoadGame` boundaries, does not yet own profile/settings/autosave
-records, and has no memory-card import path. Full S015 verification still
+records. Full S015 verification still
 requires those game-facing operations and clean-restart evidence.
 
 ### S016 — memory-card-free game path: blocked
@@ -430,11 +430,20 @@ Blockers: S014 and S015. Verification requires saving, restarting, and loading
 distinct progress while no virtual memory card is configured, with no card UI
 or card-format prompt reachable in the normal product path.
 
-### S017 — existing-save import: blocked
+### S017 — existing-save import: partial
 
-Blockers: S014 and S015. Verification requires importing at least two distinct
-real AVP:E saves from a user-selected memory-card image, preserving their
-observable progress, and refusing unrelated or malformed card data by name.
+The new `src/avpe/memory_card_import.py` reads the grounded PS2 raw-card
+superblock and indirect FAT, follows bounded directory/file chains, validates
+the AVP:E profile identity/revision/payload, skips empty padded slots, rejects
+malformed non-empty slots, and atomically replaces an `avpe-native-save-v1`
+container. A real ignored source card imported its profile successfully and
+contained no non-empty game slots; synthetic card tests cover a valid layout and
+a cyclic FAT negative.
+
+Gap: S014 and S015 still block product wiring. Verification requires importing
+at least two distinct real AVP:E saves from a user-selected memory-card image,
+preserving their observable progress, and refusing unrelated or malformed card
+data by name.
 
 ### S018 — in-game native options surface: missing
 

@@ -15,9 +15,20 @@ support directory fsync.
 `read_profile()`, `read_slot()`, and `list_slots()` revalidate retained data, so truncated,
 corrupt, incompatible, or structurally invalid containers fail by name.
 
+`src/avpe/memory_card_import.py` provides the bounded existing-card import
+boundary. It validates the PS2 superblock geometry, reads the indirect FAT,
+follows logical data-cluster chains with cycle and allocation checks, and
+requires exactly one `BASLUS-20147XXXXXXXX` profile directory. The repeated
+profile record is checked against its title CRC, revision, and 0x20-byte
+payload; non-empty numbered `.SAV` files are passed through
+`parse_game_save_record()`, while zero-padded files remain empty slots. After
+all inputs validate, the destination is atomically replaced so a malformed
+slot cannot leave a partially imported container. The importer consumes a
+user-supplied card and does not intercept the running game's card calls.
+
 This is a host persistence owner only. It does not yet intercept the live
-`CProfile::SaveGame`/`LoadGame` calls, translate editable object fields, or
-import memory-card profiles; those remain the next native-save boundary.
+`CProfile::SaveGame`/`LoadGame` calls or translate editable object fields;
+those remain the next native-save boundary.
 
 This document records the grounded save boundary for the supported
 `SLUS-20147` executable. It is deliberately incomplete: the high-level profile
