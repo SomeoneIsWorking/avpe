@@ -31,9 +31,14 @@ The `avpe import-saves` command is the explicit provisioning entry point. When
 Windows under an `AVPE` directory. The zero-argument launcher does not inspect
 or require a memory card.
 
-This is a host persistence owner only. It does not yet intercept the live
-`CProfile::SaveGame`/`LoadGame` calls or translate editable object fields;
-those remain the next native-save boundary.
+`NativeProfileContract` now owns the shared live object layout used by both
+the diagnostic observer and the product seam. `NativeSaveBackend` is composed
+at the EE execution boundary: a successful `CProfile::SaveGame` return updates
+the existing JSON container atomically, and a matching `CProfile::LoadGame`
+entry validates and restores the stored fixed profile payload. The backend is
+title/CRC gated and uses the PCSX2 user-data root. It intentionally preserves
+the existing numbered game-slot table and card writer; game-record replacement,
+settings/autosave ownership, and card-free load remain open work.
 
 This document records the grounded save boundary for the supported
 `SLUS-20147` executable. It is deliberately incomplete: the high-level profile

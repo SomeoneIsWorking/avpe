@@ -409,20 +409,20 @@ issue #7.
 
 ### S015 — native save backend: partial
 
-The exact `CProfile::SaveGame` observer now also captures and validates the
-live profile object/payload contract at the admitted entry, giving the native
-backend a production-owned input boundary. The new
-`src/avpe/native_save_store.py` now preserves that validated 0x20-byte profile
-payload alongside a title-bound
-`avpe-native-save-v1` host container with atomic replacement, per-slot SHA-256
-integrity, and validation through the shipping `parse_game_save_record()`
-parser. Tests round-trip distinct slot records and reject truncated, corrupt,
-and incompatible containers, including corrupt or incorrectly sized profiles.
+The exact `CProfile::SaveGame` observer captures and validates the live profile
+object/payload contract at the admitted entry. The production EE hook now also
+feeds that same contract to `NativeSaveBackend`: after a successful grounded
+save return it updates the title-bound `avpe-native-save-v1` JSON container
+atomically, preserving imported/parser-backed slots, and before
+`CProfile::LoadGame` it validates the stored profile digest and restores the
+payload into the live guest buffer. The backend uses the PCSX2 user data root,
+so it does not write the checkout or scratch space.
 
-Gap: the store is not yet connected to the live `CProfile::SaveGame` and
-`CProfile::LoadGame` boundaries, does not yet own profile/settings/autosave
-records. Full S015 verification still
-requires those game-facing operations and clean-restart evidence.
+The Python store remains the provisioning/import authority and exercises the
+same container schema. Gap: native interception still covers only the fixed
+profile payload; numbered game records, settings, autosave, and a card-free
+load path remain unimplemented. Full S015 verification still requires those
+game-facing operations and clean-restart evidence.
 
 ### S016 — memory-card-free game path: blocked
 
