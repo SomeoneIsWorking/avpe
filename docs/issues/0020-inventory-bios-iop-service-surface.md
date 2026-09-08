@@ -1074,6 +1074,13 @@ returned signed `0` with restored stacks. This closes only the invalid-token
 result shape; valid entry lookup, module identity, and executable-loader
 behavior remain unproven.
 
+### Finding (2026-09-08, EE SIF-DMA invalid-token slice)
+
+The repeatable `sif-dma-negative` phase calls `sceSifDmaStat` at `0x002B41C0`
+(`0x76`) with `0xFFFFFFFF`. Two isolated restored-state runs returned signed
+`-1` with restored stacks. This closes only the invalid-token status shape;
+DMA creation, completion ordering, and HLE behavior remain unproven.
+
 ### Finding (2026-08-31, static IRX import census)
 
 The new `tools/analyze_iop_modules.py` parser reads the `.iopmod` header and

@@ -331,6 +331,20 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/entry-address-negative-phase.json --http-port 0
 ```
 
+## Diagnostic EE SIF-DMA status negative result
+
+The restored state also supports a bounded invalid-token call to
+`sceSifDmaStat` at `0x002B41C0` (syscall `0x76`). Passing `0xFFFFFFFF`
+returned signed `-1` across two isolated runs and restored the guest stack.
+This is an invalid-token status shape only; DMA creation, completion, ordering,
+and HLE behavior remain open. The repeatable phase is:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase sif-dma-negative \
+  --bios-trace-output scratch/control-test/sif-dma-negative-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
