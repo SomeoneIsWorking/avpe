@@ -10,6 +10,7 @@ from avpe.native_bios_call import BiosCallError, call_signed_v0
 
 GET_THREAD_ID = 0x002B3D10
 END_OF_HEAP = 0x002B3E00
+GET_GS_H_PARAM = 0x002B3EE0
 GET_GS_V_PARAM = 0x002B3EF0
 PS_MODE = 0x002B4260
 MACHINE_TYPE = 0x002B4270
@@ -17,6 +18,7 @@ GET_MEMORY_SIZE = 0x002B4280
 EXPECTED_RESULTS = {
     "get_thread_id": 0x0000000000000001,
     "end_of_heap": 0x0000000001FF5000,
+    "get_gs_h_param": 0x0000000000000000,
     "get_gs_v_param": 0x0000000000000080,
     "machine_type": 0x0000000000008000,
     "get_memory_size": 0x0000000002000000,
@@ -41,6 +43,7 @@ def probe_system_queries(port: int, deadline: float) -> dict[str, object]:
     for label, function in (
         ("get_thread_id", GET_THREAD_ID),
         ("end_of_heap", END_OF_HEAP),
+        ("get_gs_h_param", GET_GS_H_PARAM),
         ("get_gs_v_param", GET_GS_V_PARAM),
         ("ps_mode", PS_MODE),
         ("machine_type", MACHINE_TYPE),
