@@ -25,7 +25,11 @@ from avpe.control_test import (
 )
 from avpe.control_http import read_status, request_bytes, request_json, request_shutdown
 from avpe.cursor import CursorObservation, detect_cursor
-from avpe.memory_card_probe import await_memory_card_ready, prepare_memory_card_probe
+from avpe.memory_card_probe import (
+    await_memory_card_ready,
+    drain_memory_card_writes,
+    prepare_memory_card_probe,
+)
 from avpe.native_asset_probe import (
     await_asset_byte_trace,
     await_load_timing,
@@ -908,7 +912,7 @@ def main() -> int:
             time.sleep(0.1)
         if proc.poll() is None and card_probe is not None:
             try:
-                memory_card_shutdown_proof = await_memory_card_ready(port, deadline)
+                memory_card_shutdown_proof = drain_memory_card_writes(port)
             except RuntimeError as error:
                 if probe_error is None:
                     probe_error = str(error)
