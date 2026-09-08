@@ -73,6 +73,67 @@ no registry scan outside an active oracle call. The runner rejects pre-v7
 artifacts rather than presenting them as current exception-transition evidence.
 Earlier operation captures cited below remain historical measurements only.
 
+## Diagnostic EE semaphore results
+
+The BIOS-backed `mission1.p2s` state supports a bounded, nonblocking semaphore
+probe through the existing `/ee/call` stack-buffer interface. This is deliberate
+diagnostic guest execution, not a normal title operation or dynarec gameplay
+measurement. The exact target ELF contains these four wrappers, each encoded as
+`addiu v1, zero, number; syscall; jr ra; nop`:
+
+| Wrapper | Address | Syscall number |
+|---|---|---|
+| `CreateSema` | `0x002B3E20` | `0x40` |
+| `DeleteSema` | `0x002B3E30` | `0x41` |
+| `SignalSema` | `0x002B3E40` | `0x42` |
+| `PollSema` | `0x002B3E70` | `0x45` |
+
+The retained `strFileRead` callsite decompilation (`0x001819D0`, with shared
+implementation code near `0x002B8760`) initializes descriptor offset `+4` to
+one, `+8` to zero, and `+0x14` to zero before `CreateSema`. The probe stages
+six little-endian words `[0, 1, 0, 0, 0, 0]` using `stack_argument: 0` and
+`stack_hex: "000000000100000000000000000000000000000000000000"`.
+Other fields are zeroed diagnostic inputs; the callsite does not establish all
+of their meanings. The newly returned ID is private to this probe and is
+deleted after use. No title-owned semaphore is polled or deleted.
+
+Two isolated surfaceless/null-muted runs produced these signed `v0` results;
+`id` was 10 in both runs but its exact value is not a contract:
+
+| Operation sequence | Observed results |
+|---|---|
+| Create → poll empty → signal → poll available → poll consumed → delete | `id, -1, id, id, -1, id` |
+| Poll, signal, and delete with argument `0xFFFFFFFF` | `-1, -1, -1` |
+| Create → poll empty → signal twice → poll twice → delete | `id, -1, id, id, id, id, id` |
+
+Every diagnostic call returned through its wrapper and reported restored stack
+state. The second sequence demonstrates two available counts despite descriptor
+`+4 = 1`; an HLE implementation that saturates this case at one would diverge.
+It does not prove that field's meaning or arbitrary overflow behavior. The
+first run also returned `-1` for a poll and a second deletion after deletion;
+that is an observation at those instants, not a stable invalid-ID test because
+the running game can reuse released IDs. Future negative tests use
+`0xFFFFFFFF`, not a previously freed positive ID.
+
+The first capture paired 525/525 EE and 98/98 IOP calls with zero pending calls,
+sequence errors, or overflow. The tighter second capture retained 16/16 paired
+EE calls and 549/556 paired IOP calls, with seven IOP calls live at the endpoint
+and zero overflow or EE pairing errors. Background service calls are included;
+these totals are not counts of the ten diagnostic calls. The current strict
+trace validator accepts both. The second artifact and its shipping-analyzer
+inventory use the fixed ignored paths
+`scratch/control-test/semaphore-bios.json` and
+`scratch/control-test/semaphore-inventory.json`.
+
+Reproduce in a manual `tools/run_control_test.py --seconds 25 --statefile
+scratch/states/mission1.p2s --http-port 0` run through the locked interpreter.
+After verified `Running`, start `/bios/trace/start`, issue the sequence through
+`/ee/call` with the addresses above and the returned ID as `a0`, then capture
+`/bios/trace/capture` immediately after deletion. The runner owns graceful
+shutdown. This grounds nonblocking success, empty-count consumption, and an
+invalid-ID error class only. Waiting threads, wake order, interrupt-context
+variants, capacity/exhaustion, and other invalid descriptors remain unproven.
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
