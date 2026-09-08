@@ -440,6 +440,9 @@ container. A real ignored source card imported its profile successfully and
 contained no non-empty game slots; synthetic card tests cover a valid layout and
 a cyclic FAT negative. The `avpe import-saves` CLI now exposes this validated
 operation for a user-selected card and destination.
+When no destination is supplied, the CLI resolves the platform user-data
+directory (`XDG_DATA_HOME` on Linux, Application Support on macOS, and
+`LOCALAPPDATA`/`APPDATA` on Windows) under `AVPE`.
 
 Gap: S014 and S015 still block product wiring. Verification requires importing
 at least two distinct real AVP:E saves from a user-selected memory-card image,

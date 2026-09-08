@@ -6,6 +6,7 @@ blockers. Every negative prints what it looked for and what it found.
 
 import argparse
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from avpe.dependencies import inspect_submodule, provision_submodules
 from avpe.log import log
 from avpe.memory_card_import import MemoryCardImportError, import_memory_card
 from avpe.native_assets import NativeAssetError, provision_native_assets
+from avpe.native_save_path import resolve_native_save_path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 NATIVE_ASSET_DIR = ROOT / "scratch" / "native-assets"
@@ -173,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
         "import-saves", help="import an AVP:E memory-card image into native saves"
     )
     import_parser.add_argument("--memory-card", required=True, type=Path)
-    import_parser.add_argument("--destination", required=True, type=Path)
+    import_parser.add_argument("--destination", type=Path)
     sub.add_parser("launch", help="boot the user-facing AVPE host")
 
     args = parser.parse_args(argv)
@@ -225,8 +227,11 @@ def main(argv: list[str] | None = None) -> int:
         log("info", "assets", f"validated native store: {root}")
         return 0
     if args.cmd == "import-saves":
+        destination = args.destination or resolve_native_save_path(
+            os.environ, system=platform.system(), home=Path.home()
+        )
         try:
-            imported = import_memory_card(args.memory_card, args.destination)
+            imported = import_memory_card(args.memory_card, destination)
         except MemoryCardImportError as error:
             log("error", "import-saves", str(error))
             return 1
@@ -234,7 +239,7 @@ def main(argv: list[str] | None = None) -> int:
             "info",
             "import-saves",
             f"imported profile {imported.directory} and {len(imported.slots)} populated slot(s) "
-            f"into {args.destination}",
+            f"into {destination}",
         )
         return 0
     parser.error(f"unknown command {args.cmd!r}")

@@ -60,6 +60,24 @@ class ProductPreparationTests(unittest.TestCase):
         )
         log.assert_called_once()
 
+    @patch("avpe.cli.log")
+    @patch("avpe.cli.resolve_native_save_path", return_value=Path("/user/data/avpe.avpesave"))
+    @patch(
+        "avpe.cli.import_memory_card",
+        return_value=ImportedMemoryCard(b"profile", {}, "BASLUS-20147TEST"),
+    )
+    def test_import_saves_cli_defaults_to_platform_save_path(
+        self, importer: Mock, resolve: Mock, log: Mock
+    ) -> None:
+        from avpe.cli import main
+
+        self.assertEqual(main(["import-saves", "--memory-card", "/cards/source.ps2"]), 0)
+        resolve.assert_called_once()
+        importer.assert_called_once_with(
+            Path("/cards/source.ps2"), Path("/user/data/avpe.avpesave")
+        )
+        log.assert_called_once()
+
     def test_build_paths_use_the_top_level_build_root(self) -> None:
         paths = BuildPaths(Path("/repo"))
 
