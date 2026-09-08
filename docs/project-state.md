@@ -422,7 +422,12 @@ The Python store remains the provisioning/import authority and exercises the
 same container schema. Gap: native interception still covers only the fixed
 profile payload; numbered game records, settings, autosave, and a card-free
 load path remain unimplemented. Full S015 verification still requires those
-game-facing operations and clean-restart evidence.
+game-facing operations and clean-restart evidence. A 2026-09-08 isolated
+normal Save Game probe returned zero from `CProfile::SaveGame`, produced the
+native container under the PCSX2 user-data root, and matched its stored profile
+payload byte-for-byte against the live boundary capture; the same run still
+changed the working virtual card, so it is profile-mirroring evidence rather
+than card-free conformance.
 
 ### S016 — memory-card-free game path: blocked
 

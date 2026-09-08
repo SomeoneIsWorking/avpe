@@ -64,6 +64,12 @@ payload size, and SHA-256 before restoring the payload to the live guest buffer.
 This is a real profile persistence seam, but it does not yet replace the
 numbered game-record card writes or establish a card-free path.
 
+An isolated 2026-09-08 normal Save Game probe reached the seam and wrote the
+native container under the PCSX2 user-data root. The boundary returned zero and
+the stored profile payload matched the live capture byte-for-byte. The working
+card still changed, so the run does not claim native slot persistence or card-
+free conformance.
+
 ### Finding (2026-08-29, two normal game saves)
 
 Two isolated BIOS-backed runs exercised the title's Save Game menu. The first

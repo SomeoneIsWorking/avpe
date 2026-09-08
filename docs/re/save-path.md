@@ -40,6 +40,14 @@ title/CRC gated and uses the PCSX2 user-data root. It intentionally preserves
 the existing numbered game-slot table and card writer; game-record replacement,
 settings/autosave ownership, and card-free load remain open work.
 
+The first production-path probe of this seam completed the ordinary Pause →
+Save route on an isolated working card. `CProfile::SaveGame` returned zero, the
+backend wrote `PCSX2/AVPE/avpe-saves.avpesave`, and its 32-byte profile payload
+matched the capture at the grounded entry exactly. The working card still
+received the title's numbered-save mutation in that run; this is therefore
+evidence that the native profile mirror is reached, not evidence that the card
+writer has been bypassed.
+
 This document records the grounded save boundary for the supported
 `SLUS-20147` executable. It is deliberately incomplete: the high-level profile
 and game-save operations and their outer records are mapped, while the profile
