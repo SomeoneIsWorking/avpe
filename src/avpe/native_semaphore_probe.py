@@ -13,7 +13,11 @@ from avpe.control_http import request_bytes, request_json
 CREATE_SEMA = 0x002B3E20
 DELETE_SEMA = 0x002B3E30
 SIGNAL_SEMA = 0x002B3E40
+I_SIGNAL_SEMA = 0x002B3E50
 POLL_SEMA = 0x002B3E70
+I_POLL_SEMA = 0x002B3E80
+REFER_SEMA = 0x002B3E90
+I_REFER_SEMA = 0x002B3EA0
 INVALID_ID = 0xFFFFFFFF
 DESCRIPTOR = struct.pack("<6I", 0, 1, 0, 0, 0, 0)
 
@@ -63,6 +67,10 @@ def probe_semaphore_lifecycle(port: int, deadline: float) -> dict[str, object]:
     for label, function in (
         ("poll_invalid", POLL_SEMA),
         ("signal_invalid", SIGNAL_SEMA),
+        ("i_signal_invalid", I_SIGNAL_SEMA),
+        ("i_poll_invalid", I_POLL_SEMA),
+        ("refer_invalid", REFER_SEMA),
+        ("i_refer_invalid", I_REFER_SEMA),
         ("delete_invalid", DELETE_SEMA),
     ):
         invalid[label], _ = _call(port, deadline, label, function, INVALID_ID)
@@ -124,7 +132,10 @@ def semaphore_probe_is_verified(trace: object) -> bool:
     operations = diagnostic.get("operations")
     if not isinstance(invalid, dict) or not isinstance(operations, dict):
         return False
-    if any(invalid.get(label) != -1 for label in ("poll_invalid", "signal_invalid", "delete_invalid")):
+    if any(invalid.get(label) != -1 for label in (
+        "poll_invalid", "signal_invalid", "i_signal_invalid", "i_poll_invalid",
+        "refer_invalid", "i_refer_invalid", "delete_invalid"
+    )):
         return False
     semaphore_id = operations.get("create")
     if not isinstance(semaphore_id, int) or isinstance(semaphore_id, bool) \
