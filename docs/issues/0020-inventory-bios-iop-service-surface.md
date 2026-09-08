@@ -1031,6 +1031,18 @@ observation of the token at these wrappers, not a general invalid-alarm
 contract. Alarm creation, callback delivery, cancellation ordering, and timer
 scheduling remain outside the evidence.
 
+### Finding (2026-09-08, EE system-query result slice)
+
+The repeatable `system-query` phase calls the grounded no-argument wrappers
+`GetThreadId` (`0x002B3D10`), `EndOfHeap` (`0x002B3E00`), `PSMode`
+(`0x002B4260`), `MachineType` (`0x002B4270`), and `GetMemorySize`
+(`0x002B4280`). Two isolated runs returned `1`, `0x01FF5000`, an explicitly
+unobserved `PSMode` result, `0x00008000`, and `0x02000000`, respectively, with
+restored stacks. The void classification for `PSMode` is preserved from the
+production trace; its register contents are not treated as a result. This
+closes only these query observations, not cache, coprocessor, loader, or
+execution-control services.
+
 ### Finding (2026-08-31, static IRX import census)
 
 The new `tools/analyze_iop_modules.py` parser reads the `.iopmod` header and

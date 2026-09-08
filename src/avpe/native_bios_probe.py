@@ -68,6 +68,7 @@ STATEFILE_BIOS_PHASES = (
     "event-flag-negative",
     "interrupt-handler-negative",
     "alarm-negative",
+    "system-query",
 )
 BIOS_EVENT_KINDS = frozenset(
     {

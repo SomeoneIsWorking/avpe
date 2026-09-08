@@ -6,6 +6,7 @@ from avpe.native_event_flag_probe import probe_event_flag_invalid_id
 from avpe.native_interrupt_handler_probe import probe_interrupt_handler_invalid_id
 from avpe.native_alarm_probe import probe_alarm_invalid_id
 from avpe.native_semaphore_probe import probe_semaphore_lifecycle
+from avpe.native_system_query_probe import probe_system_queries
 from avpe.native_thread_probe import probe_thread_invalid_id
 
 
@@ -41,5 +42,11 @@ def run_diagnostic_phase(
             probe_alarm_invalid_id(port, deadline),
             "statefile_to_diagnostic_alarm_negative",
             "invalid_id_alarm_service_calls",
+        )
+    if phase == "system-query":
+        return (
+            probe_system_queries(port, deadline),
+            "statefile_to_diagnostic_system_query",
+            "grounded_ee_system_queries",
         )
     return None
