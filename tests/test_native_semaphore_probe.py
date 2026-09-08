@@ -12,6 +12,7 @@ class SemaphoreProbeValidationTests(unittest.TestCase):
                     "poll_invalid": -1,
                     "signal_invalid": -1,
                     "i_signal_invalid": -1,
+                    "wait_invalid": 0xFFFFFFFF,
                     "i_poll_invalid": -1,
                     "refer_invalid": -1,
                     "i_refer_invalid": -1,
@@ -42,7 +43,7 @@ class SemaphoreProbeValidationTests(unittest.TestCase):
         trace = self._trace()
         invalid = trace["diagnostic_semaphore"]["invalid_id"]
         assert isinstance(invalid, dict)
-        invalid["delete_invalid"] = 10
+        invalid["wait_invalid"] = 10
         self.assertFalse(semaphore_probe_is_verified(trace))
 
     def test_rejects_descriptor_drift(self) -> None:
