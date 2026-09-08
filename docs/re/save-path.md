@@ -64,9 +64,9 @@ Both profiles and numbered game saves begin with a `CProfileDef` record of
 | `0x100` | 4 | Profile-name CRC32 in a profile; owning profile CRC32 in a game save. |
 | `0x104` | 4 | Unknown; must be resolved from differing records. |
 | `0x108` | 4 | Game-data revision used to reject incompatible records. |
-| `0x10C` | 4 | Profile modification time in a profile; initialized to `-1` before a record is populated. Its game-save meaning remains unproven. |
+| `0x10C` | 4 | Profile-save elapsed game-timer seconds as float32; initialized to bits `0xFFFFFFFF` before population. Its game-save meaning remains unproven. |
 | `0x110` | 4 | Fixed profile/game-data payload size used for compatibility checks. |
-| `0x114` | 4 | Stable profile ID derived from name CRC plus creation time. Its game-save meaning remains unproven. |
+| `0x114` | 4 | Stable profile ID derived from name CRC plus integer-truncated elapsed game-timer seconds at creation. Its game-save meaning remains unproven. |
 
 The profile payload immediately follows this record and has the size supplied
 through `CProfile::SetGameData` (`CProfile + 0x18` pointer, `+0x1C` size,
@@ -102,8 +102,12 @@ The card SHA-256 is
 The payload bytes are
 `11 10 10 00 00 00 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00 00 80 3F 00 00 80 3F 00 00 80 3F`.
 This grounds one live profile payload and confirms the record's profile-name
-CRC and fixed payload size. It does not resolve the unknown field at `0x104`,
-the timestamp/ID semantics, or any game-save payload.
+CRC and fixed payload size. It does not resolve the unknown field at `0x104`
+or any game-save payload. Static inspection of `SaveProfile` (`0x0012FCE0`)
+grounds `0x10C` as `SecsPerTick * (counter - SysTicks) - tBaseTime`, not a
+wall-clock timestamp. `CreateProfile` (`0x0012F4A0`) adds the integer-truncated
+timer value to the name CRC for `0x114`; paired persisted profiles are still
+required to independently verify these fields and the variable payload.
 
 ## Live `CProfile` data contract
 

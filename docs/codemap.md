@@ -62,7 +62,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Native gameplay input | Live gameplay-pointer validation, selector policy, selection edges, and contextual commands | `thirdparty/pcsx2/pcsx2/AVPE/NativeInput.cpp/.h` | `AVPE::NativeInput::MoveAbsolute()` | [input-path contract](re/input-path.md) |
 | Native camera input | Original camera move/rotate/zoom calls, minimap pointer integration, and before/after state capture | `thirdparty/pcsx2/pcsx2/AVPE/NativeCameraInput.cpp/.h` | `AVPE::NativeCameraInput::Apply()` | [input-path contract](re/input-path.md) |
 | Native menu input | Callback-registry menu discovery, synchronous mission-goals modal focus, exact focus and text-pointer observation, hit-testing, activation/cancel composition, and bounded exact-state physical-pad admission | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuInput.cpp/.h` | `AVPE::NativeMenuInput` | [input-path contract](re/input-path.md) |
-| Native menu-item discovery | Bounded descendant/handle validation, ActivateFocused hotkey precedence, focused-item callback admission, attract-owner exclusion, and exact mission-goals Exit lookup; no action invocation | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuItems.cpp/.h` | `AVPE::NativeMenuItems::{FindActivationCallback,FindMissionGoalsExitItem}` | [input-path contract](re/input-path.md) |
+| Native menu-item discovery | Bounded descendant/handle validation, ActivateFocused hotkey precedence, focused-item and slider callback admission, authored Audio Back admission, attract-owner exclusion, and exact mission-goals Exit lookup; no action invocation | `thirdparty/pcsx2/pcsx2/AVPE/NativeMenuItems.cpp/.h` | `AVPE::NativeMenuItems::{FindActivationCallback,FindAdjustmentCallback,FindCancellationCallback,FindMissionGoalsExitItem}` | [input-path contract](re/input-path.md) |
 | Attract cancellation admission | Unique attract-owner and registered button-descriptor discovery; guest callback retains level/owner teardown | `thirdparty/pcsx2/pcsx2/AVPE/NativeAttractInput.cpp/.h` | `AVPE::NativeAttractInput::FindCancellation()` | [input-path contract](re/input-path.md) |
 | Movie cancellation | Single-player one-shot admission, original readiness condition, passive MPEG/player lifetime observation, and deferred abort dispatch at the host input poll; guest owns teardown | `thirdparty/pcsx2/pcsx2/AVPE/NativeMovieInput.cpp/.h` | `AVPE::NativeMovieInput::{RequestOnCPUThread,PollOnCPUThread}` | [input-path contract](re/input-path.md) |
 | Movie cancellation observation | Two explicit restored-player lifetimes, safe deferred return, title-only destination, and no inherited input; never a build gate | `src/avpe/native_movie_probe.py` | `probe_native_movie_cancellation()` via `tools/run_control_test.py --probe-native-logo` | [input-path contract](re/input-path.md) |
@@ -167,7 +167,7 @@ thirdparty/pcsx2/pcsx2/AVPE/   fork-side AVPE integration owner
 ├── NativeMemoryCardState.*    CPU-thread card readiness observation
 ├── NativePadReadiness.*       guest controller initialization/report readiness
 ├── NativeMenuInput.*          callback/menu-modal discovery and typed menu actions
-├── NativeMenuItems.*          bounded menu-item discovery and activation eligibility
+├── NativeMenuItems.*          bounded menu-item discovery and action eligibility
 ├── NativeMenuRoute.*          native-menu diagnostic HTTP adapter
 └── NativePointerMotion.*      shared absolute pointer movement mechanics
 thirdparty/pcsx2/pcsx2-avpe/    standalone product frontend

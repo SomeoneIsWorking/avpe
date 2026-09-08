@@ -6,7 +6,7 @@ symptom: pause-menu keyboard and pointer actions are native, but product-window 
 state_items: S010
 tags: input,menu,keyboard,mouse,re
 created: 2026-08-27
-updated: 2026-09-05
+updated: 2026-09-08
 ---
 
 ## Root cause
@@ -33,6 +33,47 @@ diagnostic call. This result does not apply to the later grounded synchronous
 mission-load modal.
 
 ## Current findings
+
+### Finding (2026-09-08, native Audio adjustment and cancellation)
+
+Native Left on the focused Music slider returned HTTP 409 because admission
+searched menu-owned directional callbacks, while `GSliderControl::Focus`
+registers item-owned adjustment callbacks. The physical-pad oracle called
+`InputDown` (`0x001FD400`) on that same focused slider; native admission now
+selects the original focused descendant's registered `InputDown`/`InputUp`
+members. Music, Effects, and Voice each changed downward and upward through
+those handlers. The title retains its frame-time-scaled delta and clamping;
+the port neither writes slider values nor emulates a controller.
+
+This exposed a second cause: generic native `GMenu::Cancel` closed Audio
+without `GAudioOptionsMenu::ItemActivated` restoring preview sound volumes.
+The Audio constructor then copied those leaked volumes into the profile on
+reopening. Audio Cancel now invokes the unique authored `AudioBackButton`'s
+registered `HotKeyActivate`, preserving the original rollback and teardown.
+Other menus retain their existing virtual Cancel. Exact addresses and object
+admission requirements live in [the input contract](../re/input-path.md).
+
+The final surfaceless, null-muted run observed Music `1.0 → 0.9832763671875 →
+1.0` through native Left/Right. Three more Left actions previewed
+`0.9500732421875`; native Cancel selected handler `0x00120F40` on the Back
+object, and reopening restored `1.0` with the entire 32-byte profile payload
+unchanged. A subsequent Left/Accept/reopen retained `0.9757080078125`.
+Both debug injection masks remained `0000`, and the runner exited gracefully.
+This proves the live callback and preview/commit boundary, not persistence to
+disk, held-key repeat behavior, or real-window input delivery.
+
+Three new production-reader tests cover horizontal-only focused-slider
+admission, missing/stale/foreign callbacks and registry bounds, and unique
+Audio Back admission with non-Audio fallback. Existing activation precedence,
+mission-goals Exit, and attract-owner tests remain part of the combined gate.
+The Clang combined gate passed 272 Python tests, 90 C++ tests, formatting, and
+clang-tidy over 74 translation units. The matching-card `--probe-native-menu`
+regression passed Pause Down → hidden-hotkey activation → `GSaveGameMenu` →
+virtual Cancel back to Pause, with exact stack restoration, graceful shutdown,
+and zero changed card bytes. An earlier manual attempt reached an unsettled
+Options menu instead of Save and supplied no regression evidence.
+
+### Retained menu and pointer contracts
 
 Active GMenu discovery is grounded through GInputDevice's callback ZArray at
 +0x48. Directional navigation, deferred activation, and virtual cancel are

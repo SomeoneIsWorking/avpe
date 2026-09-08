@@ -397,6 +397,37 @@ counted inventory of every freed resource. Python's shared menu-action waiter
 requires a matching ticket and safe deferred return; destination transitions
 remain separately observed. Issue #6 records the real Zono-logo result.
 
+## Focused sliders and Audio cancellation
+
+`GSliderControl::Focus` (`0x001FD2C0`) registers its own callbacks while focused
+and unregisters its owner on blur. A menu-owned directional callback is therefore
+not sufficient to adjust a slider. `NativeMenuItems::FindAdjustmentCallback`
+admits Left/Right only for the exact `GSliderControl` vtable (`0x00341E20`), a
+validated focused descendant and round-tripped handle, and its registered
+`InputDown` (`0x001FD400`) or `InputUp` (`0x001FD420`) member. The original
+functions own the pause-frame-time-scaled rate, `SetValue`, clamping, and
+presentation callbacks. An identified slider without that member is refused;
+ordinary items retain menu navigation. Dispatch revalidates the admitted target
+through the existing callback queue and does not synthesize pad state.
+
+Audio cancellation has a separate lifecycle requirement. `GAudioOptionsMenu`
+(`0x00341D20`) previews slider values through `Process` (`0x00203C50`). Its
+`ItemActivated` (`0x001FD640`) restores the profile's prior volume values only
+for `AudioBackButton`, whose object name at `+0x1C` is `0x0797F09F`
+(the complemented CRC32 of that case-sensitive name). Restore Defaults resets
+the sliders without closing; Accept commits the preview values. Generic
+`GMenu::Cancel` (`0x00124C20`) closes the
+menu without that rollback; reopening Audio then copies the leaked sound-system
+volumes into the profile in its constructor (`0x001FD560`).
+
+`FindCancellationCallback` therefore requires the unique registered Audio Back
+descendant's `GMenuItem::HotKeyActivate` (`0x00120F40`) and queues that original
+action. Missing or competing Back owners fail admission, rather than closing
+the menu through the generic path. Other menus retain existing virtual Cancel.
+The physical Back binding also registers `FocusKeyActivate` (`0x00120F90`),
+which only focuses the item; it is not the complete cancellation action.
+Issue #6 records the live preview/Cancel/Accept discriminator.
+
 ## Native bridge
 
 - `NativePointerMotion::MoveAbsolute` accepts normalized coordinates, validates
