@@ -66,6 +66,7 @@ STATEFILE_BIOS_PHASES = (
     "semaphore",
     "thread-negative",
     "event-flag-negative",
+    "interrupt-handler-negative",
 )
 BIOS_EVENT_KINDS = frozenset(
     {
@@ -122,7 +123,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         help=(
             "capture a bounded BIOS/IOP phase after a title or observed "
             "profile-menu action, control save/load, a pointer-driven pause "
-            "Quit confirmation, private semaphore/event-flag/thread diagnostics, clean-boot mission load, "
+            "Quit confirmation, private semaphore/event-flag/interrupt/thread diagnostics, clean-boot mission load, "
             "or complete native movie I/O"
         ),
     )

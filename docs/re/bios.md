@@ -207,6 +207,22 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/event-flag-negative-phase.json --http-port 0
 ```
 
+## Diagnostic interrupt-handler wrapper results
+
+The target's `EnableIntcHandler`/`iEnableIntcHandler` and
+`DisableIntcHandler`/`iDisableIntcHandler` wrappers at
+`0x002B3FE0`–`0x002B4010` all returned the raw zero-extended
+`0x00000000FFFFFFFF` value when passed `0xFFFFFFFF` as the handler token. Two
+isolated runs matched, with every call restoring the guest stack. This records
+the wrapper result encoding only; it does not prove interrupt delivery,
+handler registration, or disable/enable ordering. The repeatable phase is:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase interrupt-handler-negative \
+  --bios-trace-output scratch/control-test/interrupt-handler-negative-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
