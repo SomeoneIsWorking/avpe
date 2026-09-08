@@ -1020,6 +1020,17 @@ handler token. Two isolated runs returned the raw zero-extended
 only an observed result encoding; handler registration, delivery, and
 enable/disable ordering remain unproven.
 
+### Finding (2026-09-08, alarm release wrapper result slice)
+
+The repeatable `alarm-negative` phase calls the exact `_ReleaseAlarm`
+(`0x002B3BF0`) and `_iReleaseAlarm` (`0x002B3C10`) wrappers with
+`0xFFFFFFFF`. Two isolated surfaceless/null-muted runs returned signed `0` and
+`-1`, respectively, with restored stacks; the shipping v7 trace and inventory
+analyzer accepted the captures. The differing result shapes mean this is an
+observation of the token at these wrappers, not a general invalid-alarm
+contract. Alarm creation, callback delivery, cancellation ordering, and timer
+scheduling remain outside the evidence.
+
 ### Finding (2026-08-31, static IRX import census)
 
 The new `tools/analyze_iop_modules.py` parser reads the `.iopmod` header and

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from avpe.native_event_flag_probe import probe_event_flag_invalid_id
 from avpe.native_interrupt_handler_probe import probe_interrupt_handler_invalid_id
+from avpe.native_alarm_probe import probe_alarm_invalid_id
 from avpe.native_semaphore_probe import probe_semaphore_lifecycle
 from avpe.native_thread_probe import probe_thread_invalid_id
 
@@ -34,5 +35,11 @@ def run_diagnostic_phase(
             probe_thread_invalid_id(port, deadline),
             "statefile_to_diagnostic_thread_negative",
             "invalid_id_thread_service_calls",
+        )
+    if phase == "alarm-negative":
+        return (
+            probe_alarm_invalid_id(port, deadline),
+            "statefile_to_diagnostic_alarm_negative",
+            "invalid_id_alarm_service_calls",
         )
     return None
