@@ -411,11 +411,13 @@ issue #7.
 
 The exact `CProfile::SaveGame` observer now also captures and validates the
 live profile object/payload contract at the admitted entry, giving the native
-backend a production-owned input boundary. The new `src/avpe/native_save_store.py` provides a title-bound,
+backend a production-owned input boundary. The new
+`src/avpe/native_save_store.py` now preserves that validated 0x20-byte profile
+payload alongside a title-bound
 `avpe-native-save-v1` host container with atomic replacement, per-slot SHA-256
 integrity, and validation through the shipping `parse_game_save_record()`
 parser. Tests round-trip distinct slot records and reject truncated, corrupt,
-and incompatible containers.
+and incompatible containers, including corrupt or incorrectly sized profiles.
 
 Gap: the store is not yet connected to the live `CProfile::SaveGame` and
 `CProfile::LoadGame` boundaries, does not yet own profile/settings/autosave

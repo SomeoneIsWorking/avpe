@@ -7,7 +7,9 @@ from pathlib import Path
 from avpe.native_save_store import (
     NativeSaveStoreError,
     list_slots,
+    read_profile,
     read_slot,
+    write_profile,
     write_slot,
 )
 from avpe.save_format import (
@@ -60,6 +62,48 @@ def _record(level: bytes, game_time: float) -> bytes:
 
 
 class NativeSaveStoreTests(unittest.TestCase):
+    def test_round_trips_profile_and_preserves_slots(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "profile.avpesave"
+            record = _record(b"M01/background.tbd\0", 12.5)
+            payload = bytes.fromhex(
+                "11101000000000000000000001000000000000000000803f0000803f0000803f"
+            )
+
+            write_slot(path, 0, record)
+            write_profile(path, payload)
+
+            self.assertEqual(read_profile(path), payload)
+            self.assertEqual(read_slot(path, 0), record)
+
+    def test_rejects_corrupt_profile_integrity(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "profile.avpesave"
+            write_profile(path, bytes(0x20))
+            container = json.loads(path.read_text())
+            container["profile"]["sha256"] = "0" * 64
+            path.write_text(json.dumps(container))
+
+            with self.assertRaisesRegex(NativeSaveStoreError, "profile failed its integrity"):
+                read_profile(path)
+
+    def test_rejects_wrong_profile_size(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "profile.avpesave"
+            with self.assertRaisesRegex(NativeSaveStoreError, "exactly 32 bytes"):
+                write_profile(path, b"short")
+
+    def test_rejects_incompatible_profile_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "profile.avpesave"
+            write_profile(path, bytes(0x20))
+            container = json.loads(path.read_text())
+            container["profile"]["revision"] = 0
+            path.write_text(json.dumps(container))
+
+            with self.assertRaisesRegex(NativeSaveStoreError, "profile contract is incompatible"):
+                read_profile(path)
+
     def test_round_trips_distinct_slots_and_preserves_existing_slot(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "profile.avpesave"
