@@ -11,6 +11,10 @@ class SemaphoreProbeValidationTests(unittest.TestCase):
                 "invalid_id": {
                     "poll_invalid": -1,
                     "signal_invalid": -1,
+                    "i_signal_invalid": -1,
+                    "i_poll_invalid": -1,
+                    "refer_invalid": -1,
+                    "i_refer_invalid": -1,
                     "delete_invalid": -1,
                 },
                 "operations": {

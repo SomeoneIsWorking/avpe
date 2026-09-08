@@ -985,9 +985,10 @@ runner as `--probe-bios-phase semaphore`. It starts the existing v7 census,
 uses only private guest semaphore IDs, validates each signed result and stack
 restoration, captures the census, and requires graceful teardown. The phase
 also exercises `0xFFFFFFFF` as a stable invalid-ID negative instead of reusing
-a released positive ID. A current `mission1.p2s` run paired 15/15 EE calls and
-1,746/1,739 IOP calls with zero overflow and zero EE pending calls; seven
-background IOP calls remained live at capture. The shipping analyzer and
+a released positive ID, including the ordinary and interrupt-context semaphore
+variants. A current `mission1.p2s` run paired 25/25 EE calls and 215/214 IOP
+calls with zero overflow and zero EE pending calls; one background IOP call
+remained live at capture. The shipping analyzer and
 probe-specific validator accepted the artifact.
 
 This closes a repeatable nonblocking semaphore slice only. It does not close

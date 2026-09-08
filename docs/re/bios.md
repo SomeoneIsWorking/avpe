@@ -115,6 +115,12 @@ that is an observation at those instants, not a stable invalid-ID test because
 the running game can reuse released IDs. Future negative tests use
 `0xFFFFFFFF`, not a previously freed positive ID.
 
+The admitted phase also exercises the ordinary and interrupt-context invalid-ID
+variants: `PollSema`, `SignalSema`, `iPollSema`, `iSignalSema`,
+`ReferSemaStatus`, `iReferSemaStatus`, and `DeleteSema`. All seven returned
+`-1` in the current run. No interrupt-context call receives a live title or
+probe ID.
+
 The shipping phase runner now owns this sequence:
 
 ```
@@ -125,9 +131,9 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
 
 The current run reached `statefile_to_diagnostic_semaphore`, captured the
 declared operation, and exited through graceful control-channel shutdown. It
-paired 15/15 EE calls and 1,746/1,739 IOP calls, with zero overflow, sequence
-errors, or pending EE calls; seven background IOP calls were live at the
-capture endpoint. The shipping analyzer accepted the resulting v7 trace and
+paired 25/25 EE calls and 215/214 IOP calls, with zero overflow, sequence
+errors, or pending EE calls; one background IOP call was live at the capture
+endpoint. The shipping analyzer accepted the resulting v7 trace and
 the probe-specific positive/negative fields. Background service calls are
 included in those totals; they are not counts of the ten diagnostic calls.
 The fixed ignored outputs are the phase trace and its analyzer inventory under
