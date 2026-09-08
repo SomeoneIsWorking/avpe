@@ -898,6 +898,9 @@ The separate SIF-register phase records selectors `0` through `4` from
 `sceSifGetReg` (`0`, `0`, `0x0001D1E0`, `0x00010000`, and `0x00070000`) across
 two restored-state runs. These are state snapshots only; register identity,
 mutation, DMA ordering, and HLE behavior remain unproven.
+The entry-address negative phase also returns signed `0` for the all-ones
+`GetEntryAddress` token across two restored-state runs. Valid entry lookup,
+module identity, and executable-loader behavior remain missing.
 The thread-control phase extends the safe invalid-ID slice to suspend/resume
 and join: both suspend variants and both resume variants return `-1`, while
 `JoinThread` returns `0`, across two isolated runs with restored stacks. Live

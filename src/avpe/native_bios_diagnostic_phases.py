@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from avpe.native_event_flag_probe import probe_event_flag_invalid_id
+from avpe.native_entry_address_probe import probe_invalid_entry_address
 from avpe.native_interrupt_handler_probe import probe_interrupt_handler_invalid_id
 from avpe.native_alarm_probe import probe_alarm_invalid_id
 from avpe.native_semaphore_probe import probe_semaphore_lifecycle
@@ -61,5 +62,11 @@ def run_diagnostic_phase(
             probe_sif_registers(port, deadline),
             "statefile_to_diagnostic_sif_query",
             "grounded_sif_register_queries",
+        )
+    if phase == "entry-address-negative":
+        return (
+            probe_invalid_entry_address(port, deadline),
+            "statefile_to_diagnostic_entry_address_negative",
+            "invalid_get_entry_address_token",
         )
     return None
