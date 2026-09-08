@@ -1099,6 +1099,16 @@ isolated restored-state runs wrote `00 00 00 00` to each buffer and preserved
 the remaining sentinel bytes. This closes only the observed output shape; GS
 parameter meanings, policy, and HLE behavior remain unproven.
 
+### Finding (2026-09-08, EE OSD-config v2 output-pointer slice)
+
+The repeatable `osd-config2-output` phase seeds a 16-byte guest buffer at
+`0x01FF0000`, calls the void `GetOsdConfigParam2` wrapper at `0x002B4130`
+(`0x6F`) with size 16 and offset 0, and reads the complete span back. Two
+isolated restored-state runs wrote
+`00000201000000000000000000000000`. The four-byte prefix is recorded without
+assigning field meanings; the remaining zeroes are the observed full-span
+write. OSD v2 structure semantics, policy, and HLE behavior remain unproven.
+
 ### Finding (2026-08-31, static IRX import census)
 
 The new `tools/analyze_iop_modules.py` parser reads the `.iopmod` header and

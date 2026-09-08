@@ -912,6 +912,11 @@ The GS H-parameter output phase now proves that void `GetGsHParam` writes
 `00 00 00 00` to each of its three caller buffers and preserves the remaining
 sentinel bytes across two restored-state runs. GS parameter meanings, policy,
 and HLE behavior remain missing.
+The OSD-config v2 output phase now proves that void `GetOsdConfigParam2` fills
+the complete 16-byte caller span with
+`00000201000000000000000000000000` when called with size 16 and offset 0,
+across two restored-state runs. The four-byte prefix is not assigned field
+meanings; OSD v2 structure semantics, policy, and HLE behavior remain missing.
 The thread-control phase extends the safe invalid-ID slice to suspend/resume
 and join: both suspend variants and both resume variants return `-1`, while
 `JoinThread` returns `0`, across two isolated runs with restored stacks. Live
