@@ -891,6 +891,10 @@ The repeatable system-query phase now captures `GetThreadId`, `EndOfHeap`,
 and `0x02000000`) plus the grounded void `PSMode` call. Its result remains
 explicitly unobserved, so stale register contents are not claimed as an ABI
 value.
+The thread-control phase extends the safe invalid-ID slice to suspend/resume
+and join: both suspend variants and both resume variants return `-1`, while
+`JoinThread` returns `0`, across two isolated runs with restored stacks. Live
+thread control and scheduler ordering remain unproven.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
 import surface, and additional service-level negative-path semantics remain
@@ -930,6 +934,8 @@ plus the ignored alarm-phase artifact
 `scratch/control-test/alarm-negative-phase.json` and its inventory.
 The system-query evidence is the ignored artifact
 `scratch/control-test/system-query-phase.json` and its inventory.
+The thread-control evidence is the ignored artifact
+`scratch/control-test/thread-control-negative-phase.json` and its inventory.
 The normal-load evidence is `scratch/control-test/game-load-bios.json` and its
 deterministic inventory.
 The native-movie evidence is

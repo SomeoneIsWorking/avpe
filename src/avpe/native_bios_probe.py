@@ -65,6 +65,7 @@ STATEFILE_BIOS_PHASES = (
     "shutdown-pointer",
     "semaphore",
     "thread-negative",
+    "thread-control-negative",
     "event-flag-negative",
     "interrupt-handler-negative",
     "alarm-negative",

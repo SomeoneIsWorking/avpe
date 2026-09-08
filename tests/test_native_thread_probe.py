@@ -1,6 +1,6 @@
 import unittest
 
-from avpe.native_thread_probe import thread_probe_is_verified
+from avpe.native_thread_probe import CONTROL_EXPECTED_RESULTS, thread_control_probe_is_verified, thread_probe_is_verified
 
 
 class ThreadProbeValidationTests(unittest.TestCase):
@@ -45,3 +45,17 @@ class ThreadProbeValidationTests(unittest.TestCase):
         assert isinstance(invalid, dict)
         invalid["sleep_thread"] = -1
         self.assertFalse(thread_probe_is_verified(trace))
+
+    def test_accepts_thread_control_results(self) -> None:
+        self.assertTrue(thread_control_probe_is_verified({
+            "diagnostic_thread_control": {"invalid_id": dict(CONTROL_EXPECTED_RESULTS)}
+        }))
+
+    def test_rejects_thread_control_result_change(self) -> None:
+        trace = {"diagnostic_thread_control": {
+            "invalid_id": dict(CONTROL_EXPECTED_RESULTS)
+        }}
+        invalid = trace["diagnostic_thread_control"]["invalid_id"]
+        assert isinstance(invalid, dict)
+        invalid["join_thread"] = -1
+        self.assertFalse(thread_control_probe_is_verified(trace))
