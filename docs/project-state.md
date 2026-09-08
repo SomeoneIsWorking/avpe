@@ -81,7 +81,7 @@ Current focus is attention, not a separate state.
 | S018 | Desktop options are integrated into AVP:E's own menu system | missing | S010, S020 | G004 |
 | S019 | Graphics, display, and resolution settings enumerate, apply, and persist | blocked | S018 | G004 |
 | S020 | AVPE-owned host shell owns the visible window and presentation lifecycle | partial | S003, S004 | G001, G004 |
-| S021 | AVP:E disc/file access boundary and asset namespace are mapped | partial | S001; issue #9 | G005 |
+| S021 | AVP:E disc/file access boundary and asset namespace are mapped | verified | S001; issue #9 | G005 |
 | S022 | User disc content provisions into a validated native asset store | verified | S021 | G001, G005 |
 | S023 | Supported game asset requests use native host storage instead of emulated optical I/O | verified | S021, S022 | G001, G005 |
 | S024 | Native asset I/O preserves behavior and measurably reduces loading time | verified | S023 | G005 |
@@ -455,7 +455,7 @@ event delivery. Runtime verification still must exercise boot, resize,
 fullscreen, focus, close, and failure reporting on a controllable desktop.
 Atomic work: issue #3.
 
-### S021 — disc/file access boundary: partial
+### S021 — disc/file access boundary: verified
 
 Observed subset: the `CZFile`/`CZRiffFile`/`CTbdFile` archive path, TBFF index,
 uppercase-CRC lookup, loose fallback order, typed chunks, BWJ decompression,
@@ -466,11 +466,16 @@ surfaceless, null-muted boot observed 15 opens at that boundary, including the
 loose TBX/TBD probes and two `TBF.TBF` opens; the absent sentinel produced zero
 observations.
 
-Gap: exercise representative mission-load namespaces and guest-visible failure
-results before declaring the wider disc/file namespace complete.
+The real native-asset run exercised the representative mission-load namespace:
+`TBD/TBF.TBF` opened through the native descriptor and the title's boot probes
+for `TBD/23ACA1AA.TBX` and `TBD/NOMEMLOGO.TBD` were refused with the exact
+guest-visible `-2` (`ENOENT`) result. The observation records distinguish those
+refusals from the unhandled ELF/IRX bootstrap and from the separately rejected
+write/traversal/missing policy controls. No open observation was dropped.
 
 Evidence: claim C017, instrument I007, issue #9, and
-[`re/disc-io.md`](re/disc-io.md). Per-run detail is in the ignored
+[`re/disc-io.md`](re/disc-io.md). The production probe now requires the
+guest-result fields in `/assets/opens`; per-run detail remains in the ignored
 `scratch/control-test/native-assets-proof.json` artifact.
 
 ### S022 — native asset provisioning: verified

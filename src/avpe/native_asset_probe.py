@@ -118,6 +118,24 @@ def _path_observation(
     )
 
 
+def guest_failure_observation_is_verified(trace: object) -> bool:
+    """Require a real IOP open refusal with its guest-visible errno."""
+    if not isinstance(trace, dict):
+        return False
+    paths = trace.get("paths")
+    if not isinstance(paths, list):
+        return False
+    return any(
+        isinstance(entry, dict)
+        and _normalized_guest_path(entry.get("path")).startswith("cdrom0:/tbd/")
+        and _normalized_guest_path(entry.get("path")).endswith((".tbx", ".tbd"))
+        and int(entry.get("refused_count", 0)) > 0
+        and entry.get("guest_result_valid") is True
+        and entry.get("guest_result") == -2
+        for entry in paths
+    )
+
+
 def _completion(trace: dict[str, object]) -> dict[str, object] | None:
     value = trace.get("cdvd_completion")
     return value if isinstance(value, dict) else None
@@ -521,6 +539,7 @@ def probe_native_assets(
     expected = "native TBF reads" if require_native_reads else "the TBF archive"
     trace = await_asset_trace(port, deadline, verifier, expected)
     policy: dict[str, str] | None = None
+    opens: dict[str, object] | None = None
     if require_native_reads:
         cases = {
             "native": ("cdrom0:/TBD/TBF.TBF;1", "read", "native-file"),
@@ -552,6 +571,16 @@ def probe_native_assets(
                     f"got HTTP {status}: {detail}"
                 )
             policy[name] = expected_disposition
+        status, body = request_bytes(port, "GET", "/assets/opens")
+        try:
+            opens = json.loads(body)
+        except json.JSONDecodeError as error:
+            raise RuntimeError("native asset observations returned malformed JSON") from error
+        if status != 200 or not guest_failure_observation_is_verified(opens):
+            raise RuntimeError(
+                "native asset observations did not capture a guest-visible missing-file "
+                f"result: {opens}"
+            )
     proof = {
         "trace": trace,
         "positive": (
@@ -561,6 +590,7 @@ def probe_native_assets(
         ),
         "oracle_bootstrap": "SLUS_201.47 returned to the original IOP implementation",
         "policy": policy,
+        "opens": opens,
         "negative": {
             "sentinel": ABSENT_NATIVE_ASSET_SENTINEL,
             "observed_count": 0,

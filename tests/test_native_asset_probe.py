@@ -9,6 +9,19 @@ from avpe import native_asset_probe
 
 
 class NativeAssetProbeTests(unittest.TestCase):
+
+    def test_guest_failure_observation_requires_title_errno(self) -> None:
+        trace = {
+            "paths": [{
+                "path": "cdrom0:/TBD/NOMEMLOGO.TBD;1",
+                "refused_count": 1,
+                "guest_result_valid": True,
+                "guest_result": -2,
+            }]
+        }
+        self.assertTrue(native_asset_probe.guest_failure_observation_is_verified(trace))
+        trace["paths"][0]["guest_result"] = -5
+        self.assertFalse(native_asset_probe.guest_failure_observation_is_verified(trace))
     @staticmethod
     def _snapshot() -> dict[str, object]:
         return {
@@ -121,6 +134,14 @@ class NativeAssetProbeTests(unittest.TestCase):
 
     def test_native_asset_probe_preserves_policy_and_proof_artifact(self) -> None:
         trace = {"enabled": True, "paths": [{"path": "TBD/TBF.TBF"}]}
+        opens = {
+            "paths": [{
+                "path": "cdrom0:/TBD/NOMEMLOGO.TBD;1",
+                "refused_count": 1,
+                "guest_result_valid": True,
+                "guest_result": -2,
+            }]
+        }
 
         def resolve(
             _port: int,
@@ -142,7 +163,9 @@ class NativeAssetProbeTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory, patch.object(
             native_asset_probe, "await_asset_trace", return_value=trace
-        ), patch.object(native_asset_probe, "request_json", side_effect=resolve):
+        ), patch.object(native_asset_probe, "request_json", side_effect=resolve), patch.object(
+            native_asset_probe, "request_bytes", return_value=(200, json.dumps(opens).encode())
+        ):
             output_dir = Path(directory)
             proof = native_asset_probe.probe_native_assets(
                 28447, time.monotonic() + 1.0, True, output_dir
