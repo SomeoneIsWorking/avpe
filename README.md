@@ -105,7 +105,7 @@ Useful setup commands are:
 ./run.sh prepare     # build without launching the product
 ./run.sh assets      # validate/provision native assets only
 uv run --frozen avpe import-saves --memory-card /path/to/card.ps2 \
-  --destination /path/to/avpe.avpesave  # import existing AVP:E saves
+  --destination /path/to/avpe.avpesave  # optional; defaults to OS user data
 ```
 
 The diagnostic runner is a separate maintainer interface and is intentionally
