@@ -40,6 +40,14 @@ class BuildPaths:
     def control_test_binary(self) -> Path:
         return self.build_dir / "bin" / "pcsx2-qt"
 
+    @property
+    def package_install_dir(self) -> Path:
+        return self.build_dir / "avpe-install"
+
+    @property
+    def package_dir(self) -> Path:
+        return self.build_dir / "avpe-package"
+
 
 class BuildError(RuntimeError):
     """A preparation prerequisite or build command failed."""
@@ -126,8 +134,13 @@ def _ensure_submodule(root: Path) -> None:
         raise BuildError("PCSX2 checkout does not match the tracked gitlink after provisioning")
 
 
-def _configure_command(paths: BuildPaths) -> list[str]:
-    return [
+def _configure_command(
+    paths: BuildPaths,
+    *,
+    package_mode: bool = False,
+    install_prefix: Path | None = None,
+) -> list[str]:
+    command = [
         "cmake",
         "-S",
         str(paths.source_dir),
@@ -141,13 +154,31 @@ def _configure_command(paths: BuildPaths) -> list[str]:
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         f"-DPython3_EXECUTABLE={sys.executable}",
     ]
+    if package_mode:
+        command.append("-DPACKAGE_MODE=ON")
+    if install_prefix is not None:
+        command.append(f"-DCMAKE_INSTALL_PREFIX={install_prefix}")
+    return command
 
 
 def _build_target(
-    paths: BuildPaths, root: Path, environment: dict[str, str], target: str
+    paths: BuildPaths,
+    root: Path,
+    environment: dict[str, str],
+    target: str,
+    *,
+    force_configure: bool = False,
+    package_mode: bool = False,
+    install_prefix: Path | None = None,
 ) -> None:
-    if not (paths.build_dir / "build.ninja").is_file():
-        _run(_configure_command(paths), root, environment)
+    if force_configure or not (paths.build_dir / "build.ninja").is_file():
+        _run(
+            _configure_command(
+                paths, package_mode=package_mode, install_prefix=install_prefix
+            ),
+            root,
+            environment,
+        )
     _run(
         ["cmake", "--build", str(paths.build_dir), "--target", target, "--parallel"],
         root,
@@ -161,6 +192,10 @@ def _prepare_target(
     environment: dict[str, str] | None,
     target: str,
     binary: Path,
+    *,
+    force_configure: bool = False,
+    package_mode: bool = False,
+    install_prefix: Path | None = None,
 ) -> Path:
     """Provision dependencies, rebuild one source target, and verify its output."""
     environment_snapshot = dict(os.environ if environment is None else environment)
@@ -171,7 +206,15 @@ def _prepare_target(
             provision_dependency_prefix(root, paths.dependency_prefix, environment_snapshot)
         except DependencyPrefixError as error:
             raise BuildError(str(error)) from error
-    _build_target(paths, root, environment_snapshot, target)
+    _build_target(
+        paths,
+        root,
+        environment_snapshot,
+        target,
+        force_configure=force_configure,
+        package_mode=package_mode,
+        install_prefix=install_prefix,
+    )
     if not binary.is_file():
         raise BuildError(f"build completed without producing {binary}")
     return binary
@@ -181,6 +224,48 @@ def prepare_product(root: Path, environment: dict[str, str] | None = None) -> Pa
     """Provision source dependencies and build the standalone AVPE product."""
     paths = BuildPaths(root)
     return _prepare_target(paths, root, environment, "avpe", paths.product_binary)
+
+
+def _reset_generated_directory(path: Path) -> None:
+    """Reset one exact generated output directory before staging a package."""
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True)
+
+
+def prepare_product_package(
+    root: Path, environment: dict[str, str] | None = None
+) -> Path:
+    """Build and stage the standalone AVPE installable package boundary."""
+    paths = BuildPaths(root)
+    _reset_generated_directory(paths.package_install_dir)
+    _prepare_target(
+        paths,
+        root,
+        environment,
+        "avpe",
+        paths.product_binary,
+        force_configure=True,
+        package_mode=True,
+        install_prefix=paths.package_install_dir,
+    )
+    environment_snapshot = dict(os.environ if environment is None else environment)
+    _run(["cmake", "--install", str(paths.build_dir)], root, environment_snapshot)
+
+    installed_binary = paths.package_install_dir / "bin" / "avpe"
+    installed_resources = paths.package_install_dir / "share" / "avpe"
+    if not installed_binary.is_file():
+        raise BuildError(f"install completed without producing {installed_binary}")
+    _reset_generated_directory(paths.package_dir)
+    staged_binary = paths.package_dir / "bin" / "avpe"
+    staged_binary.parent.mkdir(parents=True)
+    shutil.copy2(installed_binary, staged_binary)
+    if installed_resources.is_dir():
+        shutil.copytree(
+            installed_resources,
+            paths.package_dir / "share" / "avpe",
+        )
+    return paths.package_dir
 
 
 def prepare_control_test(root: Path, environment: dict[str, str] | None = None) -> Path:
