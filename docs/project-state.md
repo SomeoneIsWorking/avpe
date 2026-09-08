@@ -75,7 +75,7 @@ Current focus is attention, not a separate state.
 | S012 | Fresh-clone provisioning through the zero-argument launcher | partial | S003, S004 | G001 |
 | S013 | End-to-end windowed product playable with native PC RTS controls | blocked | S009, S010, S011, S012, S020 | G001, G002 |
 | S014 | AVP:E save/load boundary and on-card data schema | partial | S001 | G003 |
-| S015 | Atomic versioned PC-native save backend for AVP:E profiles and slots | blocked | S014 | G003 |
+| S015 | Atomic versioned PC-native save backend for AVP:E profiles and slots | partial | S014 | G003 |
 | S016 | Game save/load path operates without a virtual PS2 memory card | blocked | S014, S015 | G001, G003 |
 | S017 | Existing AVP:E memory-card progress imports into native saves | blocked | S014, S015 | G003 |
 | S018 | Desktop options are integrated into AVP:E's own menu system | missing | S010, S020 | G004 |
@@ -407,11 +407,18 @@ native interception remain open.
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.
 
-### S015 — native save backend: blocked
+### S015 — native save backend: partial
 
-Blocker: S014. Verification requires versioned host files with atomic replace,
-positive round-trips for distinct data, and negative controls for truncated,
-corrupt, and incompatible input using the shipping parser/writer.
+The new `src/avpe/native_save_store.py` provides a title-bound,
+`avpe-native-save-v1` host container with atomic replacement, per-slot SHA-256
+integrity, and validation through the shipping `parse_game_save_record()`
+parser. Tests round-trip distinct slot records and reject truncated, corrupt,
+and incompatible containers.
+
+Gap: the store is not yet connected to the live `CProfile::SaveGame` and
+`CProfile::LoadGame` boundaries, does not yet own profile/settings/autosave
+records, and has no memory-card import path. Full S015 verification still
+requires those game-facing operations and clean-restart evidence.
 
 ### S016 — memory-card-free game path: blocked
 
