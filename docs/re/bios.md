@@ -229,6 +229,25 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/interrupt-handler-negative-phase.json --http-port 0
 ```
 
+## Diagnostic EE alarm release results
+
+The same state supports a bounded call slice for the non-creating alarm
+release wrappers. Passing the all-ones token to `_ReleaseAlarm` at
+`0x002B3BF0` (syscall `0x19`) returned signed `0`, while `_iReleaseAlarm` at
+`0x002B3C10` (syscall `0x1F`) returned signed `-1`. Two isolated runs matched,
+and both calls restored the guest stack. These are observed result shapes for
+this token; the differing values do not establish a universal invalid-alarm
+contract or prove alarm creation, callback delivery, cancellation ordering, or
+timer scheduling.
+
+The repeatable phase is:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase alarm-negative \
+  --bios-trace-output scratch/control-test/alarm-negative-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a

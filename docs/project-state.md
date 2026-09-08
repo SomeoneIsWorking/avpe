@@ -881,6 +881,11 @@ earlier timeout and are not inferred from this slice.
 The interrupt-handler phase also captures all four INTC and all four DMAC
 handler wrappers returning raw zero-extended `0x00000000FFFFFFFF` for the
 all-ones token; this does not establish handler delivery or interrupt ordering.
+The repeatable alarm phase now captures `_ReleaseAlarm` and `_iReleaseAlarm`
+with the same all-ones token, returning signed `0` and `-1` respectively on two
+isolated runs with restored stacks. The differing shapes are recorded as an
+observation only; alarm creation, callback delivery, cancellation ordering,
+and timer scheduling remain unproven.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
 import surface, and additional service-level negative-path semantics remain
@@ -915,7 +920,9 @@ Evidence: claims C035–C037, C039, and C040, instruments I021–I025,
 the `NativeBiosTraceTest` production tests, and ignored repeated artifacts
 `scratch/control-test/bios-mission-service-v4.prev.json` and
 `scratch/control-test/bios-mission-service-v4.json`, plus
-`scratch/control-test/game-save-bios.json` and its deterministic inventory.
+`scratch/control-test/game-save-bios.json` and its deterministic inventory,
+plus the ignored alarm-phase artifact
+`scratch/control-test/alarm-negative-phase.json` and its inventory.
 The normal-load evidence is `scratch/control-test/game-load-bios.json` and its
 deterministic inventory.
 The native-movie evidence is
