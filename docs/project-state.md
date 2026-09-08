@@ -335,18 +335,19 @@ StarCraft-informed PC RTS control scheme.
 
 ### S030 — hosted redistributable verification: partial
 
-Observed subset: `.github/workflows/verify.yml` defines cold, asset-free Linux
-and Intel macOS jobs. Both build through `src/avpe/ci.py`, which composes the
-shipping `prepare_product()` owner with the normal `tools/verify.py` gate;
-the workflow does not upload game data, derived game data, or a runtime cache.
-Its bootstrap action revisions and the `uv` wheel hashes are pinned. Windows is
-currently inapplicable because `dependency_prefix.select_workflow()` has no
-Windows implementation, so the product cannot provision or build its declared
-target there. Apple Silicon remains unqualified.
+Observed subset: `.github/workflows/verify.yml` defines cold, asset-free Linux,
+Intel macOS, and Apple Silicon macOS jobs. Each builds through
+`src/avpe/ci.py`, which composes the shipping `prepare_product()` owner with
+the normal `tools/verify.py` gate; the workflow does not upload game data,
+derived game data, or a runtime cache. Its bootstrap action revisions and the
+`uv` wheel hashes are pinned. The Apple Silicon job is newly declared but has
+no hosted result yet. Windows is currently inapplicable because
+`dependency_prefix.select_workflow()` has no Windows implementation, so the
+product cannot provision or build its declared target there.
 
-Gap: obtain successful hosted runs on both declared hosts, add an asset-free
-installable package assertion, and implement/qualify the missing Windows and
-Apple-Silicon host paths before claiming a complete desktop release matrix.
+Gap: obtain successful hosted runs on all three declared hosts, add an
+asset-free installable package assertion, and implement/qualify the missing
+Windows host path before claiming a complete desktop release matrix.
 
 Evidence: the version-controlled hosted-verification owner, workflow, and
 focused `tests/test_ci.py` policy tests. Hosted execution evidence is pending.
