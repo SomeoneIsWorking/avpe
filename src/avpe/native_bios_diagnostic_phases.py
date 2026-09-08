@@ -1,0 +1,31 @@
+"""Dispatch for bounded, private BIOS diagnostic phases."""
+
+from __future__ import annotations
+
+from avpe.native_event_flag_probe import probe_event_flag_invalid_id
+from avpe.native_semaphore_probe import probe_semaphore_lifecycle
+from avpe.native_thread_probe import probe_thread_invalid_id
+
+
+def run_diagnostic_phase(
+    port: int, deadline: float, phase: str
+) -> tuple[dict[str, object], str, str] | None:
+    if phase == "semaphore":
+        return (
+            probe_semaphore_lifecycle(port, deadline),
+            "statefile_to_diagnostic_semaphore",
+            "invalid_id_create_poll_signal_poll_delete",
+        )
+    if phase == "event-flag-negative":
+        return (
+            probe_event_flag_invalid_id(port, deadline),
+            "statefile_to_diagnostic_event_flag_negative",
+            "invalid_id_event_flag_service_calls",
+        )
+    if phase == "thread-negative":
+        return (
+            probe_thread_invalid_id(port, deadline),
+            "statefile_to_diagnostic_thread_negative",
+            "invalid_id_thread_service_calls",
+        )
+    return None

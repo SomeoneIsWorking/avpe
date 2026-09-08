@@ -963,20 +963,19 @@ hot-path totals are not a repeatability contract.
 
 ## Remaining work
 
-### Finding (2026-09-08, event-flag candidate is not admitted)
+### Finding (2026-09-08, repeatable event-flag nonblocking slice)
 
 Ghidra decompilation of the exact wrapper range identifies the target's event
 flag entries as `RFU080_CreateEventFlag` through
-`RFU089_ReferEventFlagStatus` (`0x002B3F20`–`0x002B3FB0`), rather than named
-event-flag services. A private diagnostic call with a six-word zeroed
-descriptor returned ID `3`; `PollEventFlag` with zero bits returned that ID and
-`SetEventFlag` returned zero. The next `ClearEventFlag` call with bit `1` did
-not return within the five-second guest-call HTTP budget, so the probe was
-aborted before deletion and no event-flag result is treated as a service
-contract. The candidate needs a grounded descriptor and wait/clear argument
-interpretation before it can enter the repeatable diagnostic runner. This is a
-negative exploration result, not evidence that the service is reachable during
-normal AVP:E execution.
+`RFU090_iReferEventFlagStatus` (`0x002B3F20`–`0x002B3FC0`), rather than named
+event-flag services. The repeatable `event-flag-negative` phase now calls the
+seven non-waiting wrappers with `0xFFFFFFFF` and requires their observed
+results (`10, 0, 1, -1, -1, -1, 0`) with restored stacks. Two isolated runs
+matched exactly. These are token-result observations, not a claim that the
+all-ones value is invalid for every service. `ClearEventFlag`,
+`iClearEventFlag`, `WaitEventFlag`, and `iWaitEventFlag` remain outside the
+phase because the earlier clear call did not return within the bounded guest
+call deadline; descriptor and wait/clear argument interpretation remain open.
 
 ### Finding (2026-09-08, repeatable diagnostic semaphore phase)
 

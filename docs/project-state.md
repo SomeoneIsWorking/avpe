@@ -868,6 +868,10 @@ including the safe invalid-ID `WaitSema` entry, whose raw zero-extended result
 is distinct from the signed `-1` returned by the other admitted invalid-ID
 wrappers. Blocking/wakeup and live interrupt-context behavior remain outside
 that evidence.
+The repeatable event-flag phase now covers seven non-waiting wrappers over the
+grounded `RFU080`–`RFU090` range with the stable all-ones-token result vector
+`10, 0, 1, -1, -1, -1, 0`; wait and clear calls remain bounded-out after the
+earlier timeout and are not inferred from this slice.
 EE timers, remaining interrupt delivery, kernel primitives outside the mission
 slice, executable loading, IOP module loads and services outside the recognized
 import surface, and additional service-level negative-path semantics remain
