@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import struct
-import time
 from typing import Any
 
-from avpe.control_http import request_bytes, request_json
+from avpe.control_http import request_bytes
+from avpe.native_bios_call import BiosCallError, call_signed_v0
 
 
 CREATE_SEMA = 0x002B3E20
@@ -27,32 +27,12 @@ class SemaphoreProbeError(RuntimeError):
     """The bounded diagnostic sequence did not establish its contract."""
 
 
-def _signed_v0(response: dict[str, Any], label: str) -> int:
-    if response.get("stack_restored") is not True:
-        raise SemaphoreProbeError(f"{label} did not restore the guest stack")
-    value = response.get("v0")
-    if not isinstance(value, str):
-        raise SemaphoreProbeError(f"{label} returned a non-hex v0")
-    try:
-        raw = int(value, 16)
-    except ValueError as error:
-        raise SemaphoreProbeError(f"{label} returned malformed v0") from error
-    if not 0 <= raw <= 0xFFFFFFFFFFFFFFFF:
-        raise SemaphoreProbeError(f"{label} returned an out-of-range v0")
-    return raw - (1 << 64) if raw & (1 << 63) else raw
-
-
 def _call(port: int, deadline: float, label: str, function: int, argument: int = 0,
           stack_hex: str | None = None) -> tuple[int, dict[str, Any]]:
-    if time.monotonic() >= deadline:
-        raise SemaphoreProbeError(f"semaphore probe deadline expired before {label}")
-    payload: dict[str, object] = {"function": f"0x{function:08x}", "a0": argument}
-    if stack_hex is not None:
-        payload.update(stack_argument=0, stack_hex=stack_hex)
-    status, response, detail = request_json(port, "POST", "/ee/call", payload)
-    if status != 200 or response is None:
-        raise SemaphoreProbeError(f"{label} returned HTTP {status}: {detail}")
-    return _signed_v0(response, label), response
+    try:
+        return call_signed_v0(port, deadline, label, function, argument, stack_hex)
+    except BiosCallError as error:
+        raise SemaphoreProbeError(str(error)) from error
 
 
 def probe_semaphore_lifecycle(port: int, deadline: float) -> dict[str, object]:
