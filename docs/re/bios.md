@@ -178,6 +178,35 @@ This grounds only invalid-ID admission and result shape. Thread creation,
 start/wakeup ordering for live IDs, cancellation ownership, sleeping threads,
 and scheduler wake behavior remain outside the evidence.
 
+## Diagnostic EE event-flag candidate results
+
+The same state supports a repeatable nonblocking call slice over the target's
+`RFU080`–`RFU090` event-flag wrappers (`0x002B3F20`–`0x002B3FC0`). Passing
+`0xFFFFFFFF` to the non-waiting operations produced the following stable
+results in two isolated runs:
+
+| Wrapper | Address | Result |
+|---|---:|---:|
+| `DeleteEventFlag` | `0x002B3F30` | `10` |
+| `SetEventFlag` | `0x002B3F40` | `0` |
+| `iSetEventFlag` | `0x002B3F50` | `1` |
+| `PollEventFlag` | `0x002B3F90` | `-1` |
+| `iPollEventFlag` | `0x002B3FA0` | `-1` |
+| `ReferEventFlagStatus` | `0x002B3FB0` | `-1` |
+| `iReferEventFlagStatus` | `0x002B3FC0` | `0` |
+
+These are observed wrapper result shapes for the all-ones token, not a claim
+that every service treats it as an invalid ID. `ClearEventFlag`, its
+interrupt-context variant, and both wait operations remain excluded because a
+prior call did not return within the bounded guest-call deadline. The runner
+phase is:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase event-flag-negative \
+  --bios-trace-output scratch/control-test/event-flag-negative-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
