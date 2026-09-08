@@ -192,6 +192,13 @@ Evidence: claim C010, instrument I003, resolved issue #5, and
 
 ### S010 — menu navigation: partial
 
+Audio-menu Music, Effects, and Voice sliders now admit native Left/Right through
+their focused, registered guest callbacks. Audio Cancel uses the authored Back
+item so preview volume changes are rolled back; Accept retains them. The
+surfaceless discriminators and exact callback contract are recorded in issue
+#6 and [input-path.md](re/input-path.md). Full menu coverage and real-window
+delivery remain unverified.
+
 Observed subset: `NativeMenuInput` discovers the unique active `GMenu` owner
 from AVP:E's live `GInputDevice` callback registry and resolves focused items
 through the game handle table. It also validates the synchronous mission-goals
