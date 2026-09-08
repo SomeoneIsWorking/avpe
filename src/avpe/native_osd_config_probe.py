@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import time
 
-from avpe.control_http import request_bytes, request_json
+from avpe.control_http import request_bytes
+from avpe.native_guest_buffer import GuestBufferError, read_guest_buffer, write_guest_buffer
 
 
 GET_OSD_CONFIG_PARAM = 0x002B3ED0
@@ -17,23 +18,6 @@ EXPECTED_PREFIX_HEX = "102081da"
 
 class OsdConfigProbeError(RuntimeError):
     """The bounded OSD output-pointer phase did not establish its contract."""
-
-
-def _read_output(port: int) -> str:
-    status, body = request_bytes(
-        port, "GET", "/mem/read?addr=0x01ff0000&len=0x20", timeout=3.0
-    )
-    if status != 200:
-        raise OsdConfigProbeError(
-            f"OSD output read returned HTTP {status}: {body.decode(errors='replace').strip()}"
-        )
-    try:
-        response = json.loads(body)
-    except json.JSONDecodeError as error:
-        raise OsdConfigProbeError("OSD output read returned malformed JSON") from error
-    if not isinstance(response, dict) or not isinstance(response.get("hex"), str):
-        raise OsdConfigProbeError("OSD output read omitted its hex buffer")
-    return response["hex"]
 
 
 def probe_osd_config_output(port: int, deadline: float) -> dict[str, object]:
@@ -49,11 +33,10 @@ def probe_osd_config_output(port: int, deadline: float) -> dict[str, object]:
             f"OSD BIOS trace start returned HTTP {status}: "
             f"{body.decode(errors='replace').strip()}"
         )
-    status, _response, detail = request_json(
-        port, "POST", "/mem/write", {"addr": "0x01ff0000", "hex": SENTINEL_HEX}
-    )
-    if status != 200:
-        raise OsdConfigProbeError(f"OSD output seed returned HTTP {status}: {detail}")
+    try:
+        write_guest_buffer(port, OUTPUT_ADDRESS, SENTINEL_HEX)
+    except GuestBufferError as error:
+        raise OsdConfigProbeError(str(error)) from error
     ensure_deadline("EE call")
     status, response, detail = request_json(
         port, "POST", "/ee/call", {"function": f"0x{GET_OSD_CONFIG_PARAM:08x}", "a0": OUTPUT_ADDRESS}
@@ -62,7 +45,10 @@ def probe_osd_config_output(port: int, deadline: float) -> dict[str, object]:
         raise OsdConfigProbeError(f"GetOsdConfigParam returned HTTP {status}: {detail}")
     if response.get("stack_restored") is not True:
         raise OsdConfigProbeError("GetOsdConfigParam did not restore the guest stack")
-    output_hex = _read_output(port)
+    try:
+        output_hex = read_guest_buffer(port, OUTPUT_ADDRESS, OUTPUT_SIZE)
+    except GuestBufferError as error:
+        raise OsdConfigProbeError(str(error)) from error
     expected_hex = EXPECTED_PREFIX_HEX + SENTINEL_HEX[len(EXPECTED_PREFIX_HEX):]
     if output_hex != expected_hex:
         raise OsdConfigProbeError(f"OSD output diverged: {output_hex}")
