@@ -1109,6 +1109,17 @@ isolated restored-state runs wrote
 assigning field meanings; the remaining zeroes are the observed full-span
 write. OSD v2 structure semantics, policy, and HLE behavior remain unproven.
 
+### Finding (2026-09-08, EE COP0 read-only snapshot slice)
+
+The repeatable `cop0-query` phase calls `GetCop0` at `0x002B4090` for the
+stable register subset `0, 1, 2, 3, 4, 8, 10, 11, 12, 15, 16, 25, 28, 29, 30,
+31`. Two isolated restored-state runs returned the same values:
+`0x26`, `0`, `0x6003F`, `0x7003F`, `0`, `0`, `0x3180003E`, `1`,
+`0x70030C00`, `0x2E20`, `0x73443`, `0`, `0`, `0`, `0`, and `0`, with every
+guest stack restored. Volatile counter, exception, and performance registers
+are excluded; this is a state snapshot, not a COP0 mutation or exception HLE
+contract.
+
 ### Finding (2026-08-31, static IRX import census)
 
 The new `tools/analyze_iop_modules.py` parser reads the `.iopmod` header and

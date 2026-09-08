@@ -8,6 +8,7 @@ from avpe.native_gs_h_param_probe import probe_gs_h_param_output
 from avpe.native_osd_config_probe import probe_osd_config_output
 from avpe.native_interrupt_handler_probe import probe_interrupt_handler_invalid_id
 from avpe.native_alarm_probe import probe_alarm_invalid_id
+from avpe.native_cop0_probe import probe_cop0_registers
 from avpe.native_osd_config2_probe import probe_osd_config2_output
 from avpe.native_semaphore_probe import probe_semaphore_lifecycle
 from avpe.native_sif_dma_probe import probe_invalid_sif_dma
@@ -96,5 +97,11 @@ def run_diagnostic_phase(
             probe_osd_config2_output(port, deadline),
             "statefile_to_diagnostic_osd_config2_output",
             "grounded_osd_config2_output_buffer",
+        )
+    if phase == "cop0-query":
+        return (
+            probe_cop0_registers(port, deadline),
+            "statefile_to_diagnostic_cop0_query",
+            "grounded_cop0_register_snapshot",
         )
     return None

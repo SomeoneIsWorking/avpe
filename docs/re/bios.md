@@ -394,6 +394,23 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/osd-config2-output-phase.json --http-port 0
 ```
 
+## Diagnostic EE COP0 register snapshot
+
+`GetCop0` at `0x002B4090` is a read-only EE wrapper. The repeatable phase
+queries the stable subset of register IDs `0, 1, 2, 3, 4, 8, 10, 11, 12, 15,
+16, 25, 28, 29, 30, 31` from a restored state. Two isolated runs returned the
+same values: `0x26`, `0`, `0x6003F`, `0x7003F`, `0`, `0`, `0x3180003E`, `1`,
+`0x70030C00`, `0x2E20`, `0x73443`, `0`, `0`, `0`, `0`, and `0`. Volatile
+counter, exception, and performance registers are intentionally outside this
+snapshot. This records state values only; it does not establish COP0 mutation
+or exception semantics.
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase cop0-query \
+  --bios-trace-output scratch/control-test/cop0-query-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
