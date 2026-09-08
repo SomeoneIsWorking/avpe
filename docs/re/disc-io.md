@@ -180,6 +180,14 @@ demonstrates: native TBF read, refused write, refused traversal, refused missing
 file, and unhandled bootstrap. This is a partial S023 proof; it does not yet
 stand in for byte-level oracle comparison.
 
+Each observed ioman open also retains the result returned to the guest when the
+AVPE HLE path handled the request. A native `TBF.TBF` open returned its
+allocated descriptor (`256` in the 2026-09-08 run), while the boot-time missing
+`23ACA1AA.TBX` and `NOMEMLOGO.TBD` probes returned signed `-2` (`ENOENT`) with
+one refusal each. Unclaimed ELF/IRX paths have no HLE result and continue to
+the original IOP implementation. This keeps the title-visible error contract
+separate from host-side resolver dispositions.
+
 `tools/run_control_test.py --probe-native-movie-reads` extends that proof from
 a clean boot with an isolated copy of a formatted card. It requires the exact
 complete `MOVIES/EALOGO.PSS` lifecycle: one native open, 104 reads totaling the
