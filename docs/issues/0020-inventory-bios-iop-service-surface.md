@@ -963,6 +963,21 @@ hot-path totals are not a repeatability contract.
 
 ## Remaining work
 
+### Finding (2026-09-08, event-flag candidate is not admitted)
+
+Ghidra decompilation of the exact wrapper range identifies the target's event
+flag entries as `RFU080_CreateEventFlag` through
+`RFU089_ReferEventFlagStatus` (`0x002B3F20`–`0x002B3FB0`), rather than named
+event-flag services. A private diagnostic call with a six-word zeroed
+descriptor returned ID `3`; `PollEventFlag` with zero bits returned that ID and
+`SetEventFlag` returned zero. The next `ClearEventFlag` call with bit `1` did
+not return within the five-second guest-call HTTP budget, so the probe was
+aborted before deletion and no event-flag result is treated as a service
+contract. The candidate needs a grounded descriptor and wait/clear argument
+interpretation before it can enter the repeatable diagnostic runner. This is a
+negative exploration result, not evidence that the service is reachable during
+normal AVP:E execution.
+
 ### Finding (2026-09-08, repeatable diagnostic semaphore phase)
 
 The one-off semaphore lifecycle has been promoted into the shipping control
