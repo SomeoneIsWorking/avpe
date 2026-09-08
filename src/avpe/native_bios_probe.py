@@ -21,6 +21,7 @@ from avpe.menu_probe import (
     menu_state,
 )
 from avpe.native_asset_probe import await_native_stream_reads
+from avpe.native_save_probe import profile_snapshot_is_verified
 from avpe.native_game_load_probe import (
     BiosGameLoadCaptureError,
     run_game_load_phase,
@@ -534,6 +535,7 @@ def game_save_boundary_is_verified(trace: object) -> bool:
         boundary.get("succeeded") is not True,
         boundary.get("result") != 0,
         boundary.get("sequence_errors") != 0,
+        not profile_snapshot_is_verified(boundary.get("profile")),
     )):
         return False
     entry = boundary.get("entry")

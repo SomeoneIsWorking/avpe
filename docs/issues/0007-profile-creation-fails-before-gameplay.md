@@ -132,6 +132,17 @@ corrupt, and incompatible containers. This advances the host persistence
 boundary only; live CProfile interception, profile/settings/autosave ownership,
 and memory-card import remain unresolved.
 
+### Finding (2026-09-08, live profile payload at save entry)
+
+The production `NativeGameSaveBoundary` observer now snapshots the admitted
+`CProfile::SaveGame` argument and its grounded `+0x18/+0x1c/+0x20/+0x24` fields,
+then validates the bounded payload through the capture policy. A repeatable
+BIOS-backed Pause → Save run captured object `0x003B2620`, payload
+`0x003D6A40`, size `0x20`, revision `0x1CD9DEE3`, four save slots, and the
+known 32-byte profile payload. This is the runtime input seam for the future
+native bridge; it remains read-only evidence and does not intercept the card
+writer or claim native persistence.
+
 ### Finding (2026-08-29, message type table)
 
 The live `MessageTypeDatabase` at `0x003B10C0` is a fixed 256-slot table whose
