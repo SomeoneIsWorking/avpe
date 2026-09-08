@@ -901,6 +901,9 @@ mutation, DMA ordering, and HLE behavior remain unproven.
 The entry-address negative phase also returns signed `0` for the all-ones
 `GetEntryAddress` token across two restored-state runs. Valid entry lookup,
 module identity, and executable-loader behavior remain missing.
+The SIF-DMA negative phase returns signed `-1` for the all-ones
+`sceSifDmaStat` token across two restored-state runs. DMA creation, completion
+ordering, and HLE behavior remain missing.
 The thread-control phase extends the safe invalid-ID slice to suspend/resume
 and join: both suspend variants and both resume variants return `-1`, while
 `JoinThread` returns `0`, across two isolated runs with restored stacks. Live

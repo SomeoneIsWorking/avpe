@@ -7,6 +7,7 @@ from avpe.native_entry_address_probe import probe_invalid_entry_address
 from avpe.native_interrupt_handler_probe import probe_interrupt_handler_invalid_id
 from avpe.native_alarm_probe import probe_alarm_invalid_id
 from avpe.native_semaphore_probe import probe_semaphore_lifecycle
+from avpe.native_sif_dma_probe import probe_invalid_sif_dma
 from avpe.native_sif_query_probe import probe_sif_registers
 from avpe.native_system_query_probe import probe_system_queries
 from avpe.native_thread_probe import probe_thread_control_invalid_id, probe_thread_invalid_id
@@ -68,5 +69,11 @@ def run_diagnostic_phase(
             probe_invalid_entry_address(port, deadline),
             "statefile_to_diagnostic_entry_address_negative",
             "invalid_get_entry_address_token",
+        )
+    if phase == "sif-dma-negative":
+        return (
+            probe_invalid_sif_dma(port, deadline),
+            "statefile_to_diagnostic_sif_dma_negative",
+            "invalid_sif_dma_status_token",
         )
     return None
