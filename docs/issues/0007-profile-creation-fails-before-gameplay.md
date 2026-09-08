@@ -122,6 +122,16 @@ The focused parser tests include nested structure, delayed SaveEx ordering, and
 unknown-class rejection. The raw records remain ignored user-supplied evidence;
 no derived game bytes are tracked.
 
+### Finding (2026-09-08, native container foundation)
+
+The new `src/avpe/native_save_store.py` provides an `avpe-native-save-v1`
+container bound to the supported serial/CRC, stores independently validated
+slots with SHA-256 integrity, and atomically replaces the host file. Shipping
+parser-backed tests round-trip two distinct records and reject truncated,
+corrupt, and incompatible containers. This advances the host persistence
+boundary only; live CProfile interception, profile/settings/autosave ownership,
+and memory-card import remain unresolved.
+
 ### Finding (2026-08-29, message type table)
 
 The live `MessageTypeDatabase` at `0x003B10C0` is a fixed 256-slot table whose
