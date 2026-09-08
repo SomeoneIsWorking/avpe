@@ -161,6 +161,16 @@ def _configure_command(
     return command
 
 
+def _package_mode_enabled(paths: BuildPaths) -> bool:
+    cache = paths.build_dir / "CMakeCache.txt"
+    if not cache.is_file():
+        return False
+    try:
+        return "PACKAGE_MODE:BOOL=ON" in cache.read_text()
+    except OSError:
+        return False
+
+
 def _build_target(
     paths: BuildPaths,
     root: Path,
@@ -171,11 +181,15 @@ def _build_target(
     package_mode: bool = False,
     install_prefix: Path | None = None,
 ) -> None:
-    if force_configure or not (paths.build_dir / "build.ninja").is_file():
+    normal_package_reset = not package_mode and _package_mode_enabled(paths)
+    if force_configure or normal_package_reset or not (paths.build_dir / "build.ninja").is_file():
+        configure_command = _configure_command(
+            paths, package_mode=package_mode, install_prefix=install_prefix
+        )
+        if normal_package_reset:
+            configure_command.append("-DPACKAGE_MODE=OFF")
         _run(
-            _configure_command(
-                paths, package_mode=package_mode, install_prefix=install_prefix
-            ),
+            configure_command,
             root,
             environment,
         )

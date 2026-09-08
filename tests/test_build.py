@@ -217,6 +217,35 @@ class ProductPreparationTests(unittest.TestCase):
             "cmake", "--build", str(paths.build_dir), "--target", "avpe"
         ])
 
+    @patch("avpe.build._run")
+    @patch("avpe.build._require_build_tools")
+    @patch("avpe.build._ensure_submodule")
+    @patch("avpe.build.dependency_prefix_complete", return_value=True)
+    @patch("avpe.build.BuildPaths")
+    def test_normal_target_clears_package_mode_before_rebuilding(
+        self,
+        paths_type: Mock,
+        _prefix_complete: Mock,
+        ensure: Mock,
+        _require_tools: Mock,
+        run: Mock,
+    ) -> None:
+        paths = paths_type.return_value
+        paths.product_binary.is_file.return_value = True
+        paths.dependency_prefix = Path("/repo/build/deps")
+
+        with tempfile.TemporaryDirectory() as directory:
+            paths.build_dir = Path(directory)
+            (paths.build_dir / "build.ninja").write_text("# package build tree\n")
+            (paths.build_dir / "CMakeCache.txt").write_text("PACKAGE_MODE:BOOL=ON\n")
+            prepare_product(Path("/repo"), {})
+
+        ensure.assert_called_once_with(Path("/repo"))
+        self.assertEqual(run.call_args_list[0][0][0][-1], "-DPACKAGE_MODE=OFF")
+        self.assertEqual(run.call_args_list[1][0][0][:5], [
+            "cmake", "--build", str(paths.build_dir), "--target", "avpe"
+        ])
+
     @patch("avpe.build._ensure_submodule")
     @patch("avpe.build.dependency_prefix_complete", return_value=False)
     @patch(
