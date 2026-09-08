@@ -10,11 +10,23 @@ from avpe.native_bios_call import BiosCallError, call_signed_v0
 
 DELETE_THREAD = 0x002B3C30
 START_THREAD = 0x002B3C40
+REFER_THREAD_STATUS = 0x002B3D20
+I_REFER_THREAD_STATUS = 0x002B3D30
 WAKEUP_THREAD = 0x002B3D50
 I_WAKEUP_THREAD = 0x002B3D60
 CANCEL_WAKEUP_THREAD = 0x002B3D70
 I_CANCEL_WAKEUP_THREAD = 0x002B3D80
 INVALID_ID = 0xFFFFFFFF
+EXPECTED_RESULTS = {
+    "delete_thread": -1,
+    "start_thread": -1,
+    "refer_thread_status": -1,
+    "i_refer_thread_status": -1,
+    "wakeup_thread": -1,
+    "i_wakeup_thread": -1,
+    "cancel_wakeup_thread": -1,
+    "i_cancel_wakeup_thread": -1,
+}
 
 
 class ThreadProbeError(RuntimeError):
@@ -33,6 +45,8 @@ def probe_thread_invalid_id(port: int, deadline: float) -> dict[str, object]:
     for label, function in (
         ("delete_thread", DELETE_THREAD),
         ("start_thread", START_THREAD),
+        ("refer_thread_status", REFER_THREAD_STATUS),
+        ("i_refer_thread_status", I_REFER_THREAD_STATUS),
         ("wakeup_thread", WAKEUP_THREAD),
         ("i_wakeup_thread", I_WAKEUP_THREAD),
         ("cancel_wakeup_thread", CANCEL_WAKEUP_THREAD),
@@ -70,7 +84,4 @@ def thread_probe_is_verified(trace: object) -> bool:
     invalid = diagnostic.get("invalid_id")
     if not isinstance(invalid, dict):
         return False
-    return all(invalid.get(label) == -1 for label in (
-        "delete_thread", "start_thread", "wakeup_thread", "i_wakeup_thread",
-        "cancel_wakeup_thread", "i_cancel_wakeup_thread"
-    ))
+    return invalid == EXPECTED_RESULTS
