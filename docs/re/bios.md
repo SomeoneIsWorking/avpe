@@ -213,9 +213,11 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
 
 ## Diagnostic interrupt-handler wrapper results
 
-The target's `EnableIntcHandler`/`iEnableIntcHandler` and
-`DisableIntcHandler`/`iDisableIntcHandler` wrappers at
-`0x002B3FE0`–`0x002B4010` all returned the raw zero-extended
+The target's `EnableIntcHandler`/`iEnableIntcHandler`,
+`DisableIntcHandler`/`iDisableIntcHandler`,
+`EnableDmacHandler`/`iEnableDmacHandler`, and
+`DisableDmacHandler`/`iDisableDmacHandler` wrappers at
+`0x002B3FE0`–`0x002B4050` all returned the raw zero-extended
 `0x00000000FFFFFFFF` value when passed `0xFFFFFFFF` as the handler token. Two
 isolated runs matched, with every call restoring the guest stack. This records
 the wrapper result encoding only; it does not prove interrupt delivery,
