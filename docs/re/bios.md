@@ -360,6 +360,22 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/osd-config-output-phase.json --http-port 0
 ```
 
+## Diagnostic EE GS H-parameter output
+
+`GetGsHParam` at `0x002B3EE0` (syscall `0x4C`) is a void service with three
+output pointers. The repeatable phase seeds three 16-byte buffers at
+`0x01FF0000`, `0x01FF0010`, and `0x01FF0020` with `0xCC`, calls the wrapper,
+and reads all three buffers back. Two isolated runs wrote `00 00 00 00` at
+each buffer and preserved the remaining sentinel bytes, with restored guest
+stacks. This proves the observed output shape only; it does not decode the GS
+parameters or implement GS policy.
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s --probe-bios-phase gs-h-param-output \
+  --bios-trace-output scratch/control-test/gs-h-param-output-phase.json --http-port 0
+```
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a

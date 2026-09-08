@@ -1090,6 +1090,15 @@ the same four-byte prefix `10 20 81 DA` and left the remaining sentinel bytes
 unchanged. This closes only the observed output-write shape; the OSD structure,
 configuration semantics, and HLE behavior remain unproven.
 
+### Finding (2026-09-08, EE GS H-parameter output-pointer slice)
+
+The repeatable `gs-h-param-output` phase seeds three 16-byte guest buffers at
+`0x01FF0000`, `0x01FF0010`, and `0x01FF0020`, calls the void `GetGsHParam`
+wrapper at `0x002B3EE0` (`0x4C`), and reads all three buffers back. Two
+isolated restored-state runs wrote `00 00 00 00` to each buffer and preserved
+the remaining sentinel bytes. This closes only the observed output shape; GS
+parameter meanings, policy, and HLE behavior remain unproven.
+
 ### Finding (2026-08-31, static IRX import census)
 
 The new `tools/analyze_iop_modules.py` parser reads the `.iopmod` header and

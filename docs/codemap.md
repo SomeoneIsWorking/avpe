@@ -92,6 +92,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Diagnostic entry-address phase | Captures the grounded invalid-token result for `GetEntryAddress`; no valid loader lookup or HLE implementation | `src/avpe/native_entry_address_probe.py` | `probe_invalid_entry_address()` via `tools/run_control_test.py --probe-bios-phase entry-address-negative` | [BIOS/IOP contract](re/bios.md) |
 | Diagnostic SIF-DMA phase | Captures the grounded invalid-token result for `sceSifDmaStat`; no DMA creation, completion, or HLE implementation | `src/avpe/native_sif_dma_probe.py` | `probe_invalid_sif_dma()` via `tools/run_control_test.py --probe-bios-phase sif-dma-negative` | [BIOS/IOP contract](re/bios.md) |
 | Diagnostic OSD-config phase | Captures the grounded four-byte `GetOsdConfigParam` output-buffer write; no OSD policy or HLE implementation | `src/avpe/native_osd_config_probe.py` | `probe_osd_config_output()` via `tools/run_control_test.py --probe-bios-phase osd-config-output` | [BIOS/IOP contract](re/bios.md) |
+| Diagnostic GS H-parameter phase | Captures the three grounded four-byte `GetGsHParam` output-buffer writes; no GS policy or HLE implementation | `src/avpe/native_gs_h_param_probe.py` | `probe_gs_h_param_output()` via `tools/run_control_test.py --probe-bios-phase gs-h-param-output` | [BIOS/IOP contract](re/bios.md) |
 | Diagnostic thread phase | Safe invalid-ID EE thread-service calls, signed result and stack-restoration admission, and v7 census capture; no thread creation, wakeup, or HLE implementation | `src/avpe/native_thread_probe.py` | `probe_thread_invalid_id()` via `tools/run_control_test.py --probe-bios-phase thread-negative` | [BIOS/IOP contract](re/bios.md) |
 | Game-save census boundary | Exact `CProfile::SaveGame` profile-validated entry and final-return observation, including BIOS/IOP capture scoping and returned game result; no input policy or native-save implementation | `thirdparty/pcsx2/pcsx2/AVPE/NativeGameSaveBoundary.*`; composed by `NativeEeExecutionHooks.*` | `AVPE::NativeGameSaveBoundary::Start()`, `CaptureJson()` | [BIOS/IOP contract](re/bios.md) |
 | Game-load census boundary | Exact `CProfile::LoadGame` profile-validated entry and final-return observation after live `GLoadPacifyMenu::Process`, plus the surfaceless normal-menu and synchronous mission-modal proof policy; no native-save implementation | `thirdparty/pcsx2/pcsx2/AVPE/NativeGameLoadBoundary.*`, composed by `NativeEeExecutionHooks.*`; `src/avpe/native_game_load_probe.py` | `AVPE::NativeGameLoadBoundary::Start()`, `CaptureJson()`; `run_game_load_phase()` | [BIOS/IOP contract](re/bios.md) |
@@ -130,6 +131,8 @@ src/avpe/                      host-side product orchestration
 ├── native_entry_address_probe.py  invalid GetEntryAddress result proof policy
 ├── native_sif_dma_probe.py  invalid SIF-DMA result proof policy
 ├── native_osd_config_probe.py  GetOsdConfigParam output proof policy
+├── native_gs_h_param_probe.py  GetGsHParam output proof policy
+├── native_guest_buffer.py       shared guest-buffer transport for BIOS probes
 ├── native_thread_probe.py      safe thread-service negative proof policy
 ├── native_title_probe.py       title-menu lifecycle and physical activation proof
 ├── native_game_load_probe.py   normal game-load flow and boundary proof policy

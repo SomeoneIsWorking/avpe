@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from avpe.native_event_flag_probe import probe_event_flag_invalid_id
 from avpe.native_entry_address_probe import probe_invalid_entry_address
+from avpe.native_gs_h_param_probe import probe_gs_h_param_output
 from avpe.native_osd_config_probe import probe_osd_config_output
 from avpe.native_interrupt_handler_probe import probe_interrupt_handler_invalid_id
 from avpe.native_alarm_probe import probe_alarm_invalid_id
@@ -82,5 +83,11 @@ def run_diagnostic_phase(
             probe_osd_config_output(port, deadline),
             "statefile_to_diagnostic_osd_config_output",
             "grounded_osd_output_buffer",
+        )
+    if phase == "gs-h-param-output":
+        return (
+            probe_gs_h_param_output(port, deadline),
+            "statefile_to_diagnostic_gs_h_param_output",
+            "grounded_gs_h_param_output_buffers",
         )
     return None
