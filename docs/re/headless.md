@@ -26,8 +26,11 @@ surface ownership.
   waits for the real post-savestate auto-eject to expire before driving the
   title, verifies the source hash is unchanged, records byte-level changes in
   `scratch/control-test/memory-card-proof.json`, and waits for post-write busy
-  state to clear before shutdown. Memory cards remain disabled when the option
-  is absent.
+  state to clear before shutdown. Shutdown has its own 30-second card-drain
+  budget: a manual run consumes `--seconds` before teardown, so its expired
+  observation deadline cannot be reused. A card that remains busy still fails
+  with the observation count and last state. Memory cards remain disabled when
+  the option is absent.
 - Native I/O recovery runs select exactly one of
   `--probe-native-ioman-state-recovery` or
   `--probe-native-cdvd-state-recovery`. They use clean boot, a copied card,
@@ -49,6 +52,15 @@ surface ownership.
   a successful test.
 - Boot evidence lives under `scratch/control-test/logs/` and must include real
   SLUS-20147 activity plus a live control-channel status response.
+
+The independent teardown budget was exercised with a 12-second manual run
+from `scratch/states/mission1.p2s` and the isolated `after-slot0.ps2` source.
+After consuming the observation timebox, teardown made one real readiness
+observation and exited normally; both card hashes remained
+`36503b39dcfbdcb3ff5ad1c0d6b0f3b305ec93cf6b487d8e08e01e9eb2ff9d38`.
+The six readiness unit tests separately exercise busy-to-ready progression and
+a card that stays busy beyond the independent deadline. The manual run proves
+the exhausted-observation-deadline path, not an actual in-flight card write.
 
 ## Gotchas that cost us time — do not re-derive
 

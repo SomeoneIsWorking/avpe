@@ -6,6 +6,28 @@ from avpe import memory_card_probe
 
 
 class MemoryCardReadinessTests(unittest.TestCase):
+    def test_shutdown_drain_starts_a_fresh_bounded_observation(self) -> None:
+        with patch(
+            "avpe.memory_card_probe.memory_card_state",
+            side_effect=[
+                (200, self._state(0, True, False), ""),
+                (200, self._state(0, False, True), ""),
+            ],
+        ), patch("avpe.memory_card_probe.time.monotonic", side_effect=[100, 100, 101]), \
+                patch("avpe.memory_card_probe.time.sleep"):
+            proof = memory_card_probe.drain_memory_card_writes(31234)
+        self.assertEqual(proof["observations"], 2)
+        self.assertIs(proof["saw_busy"], True)
+
+    def test_shutdown_drain_refuses_writes_still_busy_at_its_deadline(self) -> None:
+        with patch(
+            "avpe.memory_card_probe.memory_card_state",
+            return_value=(200, self._state(0, True, False), ""),
+        ), patch("avpe.memory_card_probe.time.monotonic", side_effect=[100, 100, 131]), \
+                patch("avpe.memory_card_probe.time.sleep"):
+            with self.assertRaisesRegex(RuntimeError, "observations=1.*'busy': True"):
+                memory_card_probe.drain_memory_card_writes(31234)
+
     def test_waits_for_auto_ejection_to_complete(self) -> None:
         with patch(
             "avpe.memory_card_probe.memory_card_state",

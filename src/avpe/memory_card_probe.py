@@ -13,6 +13,7 @@ from avpe.control_http import request_bytes
 PS2_CARD_MAGIC = b"Sony PS2 Memory Card Format "
 WORKING_CARD_NAME = "save-boundary-probe.ps2"
 MEMORY_CARD_STATE_SCHEMA = "avpe-memory-card-state-v1"
+SHUTDOWN_DRAIN_SECONDS = 30.0
 
 
 def sha256_file(path: Path) -> str:
@@ -98,8 +99,13 @@ def memory_card_state(port: int) -> tuple[int, dict[str, object] | None, str]:
     return status, parsed, detail
 
 
+def drain_memory_card_writes(port: int) -> dict[str, object]:
+    """Observe card quiescence with a shutdown budget independent of the run."""
+    return await_memory_card_ready(port, time.monotonic() + SHUTDOWN_DRAIN_SECONDS)
+
+
 def await_memory_card_ready(port: int, deadline: float) -> dict[str, object]:
-    """Wait for PCSX2's savestate-load card ejection to complete."""
+    """Wait for PCSX2's card ejection and active writes to complete."""
     observations = 0
     saw_ejected = False
     saw_busy = False
