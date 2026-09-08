@@ -12,6 +12,8 @@ DELETE_THREAD = 0x002B3C30
 START_THREAD = 0x002B3C40
 REFER_THREAD_STATUS = 0x002B3D20
 I_REFER_THREAD_STATUS = 0x002B3D30
+RELEASE_WAIT_THREAD = 0x002B3CF0
+I_RELEASE_WAIT_THREAD = 0x002B3D00
 WAKEUP_THREAD = 0x002B3D50
 I_WAKEUP_THREAD = 0x002B3D60
 CANCEL_WAKEUP_THREAD = 0x002B3D70
@@ -22,6 +24,8 @@ EXPECTED_RESULTS = {
     "start_thread": -1,
     "refer_thread_status": -1,
     "i_refer_thread_status": -1,
+    "release_wait_thread": -1,
+    "i_release_wait_thread": -1,
     "wakeup_thread": -1,
     "i_wakeup_thread": -1,
     "cancel_wakeup_thread": -1,
@@ -47,6 +51,8 @@ def probe_thread_invalid_id(port: int, deadline: float) -> dict[str, object]:
         ("start_thread", START_THREAD),
         ("refer_thread_status", REFER_THREAD_STATUS),
         ("i_refer_thread_status", I_REFER_THREAD_STATUS),
+        ("release_wait_thread", RELEASE_WAIT_THREAD),
+        ("i_release_wait_thread", I_RELEASE_WAIT_THREAD),
         ("wakeup_thread", WAKEUP_THREAD),
         ("i_wakeup_thread", I_WAKEUP_THREAD),
         ("cancel_wakeup_thread", CANCEL_WAKEUP_THREAD),
@@ -56,7 +62,7 @@ def probe_thread_invalid_id(port: int, deadline: float) -> dict[str, object]:
             invalid[label], _ = call_signed_v0(port, deadline, label, function, INVALID_ID)
         except BiosCallError as error:
             raise ThreadProbeError(str(error)) from error
-    if any(value != -1 for value in invalid.values()):
+    if invalid != EXPECTED_RESULTS:
         raise ThreadProbeError(f"invalid thread ID results diverged: {invalid}")
 
     status, body = request_bytes(port, "POST", "/bios/trace/capture", {}, timeout=7.0)

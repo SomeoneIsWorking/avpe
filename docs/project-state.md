@@ -48,7 +48,7 @@ The shipping `--probe-bios-phase semaphore` now supplies controlled
 nonblocking success, empty-count, and invalid-ID results through a repeatable
 statefile phase; its exact inputs and remaining ordering/capacity gaps are
 recorded in [the BIOS contract](re/bios.md#diagnostic-ee-semaphore-results).
-The companion `thread-negative` phase safely exercises eight non-creating
+The companion `thread-negative` phase safely exercises ten non-creating
 kernel thread wrappers, including status queries and interrupt-context
 wake/cancel variants, with invalid IDs and records their signed `-1` results
 and restored stacks; live thread scheduling remains unproven.

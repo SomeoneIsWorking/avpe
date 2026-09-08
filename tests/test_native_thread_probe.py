@@ -12,6 +12,8 @@ class ThreadProbeValidationTests(unittest.TestCase):
                     "start_thread": -1,
                     "refer_thread_status": -1,
                     "i_refer_thread_status": -1,
+                    "release_wait_thread": -1,
+                    "i_release_wait_thread": -1,
                     "wakeup_thread": -1,
                     "i_wakeup_thread": -1,
                     "cancel_wakeup_thread": -1,
