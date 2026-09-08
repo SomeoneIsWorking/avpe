@@ -15,6 +15,7 @@ from avpe.build import BuildError, prepare_product
 from avpe.dependency_prefix import dependency_prefix_complete, dependency_prefix_error
 from avpe.dependencies import inspect_submodule, provision_submodules
 from avpe.log import log
+from avpe.memory_card_import import MemoryCardImportError, import_memory_card
 from avpe.native_assets import NativeAssetError, provision_native_assets
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -168,6 +169,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("provision", help="initialize the tracked dependency submodules")
     sub.add_parser("prepare", help="provision and build the standalone AVPE product")
     sub.add_parser("assets", help="provision and validate the PC-native asset store")
+    import_parser = sub.add_parser(
+        "import-saves", help="import an AVP:E memory-card image into native saves"
+    )
+    import_parser.add_argument("--memory-card", required=True, type=Path)
+    import_parser.add_argument("--destination", required=True, type=Path)
     sub.add_parser("launch", help="boot the user-facing AVPE host")
 
     args = parser.parse_args(argv)
@@ -217,6 +223,19 @@ def main(argv: list[str] | None = None) -> int:
             log("error", "assets", str(error))
             return 1
         log("info", "assets", f"validated native store: {root}")
+        return 0
+    if args.cmd == "import-saves":
+        try:
+            imported = import_memory_card(args.memory_card, args.destination)
+        except MemoryCardImportError as error:
+            log("error", "import-saves", str(error))
+            return 1
+        log(
+            "info",
+            "import-saves",
+            f"imported profile {imported.directory} and {len(imported.slots)} populated slot(s) "
+            f"into {args.destination}",
+        )
         return 0
     parser.error(f"unknown command {args.cmd!r}")
     return 2

@@ -104,6 +104,8 @@ Useful setup commands are:
 ./run.sh provision   # initialize or repair the tracked PCSX2 submodule
 ./run.sh prepare     # build without launching the product
 ./run.sh assets      # validate/provision native assets only
+uv run --frozen avpe import-saves --memory-card /path/to/card.ps2 \
+  --destination /path/to/avpe.avpesave  # import existing AVP:E saves
 ```
 
 The diagnostic runner is a separate maintainer interface and is intentionally
