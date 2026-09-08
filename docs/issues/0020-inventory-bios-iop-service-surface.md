@@ -1044,14 +1044,16 @@ scheduling remain outside the evidence.
 
 The repeatable `system-query` phase calls the grounded no-argument wrappers
 `GetThreadId` (`0x002B3D10`), `EndOfHeap` (`0x002B3E00`), `GetGsHParam`
-(`0x002B3EE0`), `GetGsVParam` (`0x002B3EF0`), `PSMode` (`0x002B4260`),
-`MachineType` (`0x002B4270`), and `GetMemorySize` (`0x002B4280`). Two isolated
-runs returned `1`, `0x01FF5000`, `0`, `0x00000080`, an explicitly unobserved
+(`0x002B3EE0`), `GetGsVParam` (`0x002B3EF0`), `GsGetIMR` (`0x002B4140`),
+`PSMode` (`0x002B4260`), `MachineType` (`0x002B4270`), and `GetMemorySize`
+(`0x002B4280`). Two isolated runs returned `1`, `0x01FF5000`, `0`,
+`0x00000080`, the u64 value `0x000000000000FF00`, an explicitly unobserved
 `PSMode` result, `0x00008000`, and `0x02000000`, respectively, with restored
-stacks. The void classification for `PSMode` is preserved from the production
-trace; its register contents are not treated as a result. This closes only
-these query observations, not cache, coprocessor, loader, or execution-control
-services.
+stacks. The `GsGetIMR` result uses the BIOS trace's declared u64 disposition;
+the separate `v1` register is not folded into that value. The void
+classification for `PSMode` is preserved from the production trace; its
+register contents are not treated as a result. This closes only these query
+observations, not cache, coprocessor, loader, or execution-control services.
 
 ### Finding (2026-08-31, static IRX import census)
 
