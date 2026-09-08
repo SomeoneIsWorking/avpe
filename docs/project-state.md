@@ -887,10 +887,10 @@ isolated runs with restored stacks. The differing shapes are recorded as an
 observation only; alarm creation, callback delivery, cancellation ordering,
 and timer scheduling remain unproven.
 The repeatable system-query phase now captures `GetThreadId`, `EndOfHeap`,
-`MachineType`, and `GetMemorySize` results (`1`, `0x01FF5000`, `0x00008000`,
-and `0x02000000`) plus the grounded void `PSMode` call. Its result remains
-explicitly unobserved, so stale register contents are not claimed as an ABI
-value.
+`GetGsVParam`, `MachineType`, and `GetMemorySize` results (`1`, `0x01FF5000`,
+`0x00000080`, `0x00008000`, and `0x02000000`) plus the grounded void `PSMode`
+call. Its result remains explicitly unobserved, so stale register contents are
+not claimed as an ABI value.
 The thread-control phase extends the safe invalid-ID slice to suspend/resume
 and join: both suspend variants and both resume variants return `-1`, while
 `JoinThread` returns `0`, across two isolated runs with restored stacks. Live
