@@ -48,10 +48,10 @@ The shipping `--probe-bios-phase semaphore` now supplies controlled
 nonblocking success, empty-count, and invalid-ID results through a repeatable
 statefile phase; its exact inputs and remaining ordering/capacity gaps are
 recorded in [the BIOS contract](re/bios.md#diagnostic-ee-semaphore-results).
-The companion `thread-negative` phase safely exercises six non-creating kernel
-thread wrappers, including interrupt-context wake/cancel variants, with invalid
-IDs and records their signed `-1` results and restored stacks; live thread
-scheduling remains unproven.
+The companion `thread-negative` phase safely exercises eight non-creating
+kernel thread wrappers, including status queries and interrupt-context
+wake/cancel variants, with invalid IDs and records their signed `-1` results
+and restored stacks; live thread scheduling remains unproven.
 Static IRX analysis now narrows the IOP candidate surface to seven retained
 modules, 61 import tables, 260 import stubs, and 19 library identities; it is
 explicitly not runtime coverage.

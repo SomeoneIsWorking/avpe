@@ -152,13 +152,15 @@ and other invalid descriptors remain unproven.
 
 ## Diagnostic EE thread-service negative results
 
-The same `mission1.p2s` state supports a bounded invalid-ID probe for four
+The same `mission1.p2s` state supports a bounded invalid-ID probe for eight
 non-creating thread services. The exact target wrappers are:
 
 | Wrapper | Address | Syscall number |
 |---|---|---|
 | `DeleteThread` | `0x002B3C30` | `0x21` |
 | `StartThread` | `0x002B3C40` | `0x22` |
+| `ReferThreadStatus` | `0x002B3D20` | `0x2C` |
+| `iReferThreadStatus` | `0x002B3D30` | `0x2D` |
 | `WakeupThread` | `0x002B3D50` | `0x33` |
 | `iWakeupThread` | `0x002B3D60` | `0x34` |
 | `CancelWakeupThread` | `0x002B3D70` | `0x35` |
