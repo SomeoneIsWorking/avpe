@@ -44,6 +44,7 @@ from avpe.native_bios_probe import (
     game_save_boundary_is_verified,
     mission_boundary_is_verified,
     movie_boundary_is_verified,
+    profile_snapshot_is_verified,
     report_bios_trace,
     run_bios_phase,
     run_requested_bios_probe,
@@ -851,6 +852,14 @@ class ControlTestPolicyTests(unittest.TestCase):
                 "succeeded": True,
                 "result": 0,
                 "sequence_errors": 0,
+                "profile": {
+                    "object": "0x003B2620",
+                    "data": "0x003D6A40",
+                    "size": 0x20,
+                    "revision": "0x1CD9DEE3",
+                    "slot_count": 4,
+                    "payload_hex": "11101000000000000000000001000000000000000000803f0000803f0000803f",
+                },
                 "entry": {
                     "pc": GAME_SAVE_TRACE_ENTRY_PC,
                     "ee_cycle": 100,
@@ -869,8 +878,24 @@ class ControlTestPolicyTests(unittest.TestCase):
         }
 
         self.assertTrue(game_save_boundary_is_verified(trace))
+        trace["game_save_boundary"]["profile"]["payload_hex"] = "00"
+        self.assertFalse(game_save_boundary_is_verified(trace))
+        trace["game_save_boundary"]["profile"]["payload_hex"] = "11101000000000000000000001000000000000000000803f0000803f0000803f"
         trace["game_save_boundary"]["result"] = 1
         self.assertFalse(game_save_boundary_is_verified(trace))
+
+    def test_profile_snapshot_requires_grounded_contract(self) -> None:
+        snapshot = {
+            "object": "0x003B2620",
+            "data": "0x003D6A40",
+            "size": 0x20,
+            "revision": "0x1CD9DEE3",
+            "slot_count": 4,
+            "payload_hex": "11101000000000000000000001000000000000000000803f0000803f0000803f",
+        }
+        self.assertTrue(profile_snapshot_is_verified(snapshot))
+        snapshot["revision"] = "0x00000000"
+        self.assertFalse(profile_snapshot_is_verified(snapshot))
 
     def test_game_save_bios_phase_uses_the_native_menu_activation(self) -> None:
         trace = {

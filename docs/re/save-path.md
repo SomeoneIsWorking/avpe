@@ -135,6 +135,15 @@ the in-memory owner. The singleton slot `0x0036703C` contained the
 This confirms the runtime `SetGameData` contract and that the fixed payload is
 game-owned memory, not a card-only reconstruction.
 
+The production game-save observer now snapshots the same fields at the exact
+`CProfile::SaveGame` entry: the admitted `a0` object, `+0x18` payload pointer,
+`+0x1c` payload size, `+0x20` revision, `+0x24` slot count, and the bounded
+payload bytes. A repeatable BIOS-backed game-save run captured object
+`0x003B2620`, payload `0x003D6A40`, size `0x20`, revision `0x1CD9DEE3`, four
+slots, and the 32-byte payload shown above. The observer validates this
+contract in its shipping capture policy; it remains read-only evidence and does
+not replace the title's card writer.
+
 The diagnostic EE-call shuttle is not a valid save trigger: calling
 `CProfile::SaveProfile` directly from the pause-menu state exceeded its
 3,000,000-cycle budget and required a state reload. The routine synchronously

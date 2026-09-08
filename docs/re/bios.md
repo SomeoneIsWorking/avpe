@@ -605,6 +605,13 @@ descendant `ActivateFocused` callback. The successful route reaches all three
 pacify calls and the profile boundary, and the runner waits for the observed
 300-frame post-write busy interval before shutdown.
 
+At that exact entry the production observer also captures the admitted
+`CProfile` object fields (`+0x18` payload, `+0x1c` size, `+0x20` revision,
+`+0x24` slot count) and bounded payload bytes. The live run reported the
+grounded 0x20-byte payload with revision `0x1CD9DEE3` and four slots; this is a
+read-only input contract for the future native save bridge, not a replacement
+for the card writer.
+
 The guest shutdown path has an equivalent static seam. `GMenu::ItemActivated`
 handles a `QuitGame` item by calling `CShell::Quit` (`0x0016F8D0`), which sets
 the shell quit bit at `+0x808`. `CShell::MainLoop` checks that bit after
