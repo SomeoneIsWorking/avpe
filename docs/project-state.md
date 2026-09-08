@@ -917,6 +917,10 @@ the complete 16-byte caller span with
 `00000201000000000000000000000000` when called with size 16 and offset 0,
 across two restored-state runs. The four-byte prefix is not assigned field
 meanings; OSD v2 structure semantics, policy, and HLE behavior remain missing.
+The COP0 query phase now records a stable read-only subset of `GetCop0` at
+`0x002B4090` across two restored-state runs. Volatile counter, exception, and
+performance registers are excluded, and COP0 mutation or exception semantics
+remain missing.
 The thread-control phase extends the safe invalid-ID slice to suspend/resume
 and join: both suspend variants and both resume variants return `-1`, while
 `JoinThread` returns `0`, across two isolated runs with restored stacks. Live

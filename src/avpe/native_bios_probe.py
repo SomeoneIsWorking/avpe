@@ -76,6 +76,7 @@ STATEFILE_BIOS_PHASES = (
     "osd-config-output",
     "gs-h-param-output",
     "osd-config2-output",
+    "cop0-query",
 )
 BIOS_EVENT_KINDS = frozenset(
     {
