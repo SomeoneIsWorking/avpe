@@ -1,4 +1,5 @@
-# Pinned bootstrap tool for the hosted Linux and Intel macOS jobs.
+# Pinned bootstrap tool for the hosted verification jobs.
 uv==0.10.12 \
     --hash=sha256:101481a1f48db6becf219914a591a588c0b3bfd05bef90768a5d04972bd6455e \
-    --hash=sha256:e0f0ef58f0ba6fbfaf5f91b67aad6852252c49b8f78015a2a5800cf74c7538d5
+    --hash=sha256:e0f0ef58f0ba6fbfaf5f91b67aad6852252c49b8f78015a2a5800cf74c7538d5 \
+    --hash=sha256:551f799d53e397843b6cde7e3c61de716fb487da512a21a954b7d0cbc06967e0

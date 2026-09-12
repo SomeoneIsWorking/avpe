@@ -66,8 +66,7 @@ jobs:
         env:
           CC: /usr/bin/clang
           CXX: /usr/bin/clang++
-          PATH: /usr/local/opt/llvm/bin:${{ env.PATH }}
-        run: uv run --frozen python tools/ci.py
+        run: PATH="/usr/local/opt/llvm/bin:/usr/local/bin:$PATH" uv run --frozen python tools/ci.py
 
   macos-arm64:
     name: Apple Silicon macOS asset-free build and verification
@@ -89,5 +88,4 @@ jobs:
         env:
           CC: /usr/bin/clang
           CXX: /usr/bin/clang++
-          PATH: /opt/homebrew/opt/llvm/bin:${{ env.PATH }}
-        run: uv run --frozen python tools/ci.py
+        run: PATH="/opt/homebrew/opt/llvm/bin:/opt/homebrew/bin:$PATH" uv run --frozen python tools/ci.py
