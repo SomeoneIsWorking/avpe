@@ -1,7 +1,10 @@
+import plistlib
 import subprocess
+import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import ANY, Mock, call, patch
 
 from avpe.ci import CiError, assert_asset_free_package, verify_host
 
@@ -26,33 +29,65 @@ class HostedCiTests(unittest.TestCase):
         )
 
     def test_macos_verifier_returns_the_staged_bundle_executable(self) -> None:
-        root = Path("/repo")
-        package = root / "build" / "avpe-package"
-        environment = {"CXX": "clang++"}
-        run = Mock()
-        with patch("avpe.ci.prepare_product_package", return_value=package):
-            with patch("avpe.ci.assert_asset_free_package") as assert_package:
-                with patch("avpe.ci.platform.machine", return_value="arm64"):
-                    binary = verify_host(root, environment, "Darwin", run)
-        self.assertEqual(binary, package / "avpe.app/Contents/MacOS/avpe")
-        assert_package.assert_called_once_with(package, "Darwin")
-        self.assertEqual(
-            run.call_args_list[0].args[0],
-            ["lipo", str(binary), "-verify_arch", "arm64"],
-        )
-        self.assertEqual(run.call_args_list[1].args[0][0], "codesign")
-        self.assertEqual(run.call_args_list[2].args[0][:2], ["codesign", "--verify"])
-        self.assertEqual(run.call_args_list[3].args[0][1], "tools/verify.py")
+        with self._macos_package() as (root, package, binary, nested, entitlements):
+            environment = {"CXX": "clang++"}
+            run = Mock(return_value=subprocess.CompletedProcess([], 0, plistlib.dumps(entitlements)))
+            with patch("avpe.ci.prepare_product_package", return_value=package):
+                with patch("avpe.ci.assert_asset_free_package") as assert_package:
+                    with patch("avpe.ci.platform.machine", return_value="arm64"):
+                        self.assertEqual(verify_host(root, environment, "Darwin", run), binary)
+            assert_package.assert_called_once_with(package, "Darwin")
+            bundle = package / "avpe.app"
+            entitlements_path = root / "thirdparty/pcsx2/pcsx2/Resources/PCSX2.entitlements"
+            self.assertEqual(
+                run.call_args_list,
+                [
+                    call(["lipo", str(binary), "-verify_arch", "arm64"], check=True),
+                    call(["lipo", str(nested), "-verify_arch", "arm64"], check=True),
+                    call(["codesign", "--force", "--sign", "-", "--timestamp=none", str(nested)], check=True),
+                    call(["codesign", "--force", "--sign", "-", "--timestamp=none", "--entitlements", str(entitlements_path), str(bundle)], check=True),
+                    call(["codesign", "--verify", "--deep", "--strict", str(bundle)], check=True),
+                    call(["codesign", "--display", "--entitlements", "-", "--xml", str(bundle)], check=True, stdout=subprocess.PIPE),
+                    call([ANY, "tools/verify.py"], cwd=root, env={**environment, "AVPE_TEST_PRODUCT": str(binary)}, check=True),
+                ],
+            )
 
     def test_macos_signature_failure_stops_before_normal_verifier(self) -> None:
-        root = Path("/repo")
-        package = root / "build" / "avpe-package"
-        run = Mock(side_effect=[None, None, subprocess.CalledProcessError(1, "codesign")])
-        with patch("avpe.ci.prepare_product_package", return_value=package):
-            with patch("avpe.ci.assert_asset_free_package"):
-                with self.assertRaises(subprocess.CalledProcessError):
-                    verify_host(root, {}, "Darwin", run)
-        self.assertEqual(run.call_count, 3)
+        with self._macos_package() as (root, package, _binary, nested, _entitlements):
+            run = Mock(side_effect=[None, None, subprocess.CalledProcessError(1, "codesign")])
+            with patch("avpe.ci.prepare_product_package", return_value=package):
+                with patch("avpe.ci.assert_asset_free_package"):
+                    with self.assertRaises(subprocess.CalledProcessError):
+                        verify_host(root, {}, "Darwin", run)
+            self.assertEqual(run.call_count, 3)
+            self.assertEqual(run.call_args_list[-1].args[0][-1], str(nested))
+
+    def test_macos_verifier_rejects_missing_jit_entitlement(self) -> None:
+        with self._macos_package() as (root, package, _binary, _nested, _entitlements):
+            run = Mock(return_value=subprocess.CompletedProcess([], 0, plistlib.dumps({})))
+            with patch("avpe.ci.prepare_product_package", return_value=package):
+                with patch("avpe.ci.assert_asset_free_package"):
+                    with self.assertRaisesRegex(CiError, "required JIT entitlements"):
+                        verify_host(root, {}, "Darwin", run)
+            self.assertEqual(run.call_args_list[-1].args[0][1], "--display")
+
+    @contextmanager
+    def _macos_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            package = root / "build/avpe-package"
+            binary = package / "avpe.app/Contents/MacOS/avpe"
+            binary.parent.mkdir(parents=True)
+            binary.write_bytes(b"product")
+            nested = package / "avpe.app/Contents/Frameworks/libshaderc_shared.1.dylib"
+            nested.parent.mkdir(parents=True)
+            nested.write_bytes(b"library")
+            (nested.parent / "libshaderc_shared.dylib").symlink_to(nested.name)
+            entitlements = {"com.apple.security.cs.allow-jit": True}
+            entitlements_path = root / "thirdparty/pcsx2/pcsx2/Resources/PCSX2.entitlements"
+            entitlements_path.parent.mkdir(parents=True)
+            entitlements_path.write_bytes(plistlib.dumps(entitlements))
+            yield root, package, binary, nested, entitlements
 
     def test_asset_free_package_rejects_unowned_files(self) -> None:
         with self.subTest("generic frontend"):
