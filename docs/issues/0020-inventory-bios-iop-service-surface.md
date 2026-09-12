@@ -1427,6 +1427,22 @@ native descriptors or CDVD mappings before or after the reset. This is a
 grounded negative for that boundary: it does not provide module teardown
 evidence and cannot substitute for a title-owned shutdown capture.
 
+### Finding (2026-09-12, diagnostic M1 state is not a shutdown fixture)
+
+A fresh native-asset clean boot invoked the original `CShell::SetNextLevel`
+through the diagnostic EE-call route, reached Marine M1 with a populated world,
+dismissed the game-owned mission-goals modal, and saved a current savestate.
+The existing Pause → Quit Game shutdown phase then held `PAD_START` from the
+visible M1 HUD. The control wire changed from `ff735affff7f7f7f7f` to
+`ff735af7ff7f7f7f7f` (`inject_wire=0800`), but no live pause menu appeared
+within 110 seconds; discovery ended with `callback_count=66` and no menu
+owner. Restoring the new state and pressing Start again reproduced the wire
+change without publishing a menu. This does not establish why the title
+refuses pause. It does establish that this debugger-triggered M1 state cannot
+serve as a shutdown census fixture. The next discriminator is progression
+through the normal title/profile/mission selection lifecycle, then the same
+pad-wire and pause-menu observation before arming shutdown tracing.
+
 ## Resolution
 
 Not resolved. The current census is the first partial S025 slice; it does not
