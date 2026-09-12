@@ -131,6 +131,14 @@ through `CProfile::SetGameData` (`CProfile + 0x18` pointer, `+0x1C` size,
 `+0x20` revision). A game save instead writes a 0x20-byte level identifier and
 then a BWJ-compressed `GObject::SaveAll` stream through `CLoadSaveBuffer`.
 
+`CProfile::BuildGameList` at `0x00130800` is the grounded slot-enumeration
+owner. It calls `sceMcGetInfo`, iterates the configured save-slot count, opens
+each numbered save through `CZFile::Open`, and reads its `0x118`-byte outer
+record before validating profile ID, revision, and payload size. The resulting
+`CZFile` mode-3 opens take the buffered `sceMcRead` branch described above, so
+this routine is the correct runtime boundary for enumerating `mcman.McRead`
+calls before a later `CProfile::LoadGame`.
+
 The attached `CLoadSaveBuffer` stream starts with a two-byte BWJ mode word and
 its first control word. Consequently the 0x20-byte level buffer begins four
 bytes after the outer record, not immediately at `record + 0x118`. `SaveGame`
