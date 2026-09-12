@@ -6,7 +6,7 @@ symptom: The product still presents PlayStation 2 controller button prompts whil
 state_items: S029
 tags: input,ui,prompts,keyboard,mouse
 created: 2026-08-27
-updated: 2026-08-31
+updated: 2026-09-12
 ---
 
 ## Root cause
@@ -59,19 +59,33 @@ the MainMenu `LIST/PS2 ` group at archive offset `0x1EDA5C`. Its decoded
 `DATX` at `0x1F02E8` has the string at offset `0xC10`; the group's `PUBL`
 and `EXTA` tables name that export
 `_autostring_2CC0FD68_25BA17B3_008_`. They name the object at decoded offset
-`0xBB0` `PressStart_StartButton`, whose pointer field at `+0x34` is `0xC10`;
-the `OFFS` table lists that pointer location. The title screen visibly renders
-the same text, providing a positive content check. This identifies an authored
-title prompt relation, not which copy was loaded or which guest render virtual
-and sprite rectangles produced the visible pixels. The next discriminator is
-the live menu item's text pointer and render resource, compared with this
-decoded object; the X/Triangle glyphs need their own producer and rectangle
-evidence. Static vtable inspection rules out `+0xF4` alone as that
-discriminator: both `GPressStartMenu` (`0x00342A50`) and `GMenuButton`
-(`0x00331610`) resolve that slot to the generic `GMenuItem::Redraw` at
-`0x00120890`. That routine composes a `CRender` resource and consults its
-`+0x58` virtual, but does not identify the loaded prompt object or glyph
-producer.
+`0xBB0` `PressStart_StartButton`. `GMenuItem::SpecifyEditable` at `0x0011F190`
+registers `pText` as the string field at object offset `+0x148`. The title's
+field-name CRC (`zlib.crc32(name) ^ 0xFFFFFFFF`) for `pText` is `0x7AF23FC8`,
+exactly the `DATX` field tag at `0xBDC`; its pointer value at `0xBE4` is
+`0xC10`. The `OFFS` table lists that pointer location.
+
+A real AVP:E run restored at the title screen supplied the live discriminator:
+`GET /input/menu` identified `GPressStartMenu` (`0x00342A50`), its focused
+`GMenuButton` (`0x00331610`), and the focused item's `pText` address
+`0x0154BBD0`. `GET /mem/read?addr=0x0154BBD0&len=0x30` returned the
+NUL-terminated bytes `Press START button`. The standalone title screen also
+visibly renders the same text. A second live read followed the focused item
+at `0x01346830`: its embedded text `CRender` starts at `+0x1D0`, and that
+renderer's resource pointer at `+0x20` is `0x01346A90`. The resource contains
+`Press START button` directly at `+0x0C`, the exact byte location read by
+`CzFont::Render`. This matches `GMenuItem::ReformatText` (`0x00120250`),
+which feeds the embedded renderer through `CRender::AttachText`
+(`0x001371E0`). These observations ground the authored field and live
+title-menu font-resource path; they do not establish which of the 29 archive
+copies was loaded or the final sprite rectangles. The X/Triangle glyphs
+need their own producer and rectangle evidence. Static vtable inspection
+rules out `+0xF4` alone as that discriminator: both `GPressStartMenu`
+(`0x00342A50`) and `GMenuButton` (`0x00331610`) resolve that slot to the
+generic `GMenuItem::Redraw` at
+`0x00120890`. That routine composes the `CRender` resource and consults
+its `+0x58` virtual, but the static vtable alone cannot identify the live
+text or glyph producer.
 
 ### Finding (2026-08-31, controller-resource selection)
 
