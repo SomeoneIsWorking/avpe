@@ -2,6 +2,7 @@ import json
 import tempfile
 import time
 import unittest
+import zipfile
 from pathlib import Path
 from struct import pack
 from types import SimpleNamespace
@@ -179,6 +180,22 @@ class ControlTestPolicyTests(unittest.TestCase):
         self.assertEqual(dispatch, {"injected_pointer_id": 71})
         self.assertEqual(observed, state)
         await_dispatch.assert_called_once_with(31234, deadline, 71)
+
+    def test_find_bios_matches_savestate_console_identifier(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            usa = root / "scph39001.bin"
+            europe = root / "pal.bin"
+            usa.write_bytes(b"x" * 2_000_000 + b"20020207")
+            europe.write_bytes(b"x" * 2_000_000 + b"20011004")
+            state = root / "state.p2s"
+
+            with zipfile.ZipFile(state, "w") as archive:
+                archive.writestr(
+                    "PCSX2 Internal Structures.dat",
+                    b"BIOS" + b"\0" * 28 + b"\0" * 4 + b"Europe v01.60 Console 20011004",
+                )
+            self.assertEqual(find_bios(str(root), state), europe)
 
     def test_coordinate_pointer_focus_uses_the_dispatch_owner(self) -> None:
         proof_state = {"before": {"focus_object": "0x015DFB60"}}
@@ -2010,6 +2027,21 @@ class ConfigurationIsolationTests(unittest.TestCase):
             self.assertIn("Slot1_Filename = probe.ps2", text)
             self.assertIn("Slot2_Enable = false", text)
             self.assertIn("EnableEE = true", text)
+
+    def test_test_config_replaces_stale_bios_link(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "first.bin"
+            second = root / "second.bin"
+            first.write_bytes(b"first")
+            second.write_bytes(b"second")
+            data_dir = root / "test"
+
+            ensure_test_config(data_dir, first)
+            ensure_test_config(data_dir, second)
+
+            link = data_dir / "PCSX2" / "bios" / "scph39001.bin"
+            self.assertEqual(link.resolve(), second.resolve())
 
 
 class ProductLaunchPolicyTests(unittest.TestCase):

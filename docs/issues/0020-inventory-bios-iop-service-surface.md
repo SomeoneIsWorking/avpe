@@ -677,17 +677,24 @@ no `mcman.McRead` event. This is a boundary fact, not evidence that the title
 does not use `mcman` for card reads; slot-enumeration tracing remains required
 to ground that service contract.
 
-### Finding (2026-09-12, normal-load repeatability regression)
+### Finding (2026-09-12, normal-load repeatability regression and repair)
 
 Repeating the canonical `mission1.p2s` plus `after-slot0.ps2` normal-load
-command failed after Load-menu activation: the guest menu remained at vtable
-`0x00341620` with a zero focus object until the probe deadline, so no grounded
-`CProfile::LoadGame` boundary was reached. The same state/card pair still
-passes the semaphore discriminator. The emulator log reports a Europe BIOS in
-the savestate (`0xb8e26e89`) and the runner's preferred USA BIOS
-(`0x3a75b059`), making that mismatch the leading cause but not yet a proven
-fix. Claim C040 is falsified until the runner and retained state use a
-deterministic BIOS pairing.
+command initially failed after Load-menu activation: the guest menu remained
+at vtable `0x00341620` with a zero focus object until the probe deadline, so no
+grounded `CProfile::LoadGame` boundary was reached. The same state/card pair
+still passed the semaphore discriminator. The emulator log identified the
+cause: a Europe BIOS in the savestate (`0xb8e26e89`) paired with the runner's
+preferred USA BIOS (`0x3a75b059`).
+
+The control runner now reads the savestate's embedded console identifier,
+selects the matching BIOS, and replaces a stale isolated BIOS symlink. Two
+subsequent runs with the same state/card pair completed the full route, each
+reaching `CProfile::LoadGame` at `0x00130000` and returning zero at
+`0x00130168`, completing the synchronous mission-goals modal, and preserving
+the source card. Claim C040 therefore holds under the deterministic pairing;
+the earlier USA/Europe mismatch remains a negative diagnostic for the old
+runner policy.
 
 The negative fixtures remain useful discriminators. Pairing
 `mission1-current.p2s` with this card reached `GLoadGameMenu` but returned to

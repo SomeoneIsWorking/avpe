@@ -38,12 +38,13 @@ It retained 426 coalesced identities with zero overflow, including the movie's
 ioman read/lseek/close activity and the reached libsd transfer services. Its
 natural `TerminateThread` results range from `-1` to `3`, supplying one
 observed service-level error result without inventing a synthetic failure.
-The historical matching normal-load capture followed Pause → Load → populated slot → Yes,
-crossed all three load-pacify calls and the exact `CProfile::LoadGame`
-entry/return with result zero, completed the synchronous mission-goals modal,
-and left the source card unchanged. A 2026-09-12 repeat failed to settle the
-loaded menu under the runner's USA BIOS because the retained state identifies a
-Europe BIOS. The remaining work is the shutdown,
+Two 2026-09-12 matching normal-load captures followed Pause → Load → populated
+slot → Yes, crossed all three load-pacify calls and the exact
+`CProfile::LoadGame` entry/return with result zero, completed the synchronous
+mission-goals modal, and left the source card unchanged. The control runner now
+selects the BIOS whose embedded console identifier matches the savestate and
+replaces a stale isolated BIOS link, restoring deterministic state/BIOS pairing.
+The remaining work is the shutdown,
 service-level negative-path inventory, plus required runtime operations outside
 the current boot, archive, save, and load slices. The exact load interval starts
 after slot selection has already read the card record, so it contains no
@@ -402,15 +403,14 @@ and `GFOWSaver`). Bounded readers and the production recursive parser now
 consume the selected payload layouts, the live fixed-size message table and
 dynamic message-size fallback, and the grounded player-manager active-state
 predicate; both retained records parse through their exact top-level
-terminators. The historical BIOS-backed load run selected the produced slot 0
+terminators. Two 2026-09-12 BIOS-backed load runs selected the produced slot 0
 through the normal Pause → Load path, crossed all three
 `GLoadPacifyMenu::Process` calls, returned zero from `CProfile::LoadGame`, and
 completed the synchronous mission-goals modal through its exact registered
-Exit action while preserving the source card. A 2026-09-12 repeat did not
-settle the loaded menu under the runner's USA BIOS because the retained state
-identifies a Europe BIOS; repeatable load evidence is blocked on using a
-matching state/BIOS pair. Editable field meanings and native interception
-remain open.
+Exit action while preserving the source card. The runner selects a BIOS
+matching the savestate console identifier and refreshes its isolated symlink
+when the retained profile was previously paired with another region. Editable
+field meanings and native interception remain open.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.
@@ -885,18 +885,18 @@ result. PCSX2's 60-frame savestate card auto-eject and 300-frame post-write
 busy intervals are both observed and awaited through the production
 `/memory-card/state` route.
 
-A matching schema-v6 load run from `mission1.p2s` and the produced
+Two matching schema-v6 load runs from `mission1.p2s` and the produced
 `after-slot0.ps2` card completed the normal Pause → Load → populated slot →
-Yes route. It observed all three `GLoadPacifyMenu::Process` calls, entered
+Yes route. Each observed all three `GLoadPacifyMenu::Process` calls, entered
 `CProfile::LoadGame` at `0x00130000`, and returned at `0x00130168` with result
-zero. The load then reached the synchronous mission-goals modal; its exact
-registered Exit action completed in 3,609 EE cycles with stack restoration.
-The trace retained 349 event identities, paired 14,444/14,444 return-capable
-EE BIOS calls, and captured 16,357 IOP oracle entries with 16,356 returns. The
-one pending IOP call is the blocking `thmsgbx.ReceiveMbx` at the chosen guest
-boundary, not an overflow or pairing error. The inventory contains 17 EE
-syscall and 86 IOP import identity/result summaries across the load and resumed
-mission initialization, so it is a complete operation boundary but not yet an
+zero. Each load then reached the synchronous mission-goals modal; its exact
+registered Exit action completed with stack restoration. The retained trace had
+349 event identities, paired 14,444/14,444 return-capable EE BIOS calls, and
+captured 16,357 IOP oracle entries with 16,356 returns. The one pending IOP call
+is the blocking `thmsgbx.ReceiveMbx` at the chosen guest boundary, not an
+overflow or pairing error. The inventory contains 17 EE syscall and 86 IOP
+import identity/result summaries across the load and resumed mission
+initialization, so it is a complete operation boundary but not yet an
 archive-only service slice.
 
 Gap: extend the restored-menu completion pattern to stable title completion.
@@ -1004,12 +1004,13 @@ The system-query evidence is the ignored artifact
 `scratch/control-test/system-query-phase.json` and its inventory.
 The thread-control evidence is the ignored artifact
 `scratch/control-test/thread-control-negative-phase.json` and its inventory.
-The historical normal-load evidence is `scratch/control-test/game-load-bios.json`
-and its deterministic inventory. A 2026-09-12 repeat with the same
-`mission1.p2s`/`after-slot0.ps2` pair failed to settle the loaded menu with a
-zero focus object; the log reports a Europe savestate BIOS versus the runner's
-USA BIOS. Load repeatability is therefore blocked on a deterministic
-state/BIOS pairing.
+The current normal-load evidence is
+`scratch/control-test/bios-trace-game-load-matched.json` (reused by two
+successful runs) plus the earlier `game-load-bios.json` inventory. The matched
+runner selects `PS2 Bios 30004R V6 Pal.bin` for the Europe savestate's embedded
+console identifier and keeps `scph39001.bin` for the USA fixture; it also
+replaces a stale isolated symlink. Load repeatability is restored under this
+deterministic state/BIOS pairing.
 The native-movie evidence is
 `scratch/control-test/bios-trace-movie.json`; a deliberately unbounded boot
 capture overflowed and is negative evidence for using a broad phase rather than

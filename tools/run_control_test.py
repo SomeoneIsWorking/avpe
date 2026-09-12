@@ -618,7 +618,7 @@ def main() -> int:
 
     project_env = load_env()
     chd = Path(project_env.get("AVPE_CHD", ""))
-    bios = find_bios(project_env.get("AVPE_BIOS_DIR", ""))
+    bios = find_bios(project_env.get("AVPE_BIOS_DIR", ""), args.statefile)
     if not chd.is_file():
         print(f"FATAL AVPE_CHD missing or invalid: {chd}", file=sys.stderr)
         return 2
