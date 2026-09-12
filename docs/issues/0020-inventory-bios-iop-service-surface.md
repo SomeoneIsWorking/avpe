@@ -677,6 +677,20 @@ no `mcman.McRead` event. This is a boundary fact, not evidence that the title
 does not use `mcman` for card reads; slot-enumeration tracing remains required
 to ground that service contract.
 
+### Finding (2026-09-12, static card-read owner and boundary)
+
+Ghidra decompilation of the supported ELF identifies `CZFile::Plat_Open` at
+`0x0017C7A0` and `CZFile::Plat_Read` at `0x0017CBF0` as the title's card I/O
+owners. In platform mode `3`, `Plat_Open` calls `sceMcOpen` and `sceMcGetDir`,
+then allocates the reported directory size and performs a synchronized
+`sceMcRead` before closing the descriptor; `Plat_Read` either consumes that
+buffer or issues a direct synchronized `sceMcRead` when no buffer is present.
+The exact caller references are `0x0017C904` and `0x0017CCA4` to the grounded
+`sceMcRead` wrapper at `0x002C0270`. This is static ownership evidence, not a
+runtime occurrence count, but it explains why the normal-load capture begins
+after the relevant card read and narrows the required enumeration trace to the
+`CZFile` platform branch.
+
 ### Finding (2026-09-12, normal-load repeatability regression and repair)
 
 Repeating the canonical `mission1.p2s` plus `after-slot0.ps2` normal-load
