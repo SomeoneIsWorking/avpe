@@ -372,12 +372,15 @@ Its bootstrap action revisions and the `uv` wheel hashes are pinned. The
 real boot-failure check from the staged binary. The package preserves the
 normal side-by-side core resource layout, supplies a relative library path
 and Qt plugin configuration, and includes X11 and Wayland platform plugins.
-The preceding hosted run exposed two further causes: generic PCSX2 install
-rules demanded translations the standalone target does not build, and the
-macOS 11 deployment target made Lucent's C++20 formatting unavailable on the
-Apple Silicon runner. The current fork isolates AVPE's install rules and the
-builder selects macOS 13.3; its AVPE bundle also has its own executable name
-and plist. A fresh hosted run of this revision is still required. Windows is
+The 2026-09-12 hosted run of the prior revision failed on all three runners:
+Linux's default CMake install demanded the unbuilt stock `pcsx2-qt` target;
+Intel macOS installed `avpe.app` beneath `bin/` instead of the package root;
+Apple Silicon linked an arm64 executable against an x86_64-only dependency
+prefix. The current revision gives AVPE its own install component, declares
+the bundle before its install rule, and builds each macOS dependency for the
+runner's architecture. The hosted macOS verifier also checks every bundled
+library's architecture and requires a valid ad-hoc CI signature. A fresh
+hosted run of this revision is still required. Windows is
 currently inapplicable because
 `dependency_prefix.select_workflow()` has no Windows implementation, so the
 product cannot provision or build its declared target there.

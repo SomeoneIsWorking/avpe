@@ -68,6 +68,28 @@ def assert_asset_free_package(package_root: Path, system: str | None = None) -> 
                 raise CiError(f"asset-free package is missing {relative}")
 
 
+def _verify_macos_bundle(
+    package_root: Path,
+    run: Callable[..., subprocess.CompletedProcess[object]],
+) -> None:
+    """Require native-architecture code and a valid ad-hoc CI signature."""
+    architecture = platform.machine()
+    if architecture not in {"arm64", "x86_64"}:
+        raise CiError(f"unsupported macOS package architecture: {architecture}")
+    bundle = package_root / "avpe.app"
+    contents = bundle / "Contents"
+    executables = [contents / "MacOS" / "avpe"]
+    for directory in (contents / "Frameworks", contents / "PlugIns"):
+        executables.extend(sorted(directory.rglob("*.dylib")))
+    for executable in executables:
+        run(["lipo", "-verify_arch", architecture, str(executable)], check=True)
+    run(
+        ["codesign", "--force", "--deep", "--sign", "-", "--timestamp=none", str(bundle)],
+        check=True,
+    )
+    run(["codesign", "--verify", "--deep", "--strict", str(bundle)], check=True)
+
+
 def verify_host(
     root: Path,
     environment: dict[str, str] | None = None,
@@ -82,6 +104,8 @@ def verify_host(
     env = dict(os.environ if environment is None else environment)
     package_root = prepare_product_package(root, env)
     assert_asset_free_package(package_root, host)
+    if host == "Darwin":
+        _verify_macos_bundle(package_root, run)
     binary = (
         package_root / "avpe.app" / "Contents" / "MacOS" / "avpe"
         if host == "Darwin"
