@@ -38,10 +38,12 @@ It retained 426 coalesced identities with zero overflow, including the movie's
 ioman read/lseek/close activity and the reached libsd transfer services. Its
 natural `TerminateThread` results range from `-1` to `3`, supplying one
 observed service-level error result without inventing a synthetic failure.
-The matching normal-load capture followed Pause → Load → populated slot → Yes,
+The historical matching normal-load capture followed Pause → Load → populated slot → Yes,
 crossed all three load-pacify calls and the exact `CProfile::LoadGame`
 entry/return with result zero, completed the synchronous mission-goals modal,
-and left the source card unchanged. The remaining work is the shutdown,
+and left the source card unchanged. A 2026-09-12 repeat failed to settle the
+loaded menu under the runner's USA BIOS because the retained state identifies a
+Europe BIOS. The remaining work is the shutdown,
 service-level negative-path inventory, plus required runtime operations outside
 the current boot, archive, save, and load slices. The exact load interval starts
 after slot selection has already read the card record, so it contains no
@@ -400,12 +402,15 @@ and `GFOWSaver`). Bounded readers and the production recursive parser now
 consume the selected payload layouts, the live fixed-size message table and
 dynamic message-size fallback, and the grounded player-manager active-state
 predicate; both retained records parse through their exact top-level
-terminators. A matching BIOS-backed load run then selected the produced slot 0
+terminators. The historical BIOS-backed load run selected the produced slot 0
 through the normal Pause → Load path, crossed all three
 `GLoadPacifyMenu::Process` calls, returned zero from `CProfile::LoadGame`, and
 completed the synchronous mission-goals modal through its exact registered
-Exit action while preserving the source card. Editable field meanings and
-native interception remain open.
+Exit action while preserving the source card. A 2026-09-12 repeat did not
+settle the loaded menu under the runner's USA BIOS because the retained state
+identifies a Europe BIOS; repeatable load evidence is blocked on using a
+matching state/BIOS pair. Editable field meanings and native interception
+remain open.
 
 Evidence: claim C016 and [`re/save-path.md`](re/save-path.md). Atomic work:
 issue #7.
@@ -999,8 +1004,12 @@ The system-query evidence is the ignored artifact
 `scratch/control-test/system-query-phase.json` and its inventory.
 The thread-control evidence is the ignored artifact
 `scratch/control-test/thread-control-negative-phase.json` and its inventory.
-The normal-load evidence is `scratch/control-test/game-load-bios.json` and its
-deterministic inventory.
+The historical normal-load evidence is `scratch/control-test/game-load-bios.json`
+and its deterministic inventory. A 2026-09-12 repeat with the same
+`mission1.p2s`/`after-slot0.ps2` pair failed to settle the loaded menu with a
+zero focus object; the log reports a Europe savestate BIOS versus the runner's
+USA BIOS. Load repeatability is therefore blocked on a deterministic
+state/BIOS pairing.
 The native-movie evidence is
 `scratch/control-test/bios-trace-movie.json`; a deliberately unbounded boot
 capture overflowed and is negative evidence for using a broad phase rather than

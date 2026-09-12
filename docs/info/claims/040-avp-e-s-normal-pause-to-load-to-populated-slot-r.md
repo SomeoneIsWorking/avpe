@@ -1,7 +1,7 @@
 ---
 id: C040
 kind: claim
-status: holds
+status: falsified
 created: 2026-09-04
 tags: bios,load,memory-card,inventory
 depends: src/avpe/native_game_load_probe.py#run_game_load_phase, thirdparty/pcsx2/pcsx2/AVPE/NativeGameLoadBoundary.cpp#ObserveEeExecution, thirdparty/pcsx2/pcsx2/AVPE/NativeBiosEventStore.cpp#RecordIopOracleImportReturn
@@ -13,7 +13,7 @@ AVP:E's normal Pause to Load to populated-slot route accepts the produced slot-0
 
 ## Evidence
 
-scratch/control-test/game-load-bios.json; scratch/control-test/game-load-bios-inventory.json; successful 2026-09-04 surfaceless/null-muted game-load phase; focused native and Python probe tests
+scratch/control-test/game-load-bios.json; scratch/control-test/game-load-bios-inventory.json; successful 2026-09-04 surfaceless/null-muted game-load phase; focused native and Python probe tests. A 2026-09-12 repeat with the same `mission1.p2s` and `after-slot0.ps2` inputs failed to settle the loaded menu: the guest focus object remained zero and the control route timed out. The emulator log reports a Europe BIOS in the savestate and the runner's USA BIOS, so the previously observed success is historical evidence only until that pairing is deterministic.
 
 ## What would falsify it
 
