@@ -50,6 +50,24 @@ control bytes adjust line position and horizontal alignment before one
 the concrete render resource producer and its final rectangles; changing the
 input resource name alone cannot establish which bytes reach this routine.
 
+### Finding (2026-09-12, Press START archive producer)
+
+The existing decoded-archive search found the exact `Press START button` bytes
+29 times across all 5,558 structurally traversed TBF chunks (933 compressed),
+so a raw string hit alone cannot select the live instance. One candidate is in
+the MainMenu `LIST/PS2 ` group at archive offset `0x1EDA5C`. Its decoded
+`DATX` at `0x1F02E8` has the string at offset `0xC10`; the group's `PUBL`
+and `EXTA` tables name that export
+`_autostring_2CC0FD68_25BA17B3_008_`. They name the object at decoded offset
+`0xBB0` `PressStart_StartButton`, whose pointer field at `+0x34` is `0xC10`;
+the `OFFS` table lists that pointer location. The title screen visibly renders
+the same text, providing a positive content check. This identifies an authored
+title prompt relation, not which copy was loaded or which guest render virtual
+and sprite rectangles produced the visible pixels. The next discriminator is
+the live `GPressStartMenu` item's resolved `+0xF4` render target and text
+pointer, compared with this decoded object; the X/Triangle glyphs need their
+own producer and rectangle evidence.
+
 ### Finding (2026-08-31, controller-resource selection)
 
 `GInputDevice::LoadGamepadTbd` at `0x00114250` chooses a controller name and
