@@ -1427,21 +1427,30 @@ native descriptors or CDVD mappings before or after the reset. This is a
 grounded negative for that boundary: it does not provide module teardown
 evidence and cannot substitute for a title-owned shutdown capture.
 
-### Finding (2026-09-12, diagnostic M1 state is not a shutdown fixture)
+### Finding (2026-09-12, Start reaches the pad wire but not the M1 pause menu)
 
 A fresh native-asset clean boot invoked the original `CShell::SetNextLevel`
 through the diagnostic EE-call route, reached Marine M1 with a populated world,
-dismissed the game-owned mission-goals modal, and saved a current savestate.
-The existing Pause → Quit Game shutdown phase then held `PAD_START` from the
-visible M1 HUD. The control wire changed from `ff735affff7f7f7f7f` to
-`ff735af7ff7f7f7f7f` (`inject_wire=0800`), but no live pause menu appeared
-within 110 seconds; discovery ended with `callback_count=66` and no menu
-owner. Restoring the new state and pressing Start again reproduced the wire
-change without publishing a menu. This does not establish why the title
-refuses pause. It does establish that this debugger-triggered M1 state cannot
-serve as a shutdown census fixture. The next discriminator is progression
-through the normal title/profile/mission selection lifecycle, then the same
-pad-wire and pause-menu observation before arming shutdown tracing.
+and dismissed the game-owned mission-goals modal. The existing Pause → Quit
+Game shutdown phase then held `PAD_START` from the visible M1 HUD. The control
+wire changed from `ff735affff7f7f7f7f` to `ff735af7ff7f7f7f7f`
+(`inject_wire=0800`), but no live pause menu appeared within 110 seconds;
+discovery ended with `callback_count=66` and no menu owner.
+
+The normal path supplies the counterexample to a fixture-only explanation.
+Starting from a current title savestate, native Activate completed the
+registered attract cancellation, then the game-owned Press Start, Load
+Profile, `Extinction 1` profile, Start Campaign, Marine Campaign, and Marine 1
+menus in order. Its mission-goals Exit item completed the authored modal
+lifecycle, and the resulting state was saved and restored. The same physical
+Start probe held the pad bit and observed no pause menu for 80 seconds, again
+ending with `callback_count=66`; a focused wire check showed
+`ff735af7ff7f7f7f7f` while `inject_wire=0800`. Thus normal menu progression
+does not resolve the missing pause. The next discriminator is the title's
+registered Start/pause callback and its admission guard at this M1 state,
+compared with the older mission fixture on which the pause probe succeeded.
+Neither run crossed the guest-owned shutdown boundary, so neither supplies
+module-release census evidence.
 
 ## Resolution
 
