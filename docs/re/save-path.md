@@ -77,6 +77,16 @@ are thin forwarders to this owner. A native save bridge therefore belongs at
 the `CProfile` boundary; replacing generic `CZFile` would also capture unrelated
 disc and host file traffic and would not express the profile invariants.
 
+The PS2 platform layer's `CZFile` card branch is grounded by the decompiled
+`Plat_Open` (`0x0017C7A0`) and `Plat_Read` (`0x0017CBF0`) functions. Platform
+mode `3` opens with `sceMcOpen`, synchronizes, and conditionally calls
+`sceMcGetDir`; for a populated directory it allocates the reported size and
+calls `sceMcRead`, synchronizes, verifies the exact byte count, and closes the
+descriptor. Subsequent reads consume that buffer until exhausted; unbuffered
+card reads call `sceMcRead` directly. This places card enumeration and the
+first record read before the exact `CProfile::LoadGame` boundary, explaining
+why that later BIOS slice contains no `mcman.McRead` event.
+
 All of these routines use zero for success and nonzero for failure.
 
 ## Card namespace and provisioning
