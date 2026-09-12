@@ -1416,6 +1416,17 @@ call returned immediately, created no waiter, and did not reach a blocking
 operation; this grounds only the safe invalid-ID entry and its ABI result
 shape, not thread wakeup or blocking semantics.
 
+### Finding (2026-09-12, guest reset has no module-release events)
+
+The new `guest-reset` phase arms the shipping BIOS sink before the real
+CPU-thread `VMManager::Reset` route and captures after the reset response. A
+current `mission1.p2s` run completed with the guest-reset epoch advancing from
+1 to 2, retained 13 ordered events with zero overflow, and observed zero
+`ReleaseLibraryEntries` events. The reset response also reported no active
+native descriptors or CDVD mappings before or after the reset. This is a
+grounded negative for that boundary: it does not provide module teardown
+evidence and cannot substitute for a title-owned shutdown capture.
+
 ## Resolution
 
 Not resolved. The current census is the first partial S025 slice; it does not

@@ -30,6 +30,7 @@ from avpe.native_menu_pointer_dispatch_probe import (
 )
 from avpe.native_pause_probe import probe_gameplay_pause_menu
 from avpe.native_bios_diagnostic_phases import run_diagnostic_phase
+from avpe.native_bios_reset_probe import run_guest_reset_phase
 from avpe.native_pause_quit_probe import (
     LOAD_MENU_ACTION,
     PAUSE_QUIT_TEXT,
@@ -59,7 +60,7 @@ STATEFILE_BIOS_PHASES = (
     "save-load",
     "game-save",
     "game-load", "slot-enumeration",
-    "shutdown",
+    "guest-reset", "shutdown",
     "shutdown-pointer",
     "semaphore",
     "thread-negative",
@@ -1052,6 +1053,8 @@ def run_bios_phase(
         return run_game_load_phase(port, deadline)
     if phase == "slot-enumeration":
         return run_slot_enumeration_phase(port, deadline)
+    if phase == "guest-reset":
+        return run_guest_reset_phase(port)
     if phase == "shutdown":
         pause = probe_gameplay_pause_menu(port, deadline)
         selections = _pause_selection_rectangles(port)
