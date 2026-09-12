@@ -89,6 +89,21 @@ generic `GMenuItem::Redraw` at
 its `+0x58` virtual, but the static vtable alone cannot identify the live
 text or glyph producer.
 
+### Finding (2026-09-12, live profile Select item)
+
+A surfaceless restore of the real title state followed by the registered
+activation callback reached `GProfileMenu` (`0x00343750`). Its first child is
+the live `GNonCursorableButton` (`0x0035A5A0`) whose `pText` field and embedded
+`CRendFontWorkspace` both contain `Select`. The item's image resource at
+`+0xF0` points to a live `CRendPS2Mesh` (`0x00334980`); the embedded text
+renderer at `+0x1F0` points to the separate font workspace. Its `+0x12C`
+overlay resource and `+0x23C` extra renderer are null. `GMenuItem::Redraw`
+attaches the `+0xF0` image resource to its first renderer and the text
+resource to its text renderer. This grounds the visible Select label's two
+render paths. The mesh may contain the adjacent X symbol, but no mesh glyph
+or sprite-rectangle observation yet establishes that identity; replacing the
+entire mesh would risk removing other authored artwork.
+
 A full decoded search of the supported 76,132,970-byte `TBF.TBF` traversed
 5,558 chunks (933 compressed). It found zero literal `Triangle`, `triangle`,
 `TRIANGLE`, `Press X`, `Press TRIANGLE`, or `Press O` strings, while the known

@@ -1991,7 +1991,7 @@ class ConfigurationIsolationTests(unittest.TestCase):
             bios_dir = root / "firmware"
             ensure_product_config(data_dir, bios_dir)
             sections = load_ini(data_dir / "PCSX2" / "inis" / "PCSX2.ini")
-            self.assertEqual(sections["Folders"]["Bios"], str(bios_dir))
+            self.assertEqual(sections["Folders"]["Bios"], str(bios_dir.resolve()))
 
     def test_test_profile_does_not_touch_product_profile(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
