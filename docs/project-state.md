@@ -46,7 +46,7 @@ selects the BIOS whose embedded console identifier matches the savestate and
 replaces a stale isolated BIOS link, restoring deterministic state/BIOS pairing.
 The remaining work is the shutdown,
 service-level negative-path inventory, plus required runtime operations outside
-the current boot, archive, save, load, and slot-enumeration slices. The exact
+the current boot, archive, save, load, slot-enumeration, and guest-reset slices. The exact
 load interval starts after slot selection has already read the card record, so
 it contains no `mcman.McRead`; the separate slot-enumeration capture now covers
 that earlier service contract.
