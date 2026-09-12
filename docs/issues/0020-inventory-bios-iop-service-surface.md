@@ -691,6 +691,15 @@ runtime occurrence count, but it explains why the normal-load capture begins
 after the relevant card read and narrows the required enumeration trace to the
 `CZFile` platform branch.
 
+The slot-enumeration owner is now grounded statically as
+`CProfile::BuildGameList` (`0x00130800`). It calls `sceMcGetInfo`, loops over
+the configured numbered slots, and uses `CZFile::Open` plus a `0x118`-byte
+`CZFile::Read` for each candidate before checking profile identity, revision,
+and payload size. Combined with the `Plat_Open`/`Plat_Read` decompilation above,
+this establishes the runtime trace window needed to observe `mcman.McRead` and
+its `sceMcGetDir`/`sceMcSync` ordering; the existing normal-load capture starts
+after this loop and cannot supply those occurrences.
+
 ### Finding (2026-09-12, normal-load repeatability regression and repair)
 
 Repeating the canonical `mission1.p2s` plus `after-slot0.ps2` normal-load
