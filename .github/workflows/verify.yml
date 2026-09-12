@@ -48,7 +48,7 @@ jobs:
 
   macos-intel:
     name: Intel macOS asset-free build and verification
-    runs-on: macos-13
+    runs-on: macos-15-intel
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
