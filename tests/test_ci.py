@@ -29,11 +29,26 @@ class HostedCiTests(unittest.TestCase):
         root = Path("/repo")
         package = root / "build" / "avpe-package"
         environment = {"CXX": "clang++"}
+        run = Mock()
         with patch("avpe.ci.prepare_product_package", return_value=package):
             with patch("avpe.ci.assert_asset_free_package") as assert_package:
-                binary = verify_host(root, environment, "Darwin", Mock())
+                binary = verify_host(root, environment, "Darwin", run)
         self.assertEqual(binary, package / "avpe.app/Contents/MacOS/avpe")
         assert_package.assert_called_once_with(package, "Darwin")
+        self.assertEqual(run.call_args_list[0].args[0][:2], ["lipo", "-verify_arch"])
+        self.assertEqual(run.call_args_list[1].args[0][0], "codesign")
+        self.assertEqual(run.call_args_list[2].args[0][:2], ["codesign", "--verify"])
+        self.assertEqual(run.call_args_list[3].args[0][1], "tools/verify.py")
+
+    def test_macos_signature_failure_stops_before_normal_verifier(self) -> None:
+        root = Path("/repo")
+        package = root / "build" / "avpe-package"
+        run = Mock(side_effect=[None, None, subprocess.CalledProcessError(1, "codesign")])
+        with patch("avpe.ci.prepare_product_package", return_value=package):
+            with patch("avpe.ci.assert_asset_free_package"):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    verify_host(root, {}, "Darwin", run)
+        self.assertEqual(run.call_count, 3)
 
     def test_asset_free_package_rejects_unowned_files(self) -> None:
         with self.subTest("generic frontend"):

@@ -76,16 +76,27 @@ renderer's resource pointer at `+0x20` is `0x01346A90`. The resource contains
 `Press START button` directly at `+0x0C`, the exact byte location read by
 `CzFont::Render`. This matches `GMenuItem::ReformatText` (`0x00120250`),
 which feeds the embedded renderer through `CRender::AttachText`
-(`0x001371E0`). These observations ground the authored field and live
-title-menu font-resource path; they do not establish which of the 29 archive
-copies was loaded or the final sprite rectangles. The X/Triangle glyphs
-need their own producer and rectangle evidence. Static vtable inspection
-rules out `+0xF4` alone as that discriminator: both `GPressStartMenu`
+(`0x001371E0`). The live resource's vtable `0x003320E0` resolves to
+`CRendFontWorkspace` (`Attach` at `0x00139690`), so the title text is a font
+workspace rather than an unidentified texture. These observations ground the
+authored field and live title-menu font-resource path; they do not establish
+which of the 29 archive copies was loaded or the final sprite rectangles. The
+X/Triangle glyphs need their own producer and rectangle evidence. Static vtable
+inspection rules out `+0xF4` alone as that discriminator: both `GPressStartMenu`
 (`0x00342A50`) and `GMenuButton` (`0x00331610`) resolve that slot to the
 generic `GMenuItem::Redraw` at
 `0x00120890`. That routine composes the `CRender` resource and consults
 its `+0x58` virtual, but the static vtable alone cannot identify the live
 text or glyph producer.
+
+A full decoded search of the supported 76,132,970-byte `TBF.TBF` traversed
+5,558 chunks (933 compressed). It found zero literal `Triangle`, `triangle`,
+`TRIANGLE`, `Press X`, `Press TRIANGLE`, or `Press O` strings, while the known
+`Press START button` positive control matched 29 times. The lone exported
+`Circle` and `Square` names at archive offset `0x50C30` belong to
+`MiniMap_Circle` and `MiniMap_Square`; they are not evidence for controller
+prompts. This negative rules out those literal strings in this archive, not
+encoded font glyphs, unnamed textures, other assets, or runtime-generated text.
 
 ### Finding (2026-08-31, controller-resource selection)
 

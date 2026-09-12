@@ -269,7 +269,11 @@ def prepare_product_package(
         install_prefix=paths.package_install_dir,
     )
     environment_snapshot = dict(os.environ if environment is None else environment)
-    _run(["cmake", "--install", str(paths.build_dir)], root, environment_snapshot)
+    _run(
+        ["cmake", "--install", str(paths.build_dir), "--component", "avpe"],
+        root,
+        environment_snapshot,
+    )
 
     installed_binary = (
         paths.package_install_dir / "avpe.app" / "Contents" / "MacOS" / "avpe"
