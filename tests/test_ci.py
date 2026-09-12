@@ -58,27 +58,27 @@ class HostedCiTests(unittest.TestCase):
         with self.subTest("generic frontend"):
             with self.assertRaisesRegex(CiError, "unowned file"):
                 with self._package_tree("bin/pcsx2-qt"):
-                    assert_asset_free_package(self._package_root)
+                    assert_asset_free_package(self._package_root, "Linux")
 
         with self.subTest("game asset"):
             with self.assertRaisesRegex(CiError, "user-supplied asset"):
                 with self._package_tree("bin/resources/disc.iso"):
-                    assert_asset_free_package(self._package_root)
+                    assert_asset_free_package(self._package_root, "Linux")
 
     def test_asset_free_package_accepts_product_and_resources(self) -> None:
         with self._package_tree("bin/resources/GameIndex.yaml"):
-            assert_asset_free_package(self._package_root)
+            assert_asset_free_package(self._package_root, "Linux")
 
     def test_asset_free_package_requires_the_core_resources(self) -> None:
         with self._package_tree("bin/resources/other.txt"):
             with self.assertRaisesRegex(CiError, "missing core resources"):
-                assert_asset_free_package(self._package_root)
+                assert_asset_free_package(self._package_root, "Linux")
 
     def test_asset_free_package_requires_desktop_platform_plugins(self) -> None:
         with self._package_tree("bin/resources/GameIndex.yaml"):
             (self._package_root / "plugins/platforms/libqwayland.so").unlink()
             with self.assertRaisesRegex(CiError, "libqwayland.so"):
-                assert_asset_free_package(self._package_root)
+                assert_asset_free_package(self._package_root, "Linux")
 
     def test_macos_bundle_is_the_product_package_boundary(self) -> None:
         import tempfile

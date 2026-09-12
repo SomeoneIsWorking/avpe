@@ -1,6 +1,7 @@
 """Exercise the standalone product's failure exit through its real binary."""
 
 import os
+import platform
 import subprocess
 import unittest
 from pathlib import Path
@@ -19,7 +20,8 @@ class ProductBootTests(unittest.TestCase):
         missing_game = PROBE / "missing.chd"
         self.assertFalse(missing_game.exists(), f"test input unexpectedly exists: {missing_game}")
         PROBE.mkdir(parents=True, exist_ok=True)
-        environment = dict(os.environ, QT_QPA_PLATFORM="offscreen")
+        qt_platform = "cocoa" if platform.system() == "Darwin" else "offscreen"
+        environment = dict(os.environ, QT_QPA_PLATFORM=qt_platform)
         result = subprocess.run(
             [str(PRODUCT), "-datapath", str(PROBE / "data"), "--", str(missing_game)],
             cwd=ROOT,

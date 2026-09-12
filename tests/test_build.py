@@ -100,7 +100,8 @@ class ProductPreparationTests(unittest.TestCase):
         )
         log.assert_called_once()
 
-    def test_build_paths_use_the_top_level_build_root(self) -> None:
+    @patch("avpe.build.platform.system", return_value="Linux")
+    def test_build_paths_use_the_top_level_build_root(self, _system: Mock) -> None:
         paths = BuildPaths(Path("/repo"))
 
         self.assertEqual(paths.build_dir, Path("/repo/build"))
@@ -132,6 +133,7 @@ class ProductPreparationTests(unittest.TestCase):
         prepare.assert_called_once()
         launch.assert_called_once_with("/game/test.chd", "/firmware")
 
+    @patch("avpe.build.platform.system", return_value="Linux")
     @patch("avpe.build._run")
     @patch("avpe.build._ensure_submodule")
     @patch("avpe.build.dependency_prefix_complete", return_value=True)
@@ -144,6 +146,7 @@ class ProductPreparationTests(unittest.TestCase):
         _prefix_complete: Mock,
         ensure_submodule: Mock,
         run: Mock,
+        _system: Mock,
     ) -> None:
         paths = paths_type.return_value
         paths.source_dir = Path("/repo/thirdparty/pcsx2")
