@@ -361,8 +361,13 @@ the `avpe` binary and redistributable AVPE resources, rejects unowned files and
 known game/BIOS asset suffixes, and then runs the normal `tools/verify.py` gate;
 the workflow does not upload game data, derived game data, or a runtime cache.
 Its bootstrap action revisions and the `uv` wheel hashes are pinned. A local
-Linux run has passed the staged package assertion with Clang. The Apple Silicon
-job is newly declared but has no hosted result yet. Windows is currently
+Linux run has passed the staged package assertion with Clang. A 2026-09-12
+hosted Linux attempt failed to compile Lucent's `<format>` on the Ubuntu 22.04
+toolchain; the Linux job now selects Ubuntu 24.04 for a newer C++ library. The
+first Apple Silicon attempt failed during CMake
+configuration because both frontends declared the same bundle target; the
+pinned PCSX2 fork now names that target per frontend. Hosted reruns of both
+fixes remain pending. Windows is currently
 inapplicable because
 `dependency_prefix.select_workflow()` has no Windows implementation, so the
 product cannot provision or build its declared target there.
