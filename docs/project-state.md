@@ -362,18 +362,23 @@ StarCraft-informed PC RTS control scheme.
 Observed subset: `.github/workflows/verify.yml` defines cold, asset-free Linux,
 Intel macOS, and Apple Silicon macOS jobs. Each builds through
 `src/avpe/ci.py`, which now builds an explicit CMake install prefix, stages only
-the `avpe` binary and redistributable AVPE resources, rejects unowned files and
-known game/BIOS asset suffixes, and then runs the normal `tools/verify.py` gate;
+the `avpe` binary, redistributable core resources, dependency-prefix shared
+libraries, and Qt platform plugins, rejects unowned files and known game/BIOS
+asset suffixes, then runs the normal `tools/verify.py` gate against the staged
+executable;
 the workflow does not upload game data, derived game data, or a runtime cache.
-Its bootstrap action revisions and the `uv` wheel hashes are pinned. A local
-Linux run has passed the staged package assertion with Clang. A 2026-09-12
-hosted Linux attempt failed to compile Lucent's `<format>` on the Ubuntu 22.04
-toolchain; the Linux job now selects Ubuntu 24.04 for a newer C++ library. The
-first Apple Silicon attempt failed during CMake
-configuration because both frontends declared the same bundle target; the
-pinned PCSX2 fork now names that target per frontend. Hosted reruns of both
-fixes remain pending. Windows is currently
-inapplicable because
+Its bootstrap action revisions and the `uv` wheel hashes are pinned. The
+2026-09-12 local Linux Clang package and combined verifier passed, including a
+real boot-failure check from the staged binary. The package preserves the
+normal side-by-side core resource layout, supplies a relative library path
+and Qt plugin configuration, and includes X11 and Wayland platform plugins.
+The preceding hosted run exposed two further causes: generic PCSX2 install
+rules demanded translations the standalone target does not build, and the
+macOS 11 deployment target made Lucent's C++20 formatting unavailable on the
+Apple Silicon runner. The current fork isolates AVPE's install rules and the
+builder selects macOS 13.3; its AVPE bundle also has its own executable name
+and plist. A fresh hosted run of this revision is still required. Windows is
+currently inapplicable because
 `dependency_prefix.select_workflow()` has no Windows implementation, so the
 product cannot provision or build its declared target there.
 

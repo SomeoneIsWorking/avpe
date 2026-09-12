@@ -17,10 +17,23 @@ class HostedCiTests(unittest.TestCase):
             with patch("avpe.ci.assert_asset_free_package") as assert_package:
                 self.assertEqual(verify_host(root, environment, "Linux", run), binary)
         prepare.assert_called_once_with(root, environment)
-        assert_package.assert_called_once_with(package)
+        assert_package.assert_called_once_with(package, "Linux")
         run.assert_called_once_with(
-            [ANY, "tools/verify.py"], cwd=root, env=environment, check=True
+            [ANY, "tools/verify.py"],
+            cwd=root,
+            env={**environment, "AVPE_TEST_PRODUCT": str(binary)},
+            check=True,
         )
+
+    def test_macos_verifier_returns_the_staged_bundle_executable(self) -> None:
+        root = Path("/repo")
+        package = root / "build" / "avpe-package"
+        environment = {"CXX": "clang++"}
+        with patch("avpe.ci.prepare_product_package", return_value=package):
+            with patch("avpe.ci.assert_asset_free_package") as assert_package:
+                binary = verify_host(root, environment, "Darwin", Mock())
+        self.assertEqual(binary, package / "avpe.app/Contents/MacOS/avpe")
+        assert_package.assert_called_once_with(package, "Darwin")
 
     def test_asset_free_package_rejects_unowned_files(self) -> None:
         with self.subTest("generic frontend"):
@@ -30,12 +43,40 @@ class HostedCiTests(unittest.TestCase):
 
         with self.subTest("game asset"):
             with self.assertRaisesRegex(CiError, "user-supplied asset"):
-                with self._package_tree("share/avpe/resources/disc.iso"):
+                with self._package_tree("bin/resources/disc.iso"):
                     assert_asset_free_package(self._package_root)
 
     def test_asset_free_package_accepts_product_and_resources(self) -> None:
-        with self._package_tree("share/avpe/resources/GameIndex.yaml"):
+        with self._package_tree("bin/resources/GameIndex.yaml"):
             assert_asset_free_package(self._package_root)
+
+    def test_asset_free_package_requires_the_core_resources(self) -> None:
+        with self._package_tree("bin/resources/other.txt"):
+            with self.assertRaisesRegex(CiError, "missing core resources"):
+                assert_asset_free_package(self._package_root)
+
+    def test_asset_free_package_requires_desktop_platform_plugins(self) -> None:
+        with self._package_tree("bin/resources/GameIndex.yaml"):
+            (self._package_root / "plugins/platforms/libqwayland.so").unlink()
+            with self.assertRaisesRegex(CiError, "libqwayland.so"):
+                assert_asset_free_package(self._package_root)
+
+    def test_macos_bundle_is_the_product_package_boundary(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / "avpe.app/Contents/MacOS/avpe"
+            binary.parent.mkdir(parents=True)
+            binary.write_bytes(b"product")
+            resource = root / "avpe.app/Contents/Resources/GameIndex.yaml"
+            resource.parent.mkdir(parents=True)
+            resource.write_bytes(b"resource")
+            assert_asset_free_package(root, "Darwin")
+            (root / "bin").mkdir()
+            (root / "bin" / "pcsx2-qt").write_bytes(b"unowned")
+            with self.assertRaisesRegex(CiError, "unowned file"):
+                assert_asset_free_package(root, "Darwin")
 
     def _package_tree(self, extra: str):
         import tempfile
@@ -44,6 +85,11 @@ class HostedCiTests(unittest.TestCase):
         self._package_root = Path(temporary.name)
         (self._package_root / "bin").mkdir()
         (self._package_root / "bin" / "avpe").write_bytes(b"product")
+        (self._package_root / "bin" / "qt.conf").write_text("[Paths]\n")
+        platforms = self._package_root / "plugins" / "platforms"
+        platforms.mkdir(parents=True)
+        for name in ("libqoffscreen.so", "libqxcb.so", "libqwayland.so"):
+            (platforms / name).write_bytes(b"plugin")
         extra_path = self._package_root / extra
         extra_path.parent.mkdir(parents=True, exist_ok=True)
         extra_path.write_bytes(b"fixture")

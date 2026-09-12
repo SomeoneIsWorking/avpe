@@ -20,23 +20,52 @@ _FORBIDDEN_ASSET_SUFFIXES = frozenset(
 )
 
 
-def assert_asset_free_package(package_root: Path) -> None:
+def assert_asset_free_package(package_root: Path, system: str | None = None) -> None:
     """Require the staged package to contain only redistributable AVPE files."""
-    binary = package_root / "bin" / "avpe"
+    host = system or platform.system()
+    binary = (
+        package_root / "avpe.app" / "Contents" / "MacOS" / "avpe"
+        if host == "Darwin"
+        else package_root / "bin" / "avpe"
+    )
     if not binary.is_file():
         raise CiError(f"asset-free package is missing {binary}")
+    resources = (
+        package_root / "avpe.app" / "Contents" / "Resources"
+        if host == "Darwin"
+        else package_root / "bin" / "resources"
+    )
     for path in package_root.rglob("*"):
         if not path.is_file():
             continue
         relative = path.relative_to(package_root)
-        if relative == Path("bin/avpe"):
+        if relative == binary.relative_to(package_root):
             continue
-        if relative.parts[:3] == ("share", "avpe", "resources"):
+        if host == "Darwin" and relative.parts[:1] == ("avpe.app",):
+            pass
+        elif relative.parts[:2] == ("bin", "resources"):
+            pass
+        elif host == "Linux" and relative.parts[:1] == ("lib",):
+            pass
+        elif host == "Linux" and relative.parts[:1] == ("plugins",):
+            pass
+        elif host == "Linux" and relative == Path("bin/qt.conf"):
             pass
         else:
             raise CiError(f"package contains an unowned file: {relative}")
         if path.suffix.lower() in _FORBIDDEN_ASSET_SUFFIXES:
             raise CiError(f"package contains a user-supplied asset: {relative}")
+    if not (resources / "GameIndex.yaml").is_file():
+        raise CiError(f"asset-free package is missing core resources at {resources}")
+    if host == "Linux":
+        for relative in (
+            "bin/qt.conf",
+            "plugins/platforms/libqoffscreen.so",
+            "plugins/platforms/libqxcb.so",
+            "plugins/platforms/libqwayland.so",
+        ):
+            if not (package_root / relative).is_file():
+                raise CiError(f"asset-free package is missing {relative}")
 
 
 def verify_host(
@@ -52,6 +81,16 @@ def verify_host(
 
     env = dict(os.environ if environment is None else environment)
     package_root = prepare_product_package(root, env)
-    assert_asset_free_package(package_root)
-    run([sys.executable, "tools/verify.py"], cwd=root, env=env, check=True)
-    return package_root / "bin" / "avpe"
+    assert_asset_free_package(package_root, host)
+    binary = (
+        package_root / "avpe.app" / "Contents" / "MacOS" / "avpe"
+        if host == "Darwin"
+        else package_root / "bin" / "avpe"
+    )
+    run(
+        [sys.executable, "tools/verify.py"],
+        cwd=root,
+        env={**env, "AVPE_TEST_PRODUCT": str(binary)},
+        check=True,
+    )
+    return binary
