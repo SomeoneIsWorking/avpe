@@ -64,9 +64,14 @@ the `OFFS` table lists that pointer location. The title screen visibly renders
 the same text, providing a positive content check. This identifies an authored
 title prompt relation, not which copy was loaded or which guest render virtual
 and sprite rectangles produced the visible pixels. The next discriminator is
-the live `GPressStartMenu` item's resolved `+0xF4` render target and text
-pointer, compared with this decoded object; the X/Triangle glyphs need their
-own producer and rectangle evidence.
+the live menu item's text pointer and render resource, compared with this
+decoded object; the X/Triangle glyphs need their own producer and rectangle
+evidence. Static vtable inspection rules out `+0xF4` alone as that
+discriminator: both `GPressStartMenu` (`0x00342A50`) and `GMenuButton`
+(`0x00331610`) resolve that slot to the generic `GMenuItem::Redraw` at
+`0x00120890`. That routine composes a `CRender` resource and consults its
+`+0x58` virtual, but does not identify the loaded prompt object or glyph
+producer.
 
 ### Finding (2026-08-31, controller-resource selection)
 

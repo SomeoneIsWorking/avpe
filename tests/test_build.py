@@ -7,11 +7,13 @@ import sys
 from unittest.mock import Mock, call, patch
 
 from avpe.build import (
+    MACOS_MINIMUM_VERSION,
     BuildError,
     BuildPaths,
     install_hint,
     prepare_control_test,
     prepare_product,
+    _configure_command,
 )
 from avpe.dependency_prefix import DependencyPrefixError
 from avpe.memory_card_import import ImportedMemoryCard
@@ -106,6 +108,18 @@ class ProductPreparationTests(unittest.TestCase):
         self.assertEqual(paths.product_binary, Path("/repo/build/bin/avpe"))
         self.assertEqual(paths.control_test_binary, Path("/repo/build/bin/pcsx2-qt"))
 
+    @patch("avpe.build.platform.system", return_value="Darwin")
+    def test_macos_product_uses_a_distinct_bundle_and_supported_floor(self, _system: Mock) -> None:
+        paths = BuildPaths(Path("/repo"))
+        self.assertEqual(
+            paths.product_binary,
+            Path("/repo/build/pcsx2-avpe/avpe.app/Contents/MacOS/avpe"),
+        )
+        self.assertIn(
+            f"-DCMAKE_OSX_DEPLOYMENT_TARGET={MACOS_MINIMUM_VERSION}",
+            _configure_command(paths),
+        )
+
     @patch("avpe.launch.launch", return_value=0)
     @patch("avpe.cli.prepare_product")
     @patch("avpe.cli.load_env", return_value={"AVPE_CHD": "/game/test.chd", "AVPE_BIOS_DIR": "/firmware"})
@@ -157,6 +171,8 @@ class ProductPreparationTests(unittest.TestCase):
                         "-DCMAKE_BUILD_TYPE=Release",
                         "-DCMAKE_PREFIX_PATH=/repo/build/deps",
                         "-DENABLE_QT_UI=ON",
+                        "-DPACKAGE_MODE=OFF",
+                        "-DCMAKE_INSTALL_LIBDIR=lib",
                         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
                         f"-DPython3_EXECUTABLE={sys.executable}",
                     ],
@@ -304,7 +320,7 @@ class ProductPreparationTests(unittest.TestCase):
             prepare_product(Path("/repo"), {})
 
         ensure.assert_called_once_with(Path("/repo"))
-        self.assertEqual(run.call_args_list[0][0][0][-1], "-DPACKAGE_MODE=OFF")
+        self.assertIn("-DPACKAGE_MODE=OFF", run.call_args_list[0][0][0])
         self.assertEqual(run.call_args_list[1][0][0][:5], [
             "cmake", "--build", str(paths.build_dir), "--target", "avpe"
         ])

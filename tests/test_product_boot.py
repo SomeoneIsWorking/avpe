@@ -5,9 +5,11 @@ import subprocess
 import unittest
 from pathlib import Path
 
+from avpe.build import BuildPaths
+
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCT = ROOT / "build" / "bin" / "avpe"
+PRODUCT = Path(os.environ.get("AVPE_TEST_PRODUCT", BuildPaths(ROOT).product_binary))
 PROBE = ROOT / "scratch" / "product-boot-test"
 
 

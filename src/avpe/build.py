@@ -15,6 +15,8 @@ from avpe.dependency_prefix import (
     provision_dependency_prefix,
 )
 
+MACOS_MINIMUM_VERSION = "13.3"
+
 
 @dataclass(frozen=True)
 class BuildPaths:
@@ -34,6 +36,8 @@ class BuildPaths:
 
     @property
     def product_binary(self) -> Path:
+        if platform.system() == "Darwin":
+            return self.build_dir / "pcsx2-avpe" / "avpe.app" / "Contents" / "MacOS" / "avpe"
         return self.build_dir / "bin" / "avpe"
 
     @property
@@ -151,11 +155,13 @@ def _configure_command(
         "-DCMAKE_BUILD_TYPE=Release",
         f"-DCMAKE_PREFIX_PATH={paths.dependency_prefix}",
         "-DENABLE_QT_UI=ON",
+        f"-DPACKAGE_MODE={'ON' if package_mode else 'OFF'}",
+        "-DCMAKE_INSTALL_LIBDIR=lib",
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
         f"-DPython3_EXECUTABLE={sys.executable}",
     ]
-    if package_mode:
-        command.append("-DPACKAGE_MODE=ON")
+    if platform.system() == "Darwin":
+        command.append(f"-DCMAKE_OSX_DEPLOYMENT_TARGET={MACOS_MINIMUM_VERSION}")
     if install_prefix is not None:
         command.append(f"-DCMAKE_INSTALL_PREFIX={install_prefix}")
     return command
@@ -186,8 +192,6 @@ def _build_target(
         configure_command = _configure_command(
             paths, package_mode=package_mode, install_prefix=install_prefix
         )
-        if normal_package_reset:
-            configure_command.append("-DPACKAGE_MODE=OFF")
         _run(
             configure_command,
             root,
@@ -253,32 +257,39 @@ def prepare_product_package(
     """Build and stage the standalone AVPE installable package boundary."""
     paths = BuildPaths(root)
     _reset_generated_directory(paths.package_install_dir)
+    macos = platform.system() == "Darwin"
     _prepare_target(
         paths,
         root,
         environment,
-        "avpe",
+        "avpe-postprocess-bundle" if macos else "avpe",
         paths.product_binary,
         force_configure=True,
-        package_mode=True,
+        package_mode=False,
         install_prefix=paths.package_install_dir,
     )
     environment_snapshot = dict(os.environ if environment is None else environment)
     _run(["cmake", "--install", str(paths.build_dir)], root, environment_snapshot)
 
-    installed_binary = paths.package_install_dir / "bin" / "avpe"
-    installed_resources = paths.package_install_dir / "share" / "avpe"
+    installed_binary = (
+        paths.package_install_dir / "avpe.app" / "Contents" / "MacOS" / "avpe"
+        if macos
+        else paths.package_install_dir / "bin" / "avpe"
+    )
     if not installed_binary.is_file():
         raise BuildError(f"install completed without producing {installed_binary}")
     _reset_generated_directory(paths.package_dir)
-    staged_binary = paths.package_dir / "bin" / "avpe"
-    staged_binary.parent.mkdir(parents=True)
-    shutil.copy2(installed_binary, staged_binary)
-    if installed_resources.is_dir():
+    if macos:
         shutil.copytree(
-            installed_resources,
-            paths.package_dir / "share" / "avpe",
+            paths.package_install_dir / "avpe.app",
+            paths.package_dir / "avpe.app",
+            symlinks=True,
         )
+        return paths.package_dir
+    for directory in ("bin", "lib", "plugins"):
+        source = paths.package_install_dir / directory
+        if source.is_dir():
+            shutil.copytree(source, paths.package_dir / directory, symlinks=True)
     return paths.package_dir
 
 
