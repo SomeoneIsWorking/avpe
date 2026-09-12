@@ -868,9 +868,10 @@ and changed the working card while preserving the source card. The trace
 retained 121 event identities, paired 3,396/3,396 return-capable EE BIOS calls
 and 340/340 IOP oracle calls, and reported zero pending calls, sequence errors,
 or overflow. The IOP slice contains 117 `cdvdman` ordinal-51 returns, 111
-`sifcmd.sceSifGetOtherData` returns, 111 `mcman` ordinal-9 returns, and one
-`mcman` ordinal-10 return. The stripped `mcman` names are recorded as
-`unknown`, not empty strings. Its changing ordinal-9 results are retained as a
+`sifcmd.sceSifGetOtherData` returns, 111 `mcman.McWrite` (ordinal 9) returns,
+and one `mcman.McSeek` (ordinal 10) return. The `mcman` names come from the
+shipping IRX export table; both calls still use PCSX2's oracle path because
+there is no native HLE handler. Changing `McWrite` results are retained as a
 bounded summary (`min=4`, `max=8192`, 92 changes) rather than one event per
 result. PCSX2's 60-frame savestate card auto-eject and 300-frame post-write
 busy intervals are both observed and awaited through the production
