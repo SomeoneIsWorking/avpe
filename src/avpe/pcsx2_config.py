@@ -110,6 +110,8 @@ def ensure_test_config(
     link = bios_dir / "scph39001.bin"
     if link.is_symlink() and link.resolve() == bios.resolve():
         return
-    if link.exists() or link.is_symlink():
+    if link.is_symlink():
+        link.unlink()
+    elif link.exists():
         raise RuntimeError(f"test BIOS link has unexpected target: {link}")
     link.symlink_to(bios.resolve())

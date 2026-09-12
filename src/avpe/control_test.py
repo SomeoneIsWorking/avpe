@@ -1,9 +1,11 @@
 """Launch and acceptance policy for the isolated AVPE control-test process."""
 
 import json
+import re
 import sys
 from collections.abc import Mapping
 from pathlib import Path
+from zipfile import BadZipFile, ZipFile
 
 from avpe.native_assets import MANIFEST_SHA256_ENVIRONMENT
 
@@ -34,19 +36,39 @@ def report_json_probe(
     return True
 
 
-def find_bios(directory: str) -> Path | None:
+def find_bios(directory: str, statefile: Path | None = None) -> Path | None:
     if not directory:
         return None
     root = Path(directory)
     if not root.is_dir():
         return None
-    preferred = root / "scph39001.bin"
-    if preferred.is_file():
-        return preferred
     candidates = sorted(root.glob("*.bin")) + sorted(root.glob("*.BIN"))
-    return next(
-        (path for path in candidates if path.stat().st_size >= 2_000_000), None
-    )
+    usable = [path for path in candidates if path.stat().st_size >= 2_000_000]
+    if statefile is not None:
+        console_id = _state_console_id(statefile)
+        if console_id is not None:
+            for path in usable:
+                try:
+                    if console_id in path.read_bytes():
+                        return path
+                except OSError:
+                    continue
+            return None
+    preferred = root / "scph39001.bin"
+    if preferred.is_file() and preferred.stat().st_size >= 2_000_000:
+        return preferred
+    return usable[0] if usable else None
+
+
+def _state_console_id(statefile: Path) -> bytes | None:
+    """Read the savestate's BIOS console identifier for a matching BIOS choice."""
+    try:
+        with ZipFile(statefile) as archive:
+            header = archive.read("PCSX2 Internal Structures.dat", 512)
+    except (BadZipFile, KeyError, OSError):
+        return None
+    match = re.search(rb"Console (\d{8})", header)
+    return match.group(1) if match else None
 
 
 def build_argv(
