@@ -733,15 +733,21 @@ pairing or overflow failure. The source card was unchanged.
 The load boundary starts after the populated slot and confirmation callbacks
 have already read the card record, so this exact interval contains no
 `mcman.McRead` event. That absence is an operation-boundary result rather than
-evidence that the load path avoids the memory-card service; a separate trace
-around slot enumeration is still required to ground the card-read contract.
+evidence that the load path avoids the memory-card service. The separate
+slot-enumeration phase now captures the earlier card-read contract around the
+Load-menu construction boundary.
 
 This completes the normal-load operation boundary and proves that the produced
 slot-0 record is accepted by the title. Because the capture intentionally runs
 through resumed mission initialization, its 17 EE syscall and 86 IOP import
 identity/result summaries do not distinguish archive-owned services from
 post-load execution. None of these slices is an exhaustive firmware contract
-or an HLE implementation.
+or an HLE implementation. The slot-enumeration capture retained 411 event
+identities with zero overflow and observed 15 `mcman.McRead`, 3
+`mcman.McGetDir`, 6 `mcman.McOpen`, and 7 `mcman.McClose` oracle calls after
+arming immediately before Load-menu activation. Its `sceMcSync` title wrapper
+is recorded by grounded PC (`0x002C0580`) because it is not an IOP import
+identity.
 
 ## Required evidence before S025 can be verified
 
