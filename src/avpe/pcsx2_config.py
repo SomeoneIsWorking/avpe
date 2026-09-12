@@ -73,12 +73,13 @@ def _base_sections(path: Path) -> dict[str, dict[str, str]]:
     return sections
 
 
-def ensure_product_config(data_dir: Path) -> None:
+def ensure_product_config(data_dir: Path, bios_dir: Path) -> None:
     """Seed a missing product profile; never rewrite an existing user INI."""
     path = ini_path(data_dir)
     if path.exists():
         return
     sections = _base_sections(path)
+    sections["Folders"]["Bios"] = str(bios_dir.resolve())
     sections.setdefault("SPU2/Output", {}).update({"Backend": "Cubeb", "OutputMuted": "False"})
     sections.setdefault("EmuCore/GS", {})["Renderer"] = "-1"
     save_ini(path, sections)

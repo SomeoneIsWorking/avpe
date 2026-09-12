@@ -24,6 +24,7 @@ from avpe.cursor import detect_cursor
 from avpe.launch import (
     build_argv as build_product_argv,
     build_environment as build_product_environment,
+    launch as launch_product,
 )
 from avpe.memory_card_probe import PS2_CARD_MAGIC, prepare_memory_card_probe
 from avpe.native_bios_probe import (
@@ -57,6 +58,7 @@ from avpe.native_bios_probe import (
 from avpe.pcsx2_config import (
     ensure_product_config,
     ensure_test_config,
+    load_ini,
     timing_config_identity,
 )
 from avpe.native_asset_cache_probe import cache_snapshot_is_verified
@@ -1969,6 +1971,7 @@ class ConfigurationIsolationTests(unittest.TestCase):
             self.assertNotEqual(
                 timing_config_identity(first), timing_config_identity(second)
             )
+
     def test_existing_product_ini_is_byte_preserved(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             data_dir = Path(directory) / "product"
@@ -1977,9 +1980,18 @@ class ConfigurationIsolationTests(unittest.TestCase):
             original = b"; user comment\n[Unknown]\nRepeated = one\nRepeated = two\n"
             ini.write_bytes(original)
 
-            ensure_product_config(data_dir)
+            ensure_product_config(data_dir, Path(directory) / "bios")
 
             self.assertEqual(ini.read_bytes(), original)
+
+    def test_fresh_product_config_uses_user_bios_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_dir = root / "data" / "AVPE"
+            bios_dir = root / "firmware"
+            ensure_product_config(data_dir, bios_dir)
+            sections = load_ini(data_dir / "PCSX2" / "inis" / "PCSX2.ini")
+            self.assertEqual(sections["Folders"]["Bios"], str(bios_dir))
 
     def test_test_profile_does_not_touch_product_profile(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -2046,13 +2058,42 @@ class ConfigurationIsolationTests(unittest.TestCase):
 
 class ProductLaunchPolicyTests(unittest.TestCase):
     def test_product_uses_the_standalone_avpe_frontend(self) -> None:
-        argv = build_product_argv("/assets/game.chd")
+        argv = build_product_argv("/assets/game.chd", Path("/user/data/AVPE"))
 
         self.assertEqual(Path(argv[0]).name, "avpe")
         self.assertNotIn("pcsx2-qt", argv[0])
         self.assertNotIn("-avpe-host", argv)
         self.assertNotIn("-avpe-control-test", argv)
         self.assertNotIn("-nogui", argv)
+        self.assertEqual(argv[argv.index("-datapath") + 1], "/user/data/AVPE")
+
+    def test_product_launch_uses_persistent_root_and_supplied_bios(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / "avpe"
+            binary.write_bytes(b"product fixture")
+            chd = root / "game.chd"
+            chd.write_bytes(b"disc fixture")
+            bios_dir = root / "bios"
+            bios_dir.mkdir()
+            data_dir = root / "user-data" / "AVPE"
+            with (
+                patch("avpe.launch.ROOT", root),
+                patch("avpe.launch.AVPE_BIN", binary),
+                patch("avpe.launch.LOG_PATH", root / "scratch" / "logs" / "emulog.txt"),
+                patch("avpe.launch.provision_native_assets", return_value=root / "assets"),
+                patch("avpe.launch.manifest_sha256", return_value="a" * 64),
+                patch("avpe.launch.resolve_native_data_root", return_value=data_dir),
+                patch("avpe.launch.ensure_product_config") as config,
+                patch("avpe.launch.subprocess.Popen") as popen,
+                patch("avpe.launch.signal.signal"),
+            ):
+                popen.return_value.pid = 123
+                popen.return_value.wait.return_value = 0
+                self.assertEqual(launch_product(str(chd), str(bios_dir)), 0)
+                config.assert_called_once_with(data_dir, bios_dir)
+                argv = popen.call_args.args[0]
+                self.assertEqual(argv[argv.index("-datapath") + 1], str(data_dir))
 
     def test_product_receives_only_the_validated_native_asset_root(self) -> None:
         environment = build_product_environment(

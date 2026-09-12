@@ -326,7 +326,7 @@ Evidence: claim C030, resolved issue #19, and
 
 ### S012 — fresh-clone launcher: partial
 
-Observed subset: the default launcher and `./run.sh prepare` verify and
+Observed subset: the default launcher and `uv run --frozen avpe prepare` verify and
 recursively initialize the tracked PCSX2 fork, then configure and build the
 current standalone `avpe` target. An existing binary no longer bypasses the
 CMake build: a configured tree is incrementally rebuilt, while a missing build
@@ -436,8 +436,15 @@ feeds that same contract to `NativeSaveBackend`: after a successful grounded
 save return it updates the title-bound `avpe-native-save-v1` JSON container
 atomically, preserving imported/parser-backed slots, and before
 `CProfile::LoadGame` it validates the stored profile digest and restores the
-payload into the live guest buffer. The backend uses the PCSX2 user data root,
-so it does not write the checkout or scratch space.
+payload into the live guest buffer. The backend now uses the configured AVPE
+user-data root, matching the default `avpe import-saves` destination. The
+product launcher resolves this root through OS user-data policy and configures
+the user-supplied BIOS directory; control tests retain a separate `scratch/`
+datapath. A 2026-09-12 isolated normal Save Game probe produced the container
+directly under that datapath and matched its profile to the live boundary;
+standalone product settings initialization also retained the supplied BIOS
+folder in a separate configuration child. A windowed product save at the OS
+user-data location remains to be observed.
 
 The Python store remains the provisioning/import authority and exercises the
 same container schema. Gap: native interception still covers only the fixed

@@ -104,13 +104,13 @@ def doctor() -> int:
         print("FAIL  PCSX2 is not registered as the thirdparty/pcsx2 submodule")
         failures += 1
     elif submodule.checkout_revision is None:
-        print("FAIL  PCSX2 submodule is not initialized — run: ./run.sh provision")
+        print("FAIL  PCSX2 submodule is not initialized — run: uv run --frozen avpe provision")
         failures += 1
     elif not submodule.is_ready:
         print(
             "FAIL  pcsx2 submodule HEAD "
             f"{submodule.checkout_revision[:12]} != tracked gitlink "
-            f"{submodule.expected_revision[:12]} — run: ./run.sh provision"
+            f"{submodule.expected_revision[:12]} — run: uv run --frozen avpe provision"
         )
         failures += 1
     else:
@@ -125,7 +125,7 @@ def doctor() -> int:
     if binary.exists():
         print(f"pass  built binary: {binary}")
     else:
-        print(f"FAIL  no built AVPE frontend at {binary} — run ./run.sh prepare")
+        print(f"FAIL  no built AVPE frontend at {binary} — run uv run --frozen avpe prepare")
         failures += 1
     if not check_qt_prefix(deps_dir):
         failures += 1
@@ -193,7 +193,7 @@ def main(argv: list[str] | None = None) -> int:
         except BuildError as error:
             log("error", "prepare", str(error))
             return 1
-        return launch(chd)
+        return launch(chd, env.get("AVPE_BIOS_DIR", ""))
     if args.cmd == "doctor":
         return doctor()
     if args.cmd == "provision":
@@ -227,12 +227,12 @@ def main(argv: list[str] | None = None) -> int:
         log("info", "assets", f"validated native store: {root}")
         return 0
     if args.cmd == "import-saves":
-        destination = args.destination or resolve_native_save_path(
-            os.environ, system=platform.system(), home=Path.home()
-        )
         try:
+            destination = args.destination or resolve_native_save_path(
+                os.environ, system=platform.system(), home=Path.home()
+            )
             imported = import_memory_card(args.memory_card, destination)
-        except MemoryCardImportError as error:
+        except (MemoryCardImportError, ValueError) as error:
             log("error", "import-saves", str(error))
             return 1
         log(

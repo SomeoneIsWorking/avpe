@@ -17,16 +17,17 @@ configure/build preparation path.
 ## What was tried / dead ends
 
 The existing PCSX2 workflow establishes the CMake/Ninja contract and requires
-the project-owned `scratch/deps` prefix. Rebuilding that dependency stack is
+the project-owned `build/deps` prefix. Rebuilding that dependency stack is
 outside this slice.
 
 ## Resolution
 
 ### Note (2026-08-28)
-Added `src/avpe/build.py` and `./run.sh prepare`. The default launch path now
+Added `src/avpe/build.py` and the non-launching `uv run --frozen avpe prepare`
+command. The default `./run.sh` launch path now
 calls the same preparation owner before entering launch. Existing product
 binaries are checked through the current CMake target: configured trees rebuild
 incrementally and a missing build tree is configured before rebuilding. Unit
 tests cover command construction, stale-binary prevention, incomplete-prefix
 refusal, and Fedora/Debian/macOS installation hints. The remaining S012 gap is
-provisioning the project-owned Qt/dependency prefix on a fresh checkout.
+verifying provisioning of the project-owned Qt/dependency prefix on a fresh checkout.

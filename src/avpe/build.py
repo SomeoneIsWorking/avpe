@@ -128,7 +128,7 @@ def _ensure_submodule(root: Path) -> None:
     if state.is_ready:
         return
     if not provision_submodules(root):
-        raise BuildError("PCSX2 submodule provisioning failed — run ./run.sh provision for details")
+        raise BuildError("PCSX2 submodule provisioning failed — run uv run --frozen avpe provision for details")
     state = inspect_submodule(root)
     if not state.is_ready:
         raise BuildError("PCSX2 checkout does not match the tracked gitlink after provisioning")

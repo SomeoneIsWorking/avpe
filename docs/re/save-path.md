@@ -36,17 +36,26 @@ the diagnostic observer and the product seam. `NativeSaveBackend` is composed
 at the EE execution boundary: a successful `CProfile::SaveGame` return updates
 the existing JSON container atomically, and a matching `CProfile::LoadGame`
 entry validates and restores the stored fixed profile payload. The backend is
-title/CRC gated and uses the PCSX2 user-data root. It intentionally preserves
+title/CRC gated and writes directly under the configured AVPE user-data root.
+The normal launcher resolves that root through the same platform policy as
+`avpe import-saves`, then gives PCSX2 a separate configuration child there.
+The BIOS directory comes from the user's asset configuration; control tests
+still use an isolated `scratch/` datapath. It intentionally preserves
 the existing numbered game-slot table and card writer; game-record replacement,
 settings/autosave ownership, and card-free load remain open work.
 
 The first production-path probe of this seam completed the ordinary Pause →
 Save route on an isolated working card. `CProfile::SaveGame` returned zero, the
-backend wrote `PCSX2/AVPE/avpe-saves.avpesave`, and its 32-byte profile payload
-matched the capture at the grounded entry exactly. The working card still
-received the title's numbered-save mutation in that run; this is therefore
-evidence that the native profile mirror is reached, not evidence that the card
-writer has been bypassed.
+backend wrote the native container, and its 32-byte profile payload matched the
+capture at the grounded entry exactly. A 2026-09-12 repeat after the path change
+wrote `avpe-saves.avpesave` beside PCSX2's configuration child, directly under
+the selected AVPE datapath; the old nested location remained absent. The stored
+payload again matched the live capture. PCSX2 resets `EmuConfig` during settings
+application, so `CopyRuntimeConfig` now retains the selected `CustomDataPath`.
+The backend refuses an unset custom path, keeping a generic PCSX2 session from
+writing outside AVPE's selected datapath. The working card still received the
+title's numbered-save mutation; this proves the native profile mirror, not
+card-free saving.
 
 This document records the grounded save boundary for the supported
 `SLUS-20147` executable. It is deliberately incomplete: the high-level profile
