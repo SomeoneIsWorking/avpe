@@ -9,15 +9,17 @@ from pathlib import Path
 SAVE_FILENAME = "avpe-saves.avpesave"
 
 
-def resolve_native_save_path(
+def resolve_native_data_root(
     environment: Mapping[str, str],
     *,
     system: str,
     home: Path,
 ) -> Path:
-    """Resolve the persistent native-save path without using the checkout."""
+    """Resolve AVPE's persistent user-data root without using the checkout."""
     if system == "Linux":
         configured = environment.get("XDG_DATA_HOME")
+        if configured and not Path(configured).is_absolute():
+            raise ValueError("XDG_DATA_HOME must be an absolute path for AVPE user data")
         root = Path(configured) if configured else home / ".local" / "share"
     elif system == "Darwin":
         root = home / "Library" / "Application Support"
@@ -26,4 +28,14 @@ def resolve_native_save_path(
         root = Path(configured) if configured else home / "AppData" / "Local"
     else:
         raise ValueError(f"unsupported save-path platform: {system}")
-    return root / "AVPE" / SAVE_FILENAME
+    return root / "AVPE"
+
+
+def resolve_native_save_path(
+    environment: Mapping[str, str],
+    *,
+    system: str,
+    home: Path,
+) -> Path:
+    """Resolve the native container inside the product's user-data root."""
+    return resolve_native_data_root(environment, system=system, home=home) / SAVE_FILENAME

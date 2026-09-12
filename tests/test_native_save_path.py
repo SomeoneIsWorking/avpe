@@ -1,11 +1,17 @@
 import unittest
 from pathlib import Path
 
-from avpe.native_save_path import resolve_native_save_path
+from avpe.native_save_path import resolve_native_data_root, resolve_native_save_path
 
 
 class NativeSavePathTests(unittest.TestCase):
     def test_linux_honors_xdg_data_home(self) -> None:
+        self.assertEqual(
+            resolve_native_data_root(
+                {"XDG_DATA_HOME": "/xdg/data"}, system="Linux", home=Path("/home/test")
+            ),
+            Path("/xdg/data/AVPE"),
+        )
         self.assertEqual(
             resolve_native_save_path(
                 {"XDG_DATA_HOME": "/xdg/data"},
@@ -20,6 +26,12 @@ class NativeSavePathTests(unittest.TestCase):
             resolve_native_save_path({}, system="Linux", home=Path("/home/test")),
             Path("/home/test/.local/share/AVPE/avpe-saves.avpesave"),
         )
+
+    def test_linux_rejects_relative_xdg_data_home(self) -> None:
+        with self.assertRaisesRegex(ValueError, "XDG_DATA_HOME must be an absolute path"):
+            resolve_native_data_root(
+                {"XDG_DATA_HOME": "relative/data"}, system="Linux", home=Path("/home/test")
+            )
 
     def test_macos_uses_application_support(self) -> None:
         self.assertEqual(

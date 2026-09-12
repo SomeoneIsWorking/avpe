@@ -66,17 +66,8 @@ an automatic provisioning target.
    AVPE_BIOS_DIR=/path/to/PCSX2/bios
    ```
 
-4. Check the machine and asset prerequisites:
-
-   ```sh
-   ./run.sh doctor
-   ```
-
-5. Prepare the tracked submodule, dependency prefix, and AVPE executable:
-
-   ```sh
-   ./run.sh prepare
-   ```
+4. Run `./run.sh`. It checks the prerequisites, prepares the tracked
+   submodule, dependency prefix, and executable when needed, then launches AVPE.
 
 The CHD and BIOS files must remain outside version control. Derived asset
 bytes are kept under ignored `scratch/` directories; generated build outputs
@@ -91,19 +82,14 @@ The zero-argument command is the product launcher:
 ```
 
 It prepares the current AVPE target when necessary, validates/provisions the
-native asset store from `AVPE_CHD`, and starts the standalone AVPE host. The
-explicit equivalent is:
+native asset store from `AVPE_CHD`, and starts the standalone AVPE host.
+Maintainer setup commands use the separate `avpe` CLI:
 
 ```sh
-./run.sh launch
-```
-
-Useful setup commands are:
-
-```sh
-./run.sh provision   # initialize or repair the tracked PCSX2 submodule
-./run.sh prepare     # build without launching the product
-./run.sh assets      # validate/provision native assets only
+uv run --frozen avpe doctor     # inspect prerequisites
+uv run --frozen avpe provision  # initialize or repair the tracked PCSX2 submodule
+uv run --frozen avpe prepare    # build without launching the product
+uv run --frozen avpe assets     # validate/provision native assets only
 uv run --frozen avpe import-saves --memory-card /path/to/card.ps2 \
   --destination /path/to/avpe.avpesave  # optional; defaults to OS user data
 ```

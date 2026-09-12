@@ -43,7 +43,7 @@ src/avpe/cli.py
   -> VM shutdown exits QApplication
 ```
 
-The product surface is never created by agent verification. `./run.sh prepare`
+The product surface is never created by agent verification. `uv run --frozen avpe prepare`
 is the non-launching preparation path; it initializes the tracked submodule,
 provisions the project-owned `build/deps` Qt/dependency prefix through the
 tracked PCSX2 workflow when absent, and builds the `avpe` target when the

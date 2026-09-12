@@ -24,6 +24,7 @@ CPP_SOURCES = (
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/IopBios.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/IopCounters.cpp",
+    ROOT / "thirdparty/pcsx2/pcsx2/Pcsx2Config.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp",
     ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp",
@@ -50,6 +51,7 @@ CORE_SCOPED_SOURCES = {
         (1, 35), (265, 312), (415, 708), (823, 936),
         (992, 1120), (1428, 1498), (1510, 1565), (1600, 1819)),
     ROOT / "thirdparty/pcsx2/pcsx2/IopCounters.cpp": ((1, 16), (207, 240)),
+    ROOT / "thirdparty/pcsx2/pcsx2/Pcsx2Config.cpp": ((2090, 2110),),
 	ROOT / "thirdparty/pcsx2/pcsx2/Counters.cpp": ((1, 20), (488, 494), (682, 723)),
 	ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp": (
 		(1, 18), (910, 925), (1059, 1063), (1196, 1201), (1206, 1210)),
@@ -146,6 +148,7 @@ def main() -> int:
                 "--gtest_filter=ButtonInjectionTest.*:NativeAssetStoreTest.*:"
                 "NativeCdvdCompletionTest.*:NativeBiosTraceTest.*:"
                 "NativeWindowHandlesTest.*:NativeTitleTransitionTest.*:NativePadReadinessTest.*:"
+                "RuntimeConfigTest.*:"
                 "NativeMenuItemsTest.*:NativeAttractInputTest.*:NativeMovieInputTest.*",
             ],
         )

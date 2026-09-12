@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 import os
+import platform
 import signal
 import subprocess
 import sys
@@ -14,19 +15,19 @@ from avpe.native_assets import (
     manifest_sha256,
     provision_native_assets,
 )
+from avpe.native_save_path import resolve_native_data_root
 from avpe.pcsx2_config import ensure_product_config
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 AVPE_BIN = ROOT / "build" / "bin" / "avpe"
-DATA_DIR = ROOT / "scratch" / "pcsx2-home"
 LOG_PATH = ROOT / "scratch" / "logs" / "emulog.txt"
 NATIVE_ASSET_DIR = ROOT / "scratch" / "native-assets"
 
 
-def build_argv(chd: str) -> list[str]:
+def build_argv(chd: str, data_dir: Path) -> list[str]:
     argv = [str(AVPE_BIN)]
-    argv += ["-datapath", str(DATA_DIR)]
+    argv += ["-datapath", str(data_dir)]
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     argv += ["-logfile", str(LOG_PATH), "-fastboot"]
     argv += ["--", chd]
@@ -45,12 +46,15 @@ def build_environment(
     return env
 
 
-def launch(chd: str) -> int:
+def launch(chd: str, bios_dir: str) -> int:
     if not AVPE_BIN.exists():
-        log("error", "launch", f"{AVPE_BIN} missing — run ./run.sh doctor for the exact blocker")
+        log("error", "launch", f"{AVPE_BIN} missing — run uv run --frozen avpe doctor for the exact blocker")
         return 1
     if not Path(chd).exists():
         log("error", "launch", f"game CHD missing: {chd} — fix AVPE_CHD in .env")
+        return 1
+    if not bios_dir or not Path(bios_dir).is_dir():
+        log("error", "launch", f"BIOS directory missing: {bios_dir or '(unset)'} — fix AVPE_BIOS_DIR in .env")
         return 1
 
     try:
@@ -60,8 +64,13 @@ def launch(chd: str) -> int:
         log("error", "launch", f"native asset provisioning failed: {error}")
         return 1
 
-    ensure_product_config(DATA_DIR)
-    argv = build_argv(chd)
+    try:
+        data_dir = resolve_native_data_root(os.environ, system=platform.system(), home=Path.home())
+    except ValueError as error:
+        log("error", "launch", str(error))
+        return 1
+    ensure_product_config(data_dir, Path(bios_dir))
+    argv = build_argv(chd, data_dir)
     env = build_environment(
         os.environ, native_asset_root, native_asset_manifest_sha256
     )
@@ -91,4 +100,4 @@ def launch(chd: str) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(launch(os.environ.get("AVPE_CHD", "")))
+    sys.exit(launch(os.environ.get("AVPE_CHD", ""), os.environ.get("AVPE_BIOS_DIR", "")))

@@ -1,3 +1,5 @@
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -36,6 +38,24 @@ class BuildHintTests(unittest.TestCase):
 
 
 class ProductPreparationTests(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "POSIX launcher")
+    def test_run_sh_always_selects_the_product_route(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as directory:
+            fake_uv = Path(directory) / "uv"
+            fake_uv.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
+            fake_uv.chmod(0o755)
+            environment = dict(os.environ, PATH=f"{directory}:{os.environ.get('PATH', '')}")
+            for arguments, expected in (([], []), (["prepare"], ["prepare"])):
+                result = subprocess.run(
+                    [str(root / "run.sh"), *arguments], cwd=root, env=environment,
+                    capture_output=True, text=True, check=True,
+                )
+                self.assertEqual(
+                    result.stdout.splitlines(),
+                    ["run", "--frozen", "avpe", "launch", *expected],
+                )
+
     @patch("avpe.cli.log")
     @patch(
         "avpe.cli.import_memory_card",
@@ -88,7 +108,7 @@ class ProductPreparationTests(unittest.TestCase):
 
     @patch("avpe.launch.launch", return_value=0)
     @patch("avpe.cli.prepare_product")
-    @patch("avpe.cli.load_env", return_value={"AVPE_CHD": "/game/test.chd"})
+    @patch("avpe.cli.load_env", return_value={"AVPE_CHD": "/game/test.chd", "AVPE_BIOS_DIR": "/firmware"})
     def test_default_cli_path_prepares_before_launch(
         self, load_env: Mock, prepare: Mock, launch: Mock
     ) -> None:
@@ -96,7 +116,7 @@ class ProductPreparationTests(unittest.TestCase):
 
         self.assertEqual(main([]), 0)
         prepare.assert_called_once()
-        launch.assert_called_once_with("/game/test.chd")
+        launch.assert_called_once_with("/game/test.chd", "/firmware")
 
     @patch("avpe.build._run")
     @patch("avpe.build._ensure_submodule")
