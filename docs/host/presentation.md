@@ -43,14 +43,17 @@ src/avpe/cli.py
   -> VM shutdown exits QApplication
 ```
 
-The product surface is never created by agent verification. `uv run --frozen avpe prepare`
+`uv run --frozen avpe prepare`
 is the non-launching preparation path; it initializes the tracked submodule,
 provisions the project-owned `build/deps` Qt/dependency prefix through the
 tracked PCSX2 workflow when absent, and builds the `avpe` target when the
 product binary is absent. The safe product capability check is
 `QT_QPA_PLATFORM=offscreen bin/avpe --test-config`, which initializes settings
 and exits before constructing `Runtime` or `HostWindow`.
-Runtime desktop acceptance remains operator-only through `./run.sh`.
+An isolated Xvfb/OpenGL/Null-audio probe exercises the product's visible X11
+window, resize, focus, close, and failed-boot exit. Fullscreen presentation
+still requires a managed desktop. The no-argument `./run.sh` remains the
+user's product launcher.
 
 Native window acquisition validates required platform handles before exposing
 an engaged `WindowInfo` to PCSX2's renderer. Invalid X11/Wayland display or

@@ -123,6 +123,7 @@ def main() -> int:
     try:
         clang_format = require_tool("clang-format")
         clang_tidy = require_tool("clang-tidy")
+        run("standalone product build", ["cmake", "--build", str(BUILD_DIR), "--target", "avpe", "-j2"])
         run(
             "Python unit and structure tests",
             [

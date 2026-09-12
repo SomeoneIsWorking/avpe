@@ -515,12 +515,17 @@ kept the standalone process alive through GS CRTC setup and multiple game FMVs
 instead of failing during render-device creation. Native surface acquisition
 now rejects an engaged `WindowInfo` whose required display or window handle is
 null, with three no-window C++ tests covering Surfaceless, X11/Wayland, Win32,
-and MacOS validity.
+and MacOS validity. On isolated Xvfb with the diagnostic OpenGL/Null-audio
+profile, the standalone `avpe` window displayed the game's EA logo, exposed
+AVPE's own top-level window title/class, and resized its render child with the
+top-level window from 960×672 to 1100×700. X11 focus moved to the AVPE window;
+a `WM_DELETE_WINDOW` client message reached Qt's close path and the product
+exited 0. A missing CHD now logs its exact boot failure and exits 1; the
+asset-free real-binary regression covers that path.
 
-Gap: the desktop-control provider cannot enumerate this Qt window, so the
-launcher evidence proves renderer/game bootstrap but not visible ownership or
-event delivery. Runtime verification still must exercise boot, resize,
-fullscreen, focus, close, and failure reporting on a controllable desktop.
+Gap: Xvfb has no window manager, so its fullscreen state request did not prove
+fullscreen presentation on a managed desktop. Product keyboard/mouse event
+delivery and the full presentation lifecycle still need live verification.
 Atomic work: issue #3.
 
 ### S021 — disc/file access boundary: verified
