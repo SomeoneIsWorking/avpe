@@ -43,7 +43,10 @@ crossed all three load-pacify calls and the exact `CProfile::LoadGame`
 entry/return with result zero, completed the synchronous mission-goals modal,
 and left the source card unchanged. The remaining work is the shutdown,
 service-level negative-path inventory, plus required runtime operations outside
-the current boot, archive, save, and load slices.
+the current boot, archive, save, and load slices. The exact load interval starts
+after slot selection has already read the card record, so it contains no
+`mcman.McRead`; a separate slot-enumeration trace is still needed for that
+service contract.
 The shipping `--probe-bios-phase semaphore` now supplies controlled
 nonblocking success, empty-count, and invalid-ID results through a repeatable
 statefile phase; its exact inputs and remaining ordering/capacity gaps are

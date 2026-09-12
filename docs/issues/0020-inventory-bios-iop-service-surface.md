@@ -671,6 +671,12 @@ card I/O. The complete capture retained 349 event identities, paired
 `thmsgbx.ReceiveMbx` at the capture boundary. There were no sequence errors or
 overflows, and the source memory card was unchanged.
 
+The exact load interval begins after the populated-slot and confirmation
+callbacks have read the selected card record, so the refreshed trace contains
+no `mcman.McRead` event. This is a boundary fact, not evidence that the title
+does not use `mcman` for card reads; slot-enumeration tracing remains required
+to ground that service contract.
+
 The negative fixtures remain useful discriminators. Pairing
 `mission1-current.p2s` with this card reached `GLoadGameMenu` but returned to
 gameplay without a pacify or profile call, while omitting the exact modal Exit

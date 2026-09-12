@@ -730,6 +730,12 @@ identities, paired 14,444/14,444 return-capable EE BIOS calls, and recorded
 `thmsgbx.ReceiveMbx` is a blocking call at the chosen guest boundary, not a
 pairing or overflow failure. The source card was unchanged.
 
+The load boundary starts after the populated slot and confirmation callbacks
+have already read the card record, so this exact interval contains no
+`mcman.McRead` event. That absence is an operation-boundary result rather than
+evidence that the load path avoids the memory-card service; a separate trace
+around slot enumeration is still required to ground the card-read contract.
+
 This completes the normal-load operation boundary and proves that the produced
 slot-0 record is accepted by the title. Because the capture intentionally runs
 through resumed mission initialization, its 17 EE syscall and 86 IOP import
