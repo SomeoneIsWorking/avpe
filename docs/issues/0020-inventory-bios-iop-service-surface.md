@@ -1427,15 +1427,16 @@ native descriptors or CDVD mappings before or after the reset. This is a
 grounded negative for that boundary: it does not provide module teardown
 evidence and cannot substitute for a title-owned shutdown capture.
 
-### Finding (2026-09-12, Start reaches the pad wire but not the M1 pause menu)
+### Finding (2026-09-12, M1 Pause has a game-time admission guard)
 
 A fresh native-asset clean boot invoked the original `CShell::SetNextLevel`
 through the diagnostic EE-call route, reached Marine M1 with a populated world,
 and dismissed the game-owned mission-goals modal. The existing Pause → Quit
 Game shutdown phase then held `PAD_START` from the visible M1 HUD. The control
 wire changed from `ff735affff7f7f7f7f` to `ff735af7ff7f7f7f7f`
-(`inject_wire=0800`), but no live pause menu appeared within 110 seconds;
-discovery ended with `callback_count=66` and no menu owner.
+(`inject_wire=0800`), but no live pause menu appeared within 110 seconds.
+The probe pressed only once, then waited for a menu. Waiting could not make
+that rejected input fire again.
 
 The normal path supplies the counterexample to a fixture-only explanation.
 Starting from a current title savestate, native Activate completed the
@@ -1445,12 +1446,27 @@ menus in order. Its mission-goals Exit item completed the authored modal
 lifecycle, and the resulting state was saved and restored. The same physical
 Start probe held the pad bit and observed no pause menu for 80 seconds, again
 ending with `callback_count=66`; a focused wire check showed
-`ff735af7ff7f7f7f7f` while `inject_wire=0800`. Thus normal menu progression
-does not resolve the missing pause. The next discriminator is the title's
-registered Start/pause callback and its admission guard at this M1 state,
-compared with the older mission fixture on which the pause probe succeeded.
-Neither run crossed the guest-owned shutdown boundary, so neither supplies
-module-release census evidence.
+`ff735af7ff7f7f7f7f` while `inject_wire=0800`. The timer, rather than the
+normal-versus-diagnostic route, explains this negative. `GPauseHandler` at
+`0x001FC5C0` checks its `+0x3C` enable time against
+`CGameTimer::tGameTime` at `0x003673A4` before switching menus. Its singleton
+was valid at `0x014E2940` with vtable `0x00342220` and two callback-registry
+entries for the `Pause` trigger, both targeting `Input_Pause`. Immediately
+after normal M1 restore, game time was 5.609 seconds while the handler's
+enable time was 50.000 seconds. Physical Start reached the pad wire but
+dispatched no pause callback. With game time at 63.998 seconds and the live
+enable time at 48.100 seconds, the same physical Start dispatched
+`Input_Pause` once and opened the live pause menu. The enable time is read
+live because the title may change it; no fixed delay or repeated input is a
+valid substitute. The pause probe now waits for this exact guest-owned guard
+before its one Start press and records initial and admitted timer values.
+The combined normal-route shutdown phase now reaches the live Pause menu after
+the readiness gate, then refuses at its next boundary: navigation visits
+Resume and six distinct `LoadMenu` (`0xCA788CFB`) items, repeats the final
+focus, and never exposes the required `QuitGame` (`0x3CF57571`) action. This
+matches the earlier Pause-menu negative above. A recovered guest-owned exit
+route is still required; the admitted Pause supplies no module-release or
+shutdown evidence.
 
 ## Resolution
 
