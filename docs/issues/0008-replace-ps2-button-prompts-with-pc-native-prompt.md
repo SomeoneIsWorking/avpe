@@ -146,6 +146,26 @@ resource pointer and draw were restored. This proves the two glyph producers
 on a normal in-game menu; it does not establish other menus' prompt coverage
 or final screen-space rectangles.
 
+The same normal M1 Pause run supplies the next geometry boundary. The live
+menu tree contained 12 descendants and exactly the two named prompt items
+(`MainSelectButton` and `MainBackButton`). `GMenuItem::GetPos` at
+`0x001218A0` returns the position vector at item `+0x1C0`. Select's vector
+was `(110,375,0)` and Back's was `(-10,375,0)`. Their respective
+`CRendPS2Mesh` resources at `0x012F291C` and `0x012F27DC` contain centers
+`(0,28,5)` and `(180,28,5)` at `+0x10`, with X/Y bounds
+`[-12,12] × [16,40]` and `[168,192] × [16,40]` in the resource. Adding
+the item's position puts the two mesh centers at X=110 and X=170, and their
+pre-projection X bounds at `[98,122]` and `[158,182]`. This is consistent
+with the controlled 640×480 before/after captures: within each icon's
+60×60 neighborhood, a 20% color-difference threshold isolates the removed
+opaque pixels at X=102–118 for Select and X=162–177 for Back, both at
+Y=413–428. The screenshot differences have moving background elsewhere, so
+they identify visible icon pixels locally, not the complete draw rectangle.
+`CRendPS2Mesh::Render` at `0x001884E0` passes its `+0x10` vector to
+`PS2ProcessVerts` at `0x00188720`; the remaining vertical projection and
+host presentation transform still need a draw-boundary observation before
+these coordinates become a resolution-independent overlay contract.
+
 A full decoded search of the supported 76,132,970-byte `TBF.TBF` traversed
 5,558 chunks (933 compressed). It found zero literal `Triangle`, `triangle`,
 `TRIANGLE`, `Press X`, `Press TRIANGLE`, or `Press O` strings, while the known
