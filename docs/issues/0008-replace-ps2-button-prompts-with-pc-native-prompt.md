@@ -164,7 +164,11 @@ they identify visible icon pixels locally, not the complete draw rectangle.
 `CRendPS2Mesh::Render` at `0x001884E0` passes its `+0x10` vector to
 `PS2ProcessVerts` at `0x00188720`; the remaining vertical projection and
 host presentation transform still need a draw-boundary observation before
-these coordinates become a resolution-independent overlay contract.
+these coordinates become a resolution-independent overlay contract. A
+separate live read found the game's resolution rectangle unchanged at
+`(0,0,640,448)` before and after Pause, while `/snap` produced 640×480.
+That height difference prevents treating a screenshot Y coordinate as a
+guest render coordinate without observing the GS presentation mapping.
 
 A full decoded search of the supported 76,132,970-byte `TBF.TBF` traversed
 5,558 chunks (933 compressed). It found zero literal `Triangle`, `triangle`,
