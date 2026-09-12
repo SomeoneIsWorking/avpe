@@ -98,6 +98,19 @@ A full decoded search of the supported 76,132,970-byte `TBF.TBF` traversed
 prompts. This negative rules out those literal strings in this archive, not
 encoded font glyphs, unnamed textures, other assets, or runtime-generated text.
 
+### Finding (2026-09-12, icon-font candidate)
+
+The archive's system `LIST` at `0x28C10` exports `IconFont` exactly once:
+`EXTA` at `0x50C30` names hash `0x9813A37B`, and the matching `PUBL` entry
+points to decoded `DATX` offset `0x137C0` in chunk `0x2AEFC`. The object's
+byte map at `+0x24`, the same field read by `CzFont::Render`, maps the 46
+printable bytes `!` through `N` to glyphs 0–45 and marks other bytes absent.
+The neighboring `TitleFont` maps 127 glyphs. `IconFont` is therefore a
+concrete font-resource candidate for the X/Triangle symbols seen in the save
+menu, but its archive name and glyph count do not prove live use. The next
+discriminator is the live `CzFont::Render` font pointer, text bytes, and
+submitted sprite rectangles while those symbols are visible.
+
 ### Finding (2026-08-31, controller-resource selection)
 
 `GInputDevice::LoadGamepadTbd` at `0x00114250` chooses a controller name and
