@@ -677,6 +677,18 @@ no `mcman.McRead` event. This is a boundary fact, not evidence that the title
 does not use `mcman` for card reads; slot-enumeration tracing remains required
 to ground that service contract.
 
+### Finding (2026-09-12, normal-load repeatability regression)
+
+Repeating the canonical `mission1.p2s` plus `after-slot0.ps2` normal-load
+command failed after Load-menu activation: the guest menu remained at vtable
+`0x00341620` with a zero focus object until the probe deadline, so no grounded
+`CProfile::LoadGame` boundary was reached. The same state/card pair still
+passes the semaphore discriminator. The emulator log reports a Europe BIOS in
+the savestate (`0xb8e26e89`) and the runner's preferred USA BIOS
+(`0x3a75b059`), making that mismatch the leading cause but not yet a proven
+fix. Claim C040 is falsified until the runner and retained state use a
+deterministic BIOS pairing.
+
 The negative fixtures remain useful discriminators. Pairing
 `mission1-current.p2s` with this card reached `GLoadGameMenu` but returned to
 gameplay without a pacify or profile call, while omitting the exact modal Exit
