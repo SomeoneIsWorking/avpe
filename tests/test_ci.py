@@ -32,10 +32,14 @@ class HostedCiTests(unittest.TestCase):
         run = Mock()
         with patch("avpe.ci.prepare_product_package", return_value=package):
             with patch("avpe.ci.assert_asset_free_package") as assert_package:
-                binary = verify_host(root, environment, "Darwin", run)
+                with patch("avpe.ci.platform.machine", return_value="arm64"):
+                    binary = verify_host(root, environment, "Darwin", run)
         self.assertEqual(binary, package / "avpe.app/Contents/MacOS/avpe")
         assert_package.assert_called_once_with(package, "Darwin")
-        self.assertEqual(run.call_args_list[0].args[0][:2], ["lipo", "-verify_arch"])
+        self.assertEqual(
+            run.call_args_list[0].args[0],
+            ["lipo", str(binary), "-verify_arch", "arm64"],
+        )
         self.assertEqual(run.call_args_list[1].args[0][0], "codesign")
         self.assertEqual(run.call_args_list[2].args[0][:2], ["codesign", "--verify"])
         self.assertEqual(run.call_args_list[3].args[0][1], "tools/verify.py")
