@@ -38,8 +38,8 @@ step, `AddTextFont()` necessarily returns null, renderer initialization fails,
 and the normal launcher exits before it can boot the game. With the font list
 initialized and batch mode reserved for the surfaceless control route, a normal
 launcher run kept `avpe` alive through GS CRTC setup and multiple game FMVs.
-That proves renderer and game bootstrap, not the visible window's ownership or
-interactive event delivery.
+The current isolated-display evidence for visible ownership, fullscreen, and
+title keyboard delivery is recorded under S020 in `docs/project-state.md`.
 
 ## Verification
 
@@ -50,14 +50,14 @@ returning an engaged `WindowInfo`. X11 and Wayland require both display and
 window/surface handles; Win32 and MacOS require a window handle; Surfaceless
 remains valid without handles. The pure predicate is covered by three
 no-window C++ tests, and the existing renderer acquisition path still receives
-`std::nullopt` for invalid resources. A real desktop run is still required for
-boot, resize, fullscreen, focus, close, and user-visible failure reporting.
+`std::nullopt` for invalid resources. Xvfb and nested KWin/Xwayland runs now
+cover boot, resize, fullscreen, focus acquisition, close, and failed-boot exit.
+Mouse delivery and focus loss/recovery remain open.
 
-- Operator-only desktop acceptance through `./run.sh` shows exactly the
-  AVPE-owned top-level window. Agent verification must never invoke this route.
+- The zero-argument `./run.sh` opens the AVPE-owned top-level window; isolated
+  diagnostic runs exercise its event and presentation boundaries.
 - PCSX2's generic main/render/settings UI is absent from the product link graph.
-- Window resize, fullscreen, focus loss/recovery, and shutdown exercise the
-  AVPE host lifecycle.
+- Focus loss/recovery and product mouse delivery still need direct coverage.
 - Optional RmlUi diagnostics can compose over a live frame without becoming
   the shipping options path.
 - The dedicated control-test runner remains genuinely surfaceless and silent.

@@ -51,9 +51,10 @@ product binary is absent. The safe product capability check is
 `QT_QPA_PLATFORM=offscreen bin/avpe --test-config`, which initializes settings
 and exits before constructing `Runtime` or `HostWindow`.
 An isolated Xvfb/OpenGL/Null-audio probe exercises the product's visible X11
-window, resize, focus, close, and failed-boot exit. Fullscreen presentation
-still requires a managed desktop. The no-argument `./run.sh` remains the
-user's product launcher.
+window, resize, focus, close, and failed-boot exit. A nested KWin/Xwayland run
+also confirms 1280×720 fullscreen geometry and focused keyboard delivery into
+the title/profile menus. The no-argument `./run.sh` remains the user's product
+launcher.
 
 Native window acquisition validates required platform handles before exposing
 an engaged `WindowInfo` to PCSX2's renderer. Invalid X11/Wayland display or
