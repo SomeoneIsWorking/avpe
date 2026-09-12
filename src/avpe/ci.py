@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import platform
+import plistlib
 import subprocess
 import sys
 from collections.abc import Callable
@@ -69,25 +70,56 @@ def assert_asset_free_package(package_root: Path, system: str | None = None) -> 
 
 
 def _verify_macos_bundle(
+    root: Path,
     package_root: Path,
     run: Callable[..., subprocess.CompletedProcess[object]],
 ) -> None:
-    """Require native-architecture code and a valid ad-hoc CI signature."""
+    """Sign nested code first, then require the app's JIT entitlements."""
     architecture = platform.machine()
     if architecture not in {"arm64", "x86_64"}:
         raise CiError(f"unsupported macOS package architecture: {architecture}")
     bundle = package_root / "avpe.app"
     contents = bundle / "Contents"
-    executables = [contents / "MacOS" / "avpe"]
+    executable = contents / "MacOS" / "avpe"
+    entitlements_path = root / "thirdparty/pcsx2/pcsx2/Resources/PCSX2.entitlements"
+    with entitlements_path.open("rb") as stream:
+        required_entitlements = plistlib.load(stream)
+    nested_code: list[Path] = []
     for directory in (contents / "Frameworks", contents / "PlugIns"):
-        executables.extend(sorted(directory.rglob("*.dylib")))
-    for executable in executables:
-        run(["lipo", str(executable), "-verify_arch", architecture], check=True)
+        if not directory.is_dir():
+            continue
+        bundles = sorted(
+            path for path in directory.rglob("*")
+            if path.is_dir() and path.suffix in {".framework", ".bundle", ".plugin"}
+        )
+        if bundles:
+            raise CiError(f"macOS signing needs an owner for nested bundle {bundles[0]}")
+        nested_code.extend(
+            path for path in directory.rglob("*")
+            if path.is_file() and not path.is_symlink()
+            and path.suffix in {".dylib", ".so"}
+        )
+    for path in (executable, *sorted(nested_code)):
+        run(["lipo", str(path), "-verify_arch", architecture], check=True)
+    for path in sorted(nested_code):
+        run(["codesign", "--force", "--sign", "-", "--timestamp=none", str(path)], check=True)
     run(
-        ["codesign", "--force", "--deep", "--sign", "-", "--timestamp=none", str(bundle)],
+        ["codesign", "--force", "--sign", "-", "--timestamp=none",
+         "--entitlements", str(entitlements_path), str(bundle)],
         check=True,
     )
     run(["codesign", "--verify", "--deep", "--strict", str(bundle)], check=True)
+    embedded = run(
+        ["codesign", "--display", "--entitlements", "-", "--xml", str(bundle)],
+        check=True,
+        stdout=subprocess.PIPE,
+    ).stdout
+    try:
+        actual_entitlements = plistlib.loads(embedded)
+    except (TypeError, ValueError) as error:
+        raise CiError(f"macOS app has unreadable embedded entitlements: {bundle}") from error
+    if actual_entitlements != required_entitlements:
+        raise CiError(f"macOS app does not embed its required JIT entitlements: {bundle}")
 
 
 def verify_host(
@@ -105,7 +137,7 @@ def verify_host(
     package_root = prepare_product_package(root, env)
     assert_asset_free_package(package_root, host)
     if host == "Darwin":
-        _verify_macos_bundle(package_root, run)
+        _verify_macos_bundle(root, package_root, run)
     binary = (
         package_root / "avpe.app" / "Contents" / "MacOS" / "avpe"
         if host == "Darwin"
