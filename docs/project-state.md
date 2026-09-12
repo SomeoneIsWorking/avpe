@@ -1114,6 +1114,6 @@ and live-guest evidence now ground the title-screen `Press START button` path
 from the archived `PressStart_StartButton.pText` field through its live embedded
 `CRender` text
 resource to `CzFont::Render` (`0x001390E0`). A live before/after redraw also
-identifies the profile menu's circular X icon as its `Select` item's
-`CRendPS2Mesh`. Other glyph producers, final sprite rectangles, and
+identifies the profile menu's circular X icon as its `MainSelectButton`
+item's `BottomButton` mesh. Other glyph producers, final sprite rectangles, and
 binding-aware replacement remain unidentified or unimplemented (issue #8).

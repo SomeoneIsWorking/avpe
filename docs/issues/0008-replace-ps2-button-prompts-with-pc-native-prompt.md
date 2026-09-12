@@ -114,6 +114,19 @@ menu's X icon is rendered from that mesh. Its vertex/texture rectangle and
 other menus' glyph owners still need independent evidence; removing every
 such mesh would risk other authored artwork.
 
+The exact archived producer is now identified as well. The live
+`GNonCursorableButton` has name hash `0x6449F1DE`, which the system `LIST/PS2 `
+at `0x9CB1A4` exports as `MainSelectButton` in its `PUBL`/`EXTA` tables.
+Its decoded `DATX` chunk at `0x9CB864` places that object at `0x1690`:
+the `pText` field tag `0x7AF23FC8` points to `Select` at `0x1798`, and two
+image fields point to object `0x30C`. That object is exported as
+`BottomButton` (hash `0xA67152A0`), a `CRendPS2Mesh` whose live transform,
+submesh layout, and distinguishing vertex word `0x07D57FFF` match the decoded
+data. The neighboring `R1Button` mesh at `0x58C` shares the transform but has
+a different vertex word, so the shared transform alone would have selected
+the wrong producer. The live parent `GProfileMenu` and its `MainSelectButton`
+child thus identify the title-owned circular X mesh without an image heuristic.
+
 A full decoded search of the supported 76,132,970-byte `TBF.TBF` traversed
 5,558 chunks (933 compressed). It found zero literal `Triangle`, `triangle`,
 `TRIANGLE`, `Press X`, `Press TRIANGLE`, or `Press O` strings, while the known
