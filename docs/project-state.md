@@ -69,6 +69,11 @@ capture retained 411 event identities with zero overflow and observed 15
 oracle calls. The title's `sceMcSync` wrapper is statically grounded at
 `0x002C0580`; it is not an IOP import identity, so the trace records that
 wrapper PC separately rather than inventing a `mcman.McSync` event.
+The `guest-reset` phase also arms the sink before the real CPU-thread
+`VMManager::Reset` boundary. A current `mission1.p2s` run advanced the
+guest-reset epoch from 1 to 2, retained 13 ordered events with zero overflow,
+and observed zero `ReleaseLibraryEntries` events. This explicit negative means
+reset cannot stand in for title shutdown teardown evidence.
 Current focus is attention, not a separate state.
 
 ## Capability inventory

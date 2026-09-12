@@ -411,6 +411,25 @@ uv run --frozen python tools/run_control_test.py --seconds 25 \
   --bios-trace-output scratch/control-test/cop0-query-phase.json --http-port 0
 ```
 
+## Diagnostic guest-reset module teardown result
+
+The `guest-reset` phase arms the BIOS sink before the real CPU-thread
+`VMManager::Reset` route and captures immediately after the reset response:
+
+```
+uv run --frozen python tools/run_control_test.py --seconds 25 \
+  --statefile scratch/states/mission1.p2s \
+  --memory-card-source scratch/control-test/after-slot0.ps2 \
+  --probe-bios-phase guest-reset \
+  --bios-trace-output scratch/control-test/bios-trace-guest-reset.json --http-port 0
+```
+
+A current run advanced the guest-reset epoch from 1 to 2 and retained 13
+ordered events with zero overflow. It observed zero `ReleaseLibraryEntries`
+events and no active native descriptors or CDVD mappings before or after the
+reset. This is an explicit negative for the reset boundary: it cannot stand in
+for title-owned shutdown teardown or module-release evidence.
+
 ## Static EE syscall candidates
 
 `tools/analyze_ee_syscalls.py` scans only executable `PT_LOAD` segments of a
