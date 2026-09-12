@@ -14,8 +14,9 @@ updated: 2026-09-12
 The prompts are rendered by AVP:E inside the guest frame, not by the PCSX2
 frontend. PCSX2 presents the guest texture before its own optional OSD/UI
 composition, and the standalone AVPE shell currently has no prompt overlay or
-binding model. The exact AVP:E producer (font glyph, texture atlas, or prompt
-sprite) and its draw rectangles have not yet been reverse-engineered.
+binding model. The profile menu's X icon is now traced to its `Select` item's
+`CRendPS2Mesh`, while other prompt producers and their draw rectangles remain
+to be identified.
 
 ## What was tried / dead ends
 
@@ -100,9 +101,18 @@ renderer at `+0x1F0` points to the separate font workspace. Its `+0x12C`
 overlay resource and `+0x23C` extra renderer are null. `GMenuItem::Redraw`
 attaches the `+0xF0` image resource to its first renderer and the text
 resource to its text renderer. This grounds the visible Select label's two
-render paths. The mesh may contain the adjacent X symbol, but no mesh glyph
-or sprite-rectangle observation yet establishes that identity; replacing the
-entire mesh would risk removing other authored artwork.
+render paths.
+
+The live image resource was then set to null through the diagnostic guest
+write route and the original `GMenuItem::Redraw` (`0x00120890`) was invoked
+through the bounded EE-call shuttle. Before/after 640×480 captures showed
+the circular X icon disappear while `Select` text remained. The write read
+back as zero, the guest call returned with its stack restored after 124
+cycles, and the original resource pointer was restored with a second guest
+redraw. This positive/negative visual discriminator proves that the profile
+menu's X icon is rendered from that mesh. Its vertex/texture rectangle and
+other menus' glyph owners still need independent evidence; removing every
+such mesh would risk other authored artwork.
 
 A full decoded search of the supported 76,132,970-byte `TBF.TBF` traversed
 5,558 chunks (933 compressed). It found zero literal `Triangle`, `triangle`,
