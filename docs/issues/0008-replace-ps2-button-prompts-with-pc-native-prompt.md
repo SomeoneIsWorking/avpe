@@ -39,6 +39,17 @@ adding a shell overlay cannot remove the PS2 glyphs. The next grounded anchor
 is the concrete prompt item's `0xF4` render virtual and its text/resource
 producer, from which its final sprite rectangles can be observed.
 
+### Finding (2026-09-12, font render resource contract)
+
+The supported ELF decompilation makes the font seam precise. `CzFont::Render`
+reads the NUL-terminated text bytes from `CRender + 0x20 + 0x0C`; each byte is
+looked up through the font's glyph table at `CzFont + 0x24`, and the glyph's
+advance and height fields determine the submitted sprite position. Inline
+control bytes adjust line position and horizontal alignment before one
+`ProcessSprites` batch is emitted. This confirms that prompt replacement needs
+the concrete render resource producer and its final rectangles; changing the
+input resource name alone cannot establish which bytes reach this routine.
+
 ### Finding (2026-08-31, controller-resource selection)
 
 `GInputDevice::LoadGamepadTbd` at `0x00114250` chooses a controller name and

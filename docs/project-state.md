@@ -1061,4 +1061,7 @@ Missing capability: normal product menus and gameplay still present PS2 button
 glyphs even though keyboard and mouse are the shipping controls. Verification
 requires distinct menu and gameplay prompts to name their configured PC action
 (`Esc — Back` at minimum), update when a binding changes, and contain no
-PlayStation glyph fallback in the normal keyboard/mouse product path.
+PlayStation glyph fallback in the normal keyboard/mouse product path. Static
+RE now grounds the guest font seam at `CzFont::Render` (`0x001390E0`), which
+consumes text from `CRender + 0x20 + 0x0C` and emits glyph sprites; the concrete
+prompt resource producer and final rectangles remain unidentified.
