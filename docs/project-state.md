@@ -1115,5 +1115,7 @@ from the archived `PressStart_StartButton.pText` field through its live embedded
 `CRender` text
 resource to `CzFont::Render` (`0x001390E0`). A live before/after redraw also
 identifies the profile menu's circular X icon as its `MainSelectButton`
-item's `BottomButton` mesh. Other glyph producers, final sprite rectangles, and
+item's `BottomButton` mesh. Normal M1 Pause reuses that X mesh and presents a
+separately verified Triangle Back icon from `MainBackButton`'s `TopButton`
+mesh. Other glyph producers, final sprite rectangles, and
 binding-aware replacement remain unidentified or unimplemented (issue #8).

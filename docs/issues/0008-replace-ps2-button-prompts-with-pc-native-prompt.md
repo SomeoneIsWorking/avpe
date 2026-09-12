@@ -127,6 +127,25 @@ a different vertex word, so the shared transform alone would have selected
 the wrong producer. The live parent `GProfileMenu` and its `MainSelectButton`
 child thus identify the title-owned circular X mesh without an image heuristic.
 
+### Finding (2026-09-12, normal M1 Pause prompt pair)
+
+From the normal Marine M1 savestate, the probe waited until the live
+`GPauseHandler` timer admitted one physical Start edge, then reached
+`GPauseMenu` (`0x00342120`). Its `Select` child retained the exact
+`MainSelectButton` name hash `0x6449F1DE` and `BottomButton` image resource
+already seen in the profile menu. Its `Back` child had name hash
+`0x36D11C7B` and a separate live `CRendPS2Mesh`. The same archived
+`LIST/PS2 ` exports these as `MainBackButton` (decoded `DATX` offset
+`0x17A0`) and `TopButton` (offset `0x1CC`, hash `0x5F8391BF`);
+the live Back mesh's distinguishing vertex word is `0xFFFF7FFF`.
+The settled guest frame displayed X Select and Triangle Back. Setting only
+the Back item's `+0xF0` image resource to null and invoking the original
+`GMenuItem::Redraw` removed Triangle while `Back` text and the X prompt
+remained. The call restored its stack after 124 cycles, and the original
+resource pointer and draw were restored. This proves the two glyph producers
+on a normal in-game menu; it does not establish other menus' prompt coverage
+or final screen-space rectangles.
+
 A full decoded search of the supported 76,132,970-byte `TBF.TBF` traversed
 5,558 chunks (933 compressed). It found zero literal `Triangle`, `triangle`,
 `TRIANGLE`, `Press X`, `Press TRIANGLE`, or `Press O` strings, while the known
