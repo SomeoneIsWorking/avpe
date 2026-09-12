@@ -249,7 +249,7 @@ coordinate returned 400 without changing deferred state. Pointer activation
 then entered `0x015AFA70` through `GfsPointer::Input_Action`, with exact stack
 restore. The product router maps arrows/WASD, Enter/Space,
 Escape/Backspace, mouse motion, and primary/secondary edges to typed menu or
-gameplay owners without DualShock emulation. All cited passing runs were
+gameplay owners without DualShock emulation. Those interface tests were
 surfaceless, null-muted, and shut down gracefully.
 
 The direct absolute-motion contract is limited to the pause path: on the Save
@@ -266,8 +266,8 @@ pointer movement and activation on that ordinary callback path. Its measured
 action then completed through the deferred scheduler with exact stack
 restoration. The former target `(431.33,178.80)` intersects only a `GMiner`
 rectangle and correctly clears focus. `HostInputRouter` now uses the grounded
-dispatch-bound movement path for every discovered menu; real-window delivery
-remains unverified (issue #6).
+dispatch-bound movement path for every discovered menu; real-window mouse
+delivery remains unverified (issue #6).
 
 Native title activation now resolves the focused button's exact registered
 HotKeyActivate when no ActivateFocused helper exists. The surfaceless native
@@ -287,9 +287,14 @@ and pad injection at zero. Production-path tests cover readiness, caller
 admission, and stale-player rejection. Issue #6 records the caller-safety
 failures that falsified the earlier implementation and the corrected evidence.
 
-Gap: real window key/mouse delivery remains unobserved because agent tests must
-be windowless. Other startup movies and broader in-game menu coverage remain
-unverified.
+On an isolated, managed 1280×720 KWin/Xwayland display, an X11 Return key event from
+the visible Press START screen opened the profile menu, and Escape from Create
+Profile returned to the prior profile menu. Both were sent to the focused
+standalone product window, with no DualShock binding configured. This proves
+those real-window keyboard transitions, not all menu controls.
+
+Gap: real-window mouse delivery, other startup movies, and broader in-game menu
+coverage remain unverified.
 The prior Press START saved-state transition is no longer accepted as stable
 evidence: the same deferred call later completed with exact restoration but
 left menu `0x01346590` active through the 90-second deadline, falsifying C012's
@@ -520,12 +525,17 @@ profile, the standalone `avpe` window displayed the game's EA logo, exposed
 AVPE's own top-level window title/class, and resized its render child with the
 top-level window from 960×672 to 1100×700. X11 focus moved to the AVPE window;
 a `WM_DELETE_WINDOW` client message reached Qt's close path and the product
-exited 0. A missing CHD now logs its exact boot failure and exits 1; the
-asset-free real-binary regression covers that path.
+exited 0. A separate nested KWin/Xwayland run placed both the top-level window
+and render child at 1280×720 on a 1280×720 virtual output, with KWin's
+fullscreen and focused states set; it rendered the game and closed with exit
+0. An X11 Return key event from the visible title screen opened the profile menu, and
+Escape returned from Create Profile. A missing CHD logs its exact boot failure
+and exits 1; the asset-free real-binary regression covers that path.
 
-Gap: Xvfb has no window manager, so its fullscreen state request did not prove
-fullscreen presentation on a managed desktop. Product keyboard/mouse event
-delivery and the full presentation lifecycle still need live verification.
+Gap: real-window mouse delivery, focus loss/recovery, and the full presentation
+lifecycle still need verification. The run showed PCSX2's
+no-controller-bindings toast and original PlayStation button prompts; S029
+tracks the latter.
 Atomic work: issue #3.
 
 ### S021 — disc/file access boundary: verified
