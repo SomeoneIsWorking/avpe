@@ -26,7 +26,9 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Product input routing | Qt key and mouse translation, held-input ownership across menu/game transitions, dispatch-bound menu pointer movement, wheel translation, and typed action dispatch | `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*`, `HostWindow.*` | `AVPE::HostInputRouter` | [input path](re/input-path.md) |
 | Presentation bridge | GS-to-host window acquisition and narrow display/settings control | `thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp`, `Runtime.*` | `Host::AcquireRenderWindow()` | [presentation](host/presentation.md) |
 | Control-test runner | Silent surfaceless PCSX2 process, isolated profile/card working copies, observed pad-hold and card-readiness lifecycles, independent bounded card-write drain, loopback transport, timebox, exact process-group cleanup | `tools/run_control_test.py`, `src/avpe/control_http.py`, `src/avpe/input_probe.py`, `src/avpe/memory_card_probe.py` | `main()`, `press_buttons()`, `await_memory_card_ready()`, `drain_memory_card_writes()` | [control-test contract](re/headless.md) |
+| Diagnostic guest-buffer transport | Bounded loopback reads and writes of guest memory for grounded control probes; no title policy | `src/avpe/native_guest_buffer.py` | `read_guest_buffer()`, `write_guest_buffer()` | [control-test contract](re/headless.md) |
 | Control-test proof reporting | Shared JSON probe acceptance/error reporting and dispatch-bound menu-pointer proof policy for surfaceless diagnostics | `src/avpe/control_test.py`, `src/avpe/native_menu_pointer_dispatch_probe.py` | `report_json_probe()`, `probe_native_menu_pointer_dispatch()` | [control-test contract](re/headless.md) |
+| Gameplay Pause admission proof | Validated `GPauseHandler` timer guard, one physical Start press after guest-owned readiness, and live callback/menu proof | `src/avpe/native_pause_probe.py` | `probe_gameplay_pause_menu()` | [BIOS/IOP contract](re/bios.md) |
 | Pause Quit confirmation discovery | Bounded selected-rectangle inspection, live text/action validation, and dispatch-bound focus proof for the pause-menu Quit confirmation; no BIOS capture policy | `src/avpe/native_pause_quit_probe.py` | `pause_selection_rectangles()`, `focus_pause_selection()` | [BIOS/IOP contract](re/bios.md) |
 | Native cache proof policy | Bounded-cache snapshot validation and active-cache polling, independent of process orchestration | `src/avpe/native_asset_cache_probe.py` | `cache_snapshot_is_verified()` | [disc-I/O RE contract](re/disc-io.md) |
 | BIOS/IOP trace proof policy | Clean-boot polling, strict bounded/ordered census acceptance, grounded mission-boundary validation, and phase-labelled artifact writing | `src/avpe/native_bios_probe.py` | `bios_trace_is_verified()`, `mission_boundary_is_verified()`, `run_bios_phase()` | [BIOS/IOP contract](re/bios.md) |
@@ -142,7 +144,7 @@ src/avpe/                      host-side product orchestration
 ├── native_gs_h_param_probe.py  GetGsHParam output proof policy
 ├── native_osd_config2_probe.py  GetOsdConfigParam2 output proof policy
 ├── native_cop0_probe.py  GetCop0 register proof policy
-├── native_guest_buffer.py       shared guest-buffer transport for BIOS probes
+├── native_guest_buffer.py       diagnostic guest-memory read/write transport
 ├── native_thread_probe.py      safe thread-service negative proof policy
 ├── native_title_probe.py       title-menu lifecycle and physical activation proof
 ├── native_game_load_probe.py   normal game-load flow and boundary proof policy
@@ -150,6 +152,7 @@ src/avpe/                      host-side product orchestration
 ├── input_probe.py              observed diagnostic pad press/release lifecycle
 ├── memory_card_probe.py        isolated card copy and live readiness proof policy
 ├── native_menu_pointer_dispatch_probe.py dispatch-bound menu pointer proof policy
+├── native_pause_probe.py       gameplay Pause timer/admission proof policy
 ├── native_pause_quit_probe.py  grounded pause Quit confirmation discovery
 ├── bios_inventory.py           deterministic BIOS/IOP trace summaries
 ├── iop_imports.py              static IRX IOP import-table parser
