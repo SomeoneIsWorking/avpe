@@ -82,7 +82,7 @@ def _verify_macos_bundle(
     for directory in (contents / "Frameworks", contents / "PlugIns"):
         executables.extend(sorted(directory.rglob("*.dylib")))
     for executable in executables:
-        run(["lipo", "-verify_arch", architecture, str(executable)], check=True)
+        run(["lipo", str(executable), "-verify_arch", architecture], check=True)
     run(
         ["codesign", "--force", "--deep", "--sign", "-", "--timestamp=none", str(bundle)],
         check=True,
