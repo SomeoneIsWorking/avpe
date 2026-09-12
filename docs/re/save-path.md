@@ -139,6 +139,14 @@ record before validating profile ID, revision, and payload size. The resulting
 this routine is the correct runtime boundary for enumerating `mcman.McRead`
 calls before a later `CProfile::LoadGame`.
 
+The `slot-enumeration` control phase arms the BIOS/IOP trace immediately
+before that Load-menu activation and requires the live `GLoadGameMenu` owner.
+The matched `mission1.p2s` and `after-slot0.ps2` run retained 411 event
+identities with zero overflow: 15 `mcman.McRead`, 3 `mcman.McGetDir`, 6
+`mcman.McOpen`, and 7 `mcman.McClose` oracle calls. The title-side
+`sceMcSync` wrapper is grounded at `0x002C0580` and is recorded separately
+because it is not an IOP import.
+
 The attached `CLoadSaveBuffer` stream starts with a two-byte BWJ mode word and
 its first control word. Consequently the 0x20-byte level buffer begins four
 bytes after the outer record, not immediately at `record + 0x118`. `SaveGame`

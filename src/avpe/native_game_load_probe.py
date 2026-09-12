@@ -2,6 +2,7 @@
 
 import json
 import time
+from collections.abc import Callable
 
 from avpe.control_http import request_bytes
 from avpe.menu_probe import (
@@ -27,6 +28,7 @@ GAME_LOAD_PACIFY_PROCESS_PC = 0x00202C20
 GAME_LOAD_MENU_VTABLE = "0x00341620"
 LOAD_CONFIRMATION_MENU_VTABLE = "0x00340930"
 MISSION_GOALS_MENU_VTABLE = "0x00342570"
+SLOT_ENUMERATION_OWNER_PC = 0x00130800
 
 
 class BiosGameLoadCaptureError(RuntimeError):
@@ -125,17 +127,40 @@ def run_game_load_phase(
     )
 
 
+def run_slot_enumeration_phase(
+    port: int,
+    deadline: float,
+) -> tuple[dict[str, object], str, str]:
+    """Capture the card reads performed while constructing GLoadGameMenu."""
+    from avpe.native_bios_probe import capture_bios_trace, start_bios_trace
+
+    preparation = _prepare_game_load_menu(port, deadline, start_bios_trace)
+    trace = capture_bios_trace(port, at_guest_boundary=False)
+    counts = _import_counts(trace)
+    if counts.get("mcman.McRead", 0) <= 0:
+        raise RuntimeError(
+            "slot enumeration did not observe mcman.McRead: "
+            f"counts={counts}"
+        )
+    if counts.get("mcman.McGetDir", 0) <= 0:
+        raise RuntimeError(
+            "slot enumeration did not observe the grounded mcman directory read: "
+            f"counts={counts}"
+        )
+    trace["slot_enumeration"] = {
+        "owner_pc": SLOT_ENUMERATION_OWNER_PC,
+        "menu_vtable": GAME_LOAD_MENU_VTABLE,
+        "import_counts": counts,
+        "sync_wrapper_pc": 0x002C0580,
+        "complete": True,
+    }
+    trace["game_load_preparation"] = preparation
+    return trace, "gameplay_to_slot_enumeration", "build_game_list_card_scan"
+
+
 def _prepare_game_load_confirmation(port: int, deadline: float) -> dict[str, object]:
-    pause = probe_gameplay_pause_menu(port, deadline)
-    pause_selections = pause_selection_rectangles(port)
-    load_item, load_observations = focus_pause_selection(
-        port, deadline, pause_selections, LOAD_MENU_ACTION, "Load"
-    )
-    load_activation = activate_focused_dispatched_menu_pointer(port, deadline)
-    load_status, load_menu = await_settled_menu_state(
-        port, deadline, "BIOS phase game-load slot menu readiness"
-    )
-    _require_menu(load_status, load_menu, GAME_LOAD_MENU_VTABLE, "GLoadGameMenu")
+    preparation = _prepare_game_load_menu(port, deadline)
+    load_menu = preparation["load_menu"]
     slot_text = menu_item_text(port, load_menu)
     slot_activation = complete_menu_action(
         port, deadline, "activate", "BIOS phase game-load slot activation"
@@ -153,6 +178,32 @@ def _prepare_game_load_confirmation(port: int, deadline: float) -> dict[str, obj
         "load confirmation menu",
     )
     confirmation_focus = _focus_confirmation_yes(port, deadline, confirmation_menu)
+    preparation.update({
+        "slot_text": slot_text,
+        "slot_activation": slot_activation,
+        "confirmation_menu": confirmation_menu,
+        "confirmation_focus": confirmation_focus,
+    })
+    return preparation
+
+
+def _prepare_game_load_menu(
+    port: int,
+    deadline: float,
+    before_load_activation: Callable[[int], None] | None = None,
+) -> dict[str, object]:
+    pause = probe_gameplay_pause_menu(port, deadline)
+    pause_selections = pause_selection_rectangles(port)
+    load_item, load_observations = focus_pause_selection(
+        port, deadline, pause_selections, LOAD_MENU_ACTION, "Load"
+    )
+    if before_load_activation is not None:
+        before_load_activation(port)
+    load_activation = activate_focused_dispatched_menu_pointer(port, deadline)
+    load_status, load_menu = await_settled_menu_state(
+        port, deadline, "BIOS phase game-load slot menu readiness"
+    )
+    _require_menu(load_status, load_menu, GAME_LOAD_MENU_VTABLE, "GLoadGameMenu")
     return {
         "pause": pause,
         "pause_selections": pause_selections,
@@ -160,11 +211,24 @@ def _prepare_game_load_confirmation(port: int, deadline: float) -> dict[str, obj
         "load_observations": load_observations,
         "load_activation": load_activation,
         "load_menu": load_menu,
-        "slot_text": slot_text,
-        "slot_activation": slot_activation,
-        "confirmation_menu": confirmation_menu,
-        "confirmation_focus": confirmation_focus,
     }
+
+
+def _import_counts(trace: dict[str, object]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for event in trace.get("events", []):
+        if not isinstance(event, dict) or event.get("kind") != "import":
+            continue
+        library, function = event.get("library"), event.get("function")
+        calls = event.get("calls", 0)
+        if not isinstance(library, str) or not isinstance(function, str) \
+                or not isinstance(calls, int) or isinstance(calls, bool):
+            continue
+        if function == "unknown" and isinstance(event.get("ordinal"), int):
+            function = f"unknown[{event['ordinal']}]"
+        key = f"{library}.{function}"
+        counts[key] = counts.get(key, 0) + calls
+    return counts
 
 
 def _focus_confirmation_yes(

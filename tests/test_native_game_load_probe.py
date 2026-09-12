@@ -15,6 +15,7 @@ from avpe.native_game_load_probe import (
     capture_bios_game_load_boundary,
     game_load_boundary_is_verified,
     run_game_load_phase,
+    run_slot_enumeration_phase,
 )
 
 
@@ -211,6 +212,65 @@ class NativeGameLoadProbeTests(unittest.TestCase):
             trace["game_load_confirmation_activation"],
             {"completed_menu_action_id": 5},
         )
+
+    def test_slot_enumeration_requires_grounded_card_reads(self) -> None:
+        trace = _valid_trace()
+        trace["events"] = [
+            {
+                "sequence": 1,
+                "kind": "import",
+                "library": "mcman",
+                "ordinal": 6,
+                "function": "McRead",
+                "first_arguments": [1, 2, 3, 4],
+                "outcome": "oracle",
+                "result_valid": False,
+                "hle_available": False,
+                "debug_available": False,
+                "calls": 2,
+            },
+            {
+                "sequence": 2,
+                "kind": "import",
+                "library": "mcman",
+                "ordinal": 5,
+                "function": "McGetDir",
+                "first_arguments": [1, 2, 3, 4],
+                "outcome": "oracle",
+                "result_valid": False,
+                "hle_available": False,
+                "debug_available": False,
+                "calls": 1,
+            },
+            {
+                "sequence": 3,
+                "kind": "import",
+                "library": "mcman",
+                "ordinal": 7,
+                "function": "McSync",
+                "first_arguments": [1, 2, 3, 4],
+                "outcome": "oracle",
+                "result_valid": False,
+                "hle_available": False,
+                "debug_available": False,
+                "calls": 1,
+            },
+        ]
+        with patch(
+            "avpe.native_game_load_probe._prepare_game_load_menu",
+            return_value={"load_menu": {"menu_vtable": GAME_LOAD_MENU_VTABLE}},
+        ) as prepare, patch(
+            "avpe.native_bios_probe.start_bios_trace"
+        ) as start, patch(
+            "avpe.native_bios_probe.capture_bios_trace",
+            return_value=trace,
+        ) as capture:
+            result = run_slot_enumeration_phase(31234, 99.0)
+
+        prepare.assert_called_once_with(31234, 99.0, start)
+        capture.assert_called_once_with(31234, at_guest_boundary=False)
+        self.assertEqual(result[1:], ("gameplay_to_slot_enumeration", "build_game_list_card_scan"))
+        self.assertTrue(result[0]["slot_enumeration"]["complete"])
 
     def test_capture_retains_a_structured_timeout(self) -> None:
         trace = _valid_trace()

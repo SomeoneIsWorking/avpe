@@ -22,10 +22,7 @@ from avpe.menu_probe import (
 )
 from avpe.native_asset_probe import await_native_stream_reads
 from avpe.native_save_probe import profile_snapshot_is_verified
-from avpe.native_game_load_probe import (
-    BiosGameLoadCaptureError,
-    run_game_load_phase,
-)
+from avpe.native_game_load_probe import BiosGameLoadCaptureError, run_game_load_phase, run_slot_enumeration_phase
 from avpe.native_mission_probe import probe_marine_m1_transition
 from avpe.native_menu_pointer_dispatch_probe import (
     activate_focused_dispatched_menu_pointer,
@@ -61,7 +58,7 @@ STATEFILE_BIOS_PHASES = (
     "menu",
     "save-load",
     "game-save",
-    "game-load",
+    "game-load", "slot-enumeration",
     "shutdown",
     "shutdown-pointer",
     "semaphore",
@@ -164,7 +161,7 @@ def validate_arguments(args: argparse.Namespace, parser: argparse.ArgumentParser
         parser.error("--bios-title-actions requires --probe-bios-phase title-actions")
     if args.probe_bios_phase in STATEFILE_BIOS_PHASES and args.statefile is None:
         parser.error("--probe-bios-phase requires --statefile")
-    if args.probe_bios_phase in ("game-save", "game-load") \
+    if args.probe_bios_phase in ("game-save", "game-load", "slot-enumeration") \
             and getattr(args, "memory_card_source", None) is None:
         parser.error(
             f"--probe-bios-phase {args.probe_bios_phase} requires --memory-card-source"
@@ -1053,6 +1050,8 @@ def run_bios_phase(
         return trace, "gameplay_to_game_save", "pause_save_empty_slot_to_cprofile_save_game"
     if phase == "game-load":
         return run_game_load_phase(port, deadline)
+    if phase == "slot-enumeration":
+        return run_slot_enumeration_phase(port, deadline)
     if phase == "shutdown":
         pause = probe_gameplay_pause_menu(port, deadline)
         selections = _pause_selection_rectangles(port)

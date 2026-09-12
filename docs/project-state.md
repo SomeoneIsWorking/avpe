@@ -46,10 +46,10 @@ selects the BIOS whose embedded console identifier matches the savestate and
 replaces a stale isolated BIOS link, restoring deterministic state/BIOS pairing.
 The remaining work is the shutdown,
 service-level negative-path inventory, plus required runtime operations outside
-the current boot, archive, save, and load slices. The exact load interval starts
-after slot selection has already read the card record, so it contains no
-`mcman.McRead`; a separate slot-enumeration trace is still needed for that
-service contract.
+the current boot, archive, save, load, and slot-enumeration slices. The exact
+load interval starts after slot selection has already read the card record, so
+it contains no `mcman.McRead`; the separate slot-enumeration capture now covers
+that earlier service contract.
 The shipping `--probe-bios-phase semaphore` now supplies controlled
 nonblocking success, empty-count, and invalid-ID results through a repeatable
 statefile phase; its exact inputs and remaining ordering/capacity gaps are
@@ -61,6 +61,14 @@ and restored stacks; live thread scheduling remains unproven.
 Static IRX analysis now narrows the IOP candidate surface to seven retained
 modules, 61 import tables, 260 import stubs, and 19 library identities; it is
 explicitly not runtime coverage.
+
+The slot-enumeration phase arms the trace immediately before the grounded Load
+menu activation, then waits for the live `GLoadGameMenu` (`0x00341620`). The
+capture retained 411 event identities with zero overflow and observed 15
+`mcman.McRead`, 3 `mcman.McGetDir`, 6 `mcman.McOpen`, and 7 `mcman.McClose`
+oracle calls. The title's `sceMcSync` wrapper is statically grounded at
+`0x002C0580`; it is not an IOP import identity, so the trace records that
+wrapper PC separately rather than inventing a `mcman.McSync` event.
 Current focus is attention, not a separate state.
 
 ## Capability inventory

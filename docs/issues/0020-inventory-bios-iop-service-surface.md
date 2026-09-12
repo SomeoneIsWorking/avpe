@@ -6,7 +6,7 @@ symptom: The AVP:E-specific BIOS/HLE service surface is not yet inventoried
 state_items: S025,S026,S027,S028
 tags: bios,hle,iop,inventory,re
 created: 2026-08-28
-updated: 2026-09-08
+updated: 2026-09-12
 ---
 
 ## Root cause
@@ -674,8 +674,8 @@ overflows, and the source memory card was unchanged.
 The exact load interval begins after the populated-slot and confirmation
 callbacks have read the selected card record, so the refreshed trace contains
 no `mcman.McRead` event. This is a boundary fact, not evidence that the title
-does not use `mcman` for card reads; slot-enumeration tracing remains required
-to ground that service contract.
+does not use `mcman` for card reads. The follow-up slot-enumeration capture
+below now supplies that earlier service slice.
 
 ### Finding (2026-09-12, static card-read owner and boundary)
 
@@ -699,6 +699,19 @@ and payload size. Combined with the `Plat_Open`/`Plat_Read` decompilation above,
 this establishes the runtime trace window needed to observe `mcman.McRead` and
 its `sceMcGetDir`/`sceMcSync` ordering; the existing normal-load capture starts
 after this loop and cannot supply those occurrences.
+
+### Finding (2026-09-12, slot-enumeration runtime capture)
+
+The new `slot-enumeration` phase arms the shipping BIOS trace immediately
+before the focused Load action, then requires the live `GLoadGameMenu` vtable
+(`0x00341620`) before capturing. A matched `mission1.p2s` plus
+`after-slot0.ps2` run retained 411 event identities with zero overflow and
+observed 15 `mcman.McRead`, 3 `mcman.McGetDir`, 6 `mcman.McOpen`, and 7
+`mcman.McClose` oracle calls. The `sceMcSync` wrapper at `0x002C0580` is a
+title-side function rather than an IOP import, so the artifact records that
+grounded wrapper PC separately instead of fabricating a `mcman.McSync` event.
+This supplies the runtime card-read slice around `CProfile::BuildGameList`;
+it does not complete the BIOS inventory or implement an HLE replacement.
 
 ### Finding (2026-09-12, normal-load repeatability regression and repair)
 
