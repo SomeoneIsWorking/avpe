@@ -163,16 +163,28 @@ changed.
 The schema-v6 trace retained 121 event identities and paired 3,396/3,396 EE
 BIOS calls plus 340/340 IOP oracle calls with zero pending calls, sequence
 errors, or overflow. The IOP calls comprise 117 `cdvdman` ordinal-51 returns,
-111 `sifcmd.sceSifGetOtherData` returns, 111 stripped `mcman` ordinal-9
-returns, and one stripped `mcman` ordinal-10 return. Missing debug/HLE handlers
-do not invalidate oracle execution; stripped names are serialized explicitly
-as `unknown`. Continuously changing `mcman` ordinal-9 results remain bounded as
+111 `sifcmd.sceSifGetOtherData` returns, 111 `mcman.McWrite` (ordinal 9)
+returns, and one `mcman.McSeek` (ordinal 10) return. The names are resolved by
+the shipping IRX export table from the `mcman` export contract; no native HLE
+handler has been introduced, so execution remains on the existing oracle path.
+Continuously changing `McWrite` results remain bounded as
 first/last/min/max/change-count evidence (`min=4`, `max=8192`, 92 changes).
 
 The run also observed the 300-frame memory-card busy period after the write and
 waited for readiness before clean shutdown. This proves the normal game-save
 service slice without fast-forwarding, direct guest calls, or forced process
 termination.
+
+### Finding (2026-09-12, mcman write/seek identity)
+
+The shipping IRX name table now maps `mcman` ordinals 9 and 10 to the
+PS2SDK-exported `McWrite` and `McSeek` contracts. Repeating the isolated
+normal-save probe after that change retained the same successful
+`CProfile::SaveGame` boundary and card delta, while the trace reported
+`mcman.McWrite` 111 times and `mcman.McSeek` once instead of two unresolved
+ordinals. This is naming and inventory evidence only: both calls still execute
+through PCSX2's oracle path, and it does not yet provide native card-slot
+semantics.
 
 ### Finding (2026-08-31, save-menu activation discriminator)
 

@@ -11,7 +11,7 @@ surfaceless control-test mode enables it and exposes its snapshot at
 `GET /bios/trace`. It records, in one sequence-ordered stream:
 
 - every IOP import identity reached while the census is enabled, with library,
-  ordinal, resolved name (or `unknown` when no debug symbol resolves it), first
+  ordinal, resolved name (or `unknown` when no name table resolves it), first
   four input arguments, handler availability, actual `hle` or `oracle`
   outcome, result validity, and an occurrence count. A handled HLE outcome
   carries its immediate signed `v0`; an oracle outcome records the entry
@@ -662,13 +662,16 @@ zero. It retained 121 event identities, paired 3,396/3,396 EE BIOS calls plus
 overflow.
 
 The IOP slice contains 117 `cdvdman` ordinal-51 returns, 111
-`sifcmd.sceSifGetOtherData` returns, 111 stripped `mcman` ordinal-9 returns,
-and one stripped `mcman` ordinal-10 return. Both stripped functions are
-serialized as `unknown`; an oracle call does not require an HLE or debug
-handler. The changing ordinal-9 results are bounded by a summary with
-`min=4`, `max=8192`, and 92 changes. After the write, the runner observes and
-waits through PCSX2's 300-frame memory-card busy interval before graceful
-shutdown, so the artifact and card comparison describe flushed state.
+`sifcmd.sceSifGetOtherData` returns, 111 `mcman.McWrite` (ordinal 9) returns,
+and one `mcman.McSeek` (ordinal 10) return. These names come from the
+`mcman` export contract (the ordinal declarations are published in
+[PS2SDK's `mcman.h`](https://ps2dev.github.io/ps2sdk/mcman_8h.html)) and are
+now carried by the shipping IRX name table;
+the calls still execute through PCSX2's oracle path because no native HLE
+handler has been added. The changing `McWrite` results are bounded by a
+summary with `min=4`, `max=8192`, and 92 changes. After the write, the runner
+observes and waits through PCSX2's 300-frame memory-card busy interval before
+graceful shutdown, so the artifact and card comparison describe flushed state.
 
 ## Inventory analysis
 
