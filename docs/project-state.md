@@ -1125,13 +1125,14 @@ formula rather than a guessed constant. A new live observer
 screen-bounds call identified by static RE) has now been exercised
 end-to-end against a real Pause-menu render and returned real captured rect
 data (180 observed calls, 0 invalid reads, 30 distinct rects; raw JSON in
-issue #8). Two independent same-frame `/snap` correlations (one against a
-passive capture, one purpose-built to capture the screenshot inside the same
-paused frame as the trace) have not found an icon-sized, icon-positioned
-rect among the captured calls; the samples are dominated by unclamped
-perspective-scale values consistent with visible 3D character meshes, not
-2D HUD icons. Which exact rect is the Select/Back icon and the
-guest-to-screen coordinate transform for this call remain open — the next
-discriminator is a capture filtered to the live Select/Back `CRendPS2Mesh`
-resource addresses instead of a passive one. Other glyph producers and
-binding-aware replacement remain unidentified or unimplemented (issue #8).
+issue #8). Three independent correlation attempts — two by same-frame
+`/snap` size/position, one by resolving and matching the live Select/Back
+`CRendPS2Mesh` resource addresses directly from the guest menu tree — have
+not matched a captured sample to either icon, even with the exact live
+addresses in hand. The likely explanation is now that the Select/Back
+meshes resolve to a different `GetMatrix` vtable implementation than the
+hooked `CMeshWorkspace::GetMatrix`, not that the hook needs a better filter.
+The next discriminator is hooking `Render__12CRendPS2Mesh`'s own vtable
+read to identify which `GetMatrix` implementation those two meshes actually
+use. Other glyph producers and binding-aware replacement remain
+unidentified or unimplemented (issue #8).
