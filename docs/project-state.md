@@ -1117,5 +1117,9 @@ resource to `CzFont::Render` (`0x001390E0`). A live before/after redraw also
 identifies the profile menu's circular X icon as its `MainSelectButton`
 item's `BottomButton` mesh. Normal M1 Pause reuses that X mesh and presents a
 separately verified Triangle Back icon from `MainBackButton`'s `TopButton`
-mesh. Other glyph producers, final sprite rectangles, and
-binding-aware replacement remain unidentified or unimplemented (issue #8).
+mesh. A live `CzFont::Render` observer additionally grounds the Select/Back
+text labels to the same font path, and PCSX2's own capture source (not guest
+RE) resolves the `/snap` 448-to-480 relationship to a citable aspect-scale
+formula rather than a guessed constant. Other glyph producers, the guest-side
+vertical HUD projection into final sprite rectangles, and binding-aware
+replacement remain unidentified or unimplemented (issue #8).

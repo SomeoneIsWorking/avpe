@@ -206,6 +206,45 @@ mesh-to-GS presentation boundary, derive final rectangles without guessing
 the 448-to-480 mapping, and replace the exact authored prompt meshes with
 bindings-aware PC action presentation across the normal menus and gameplay.
 
+### Finding (2026-09-17, GS capture 448-to-480 relationship)
+
+The `/snap` 448-to-480 factor is a PCSX2-owned aspect-correction scale
+applied at capture time, not a PS2 CRTC blanking constant and not something
+a new guest-side DISPLAY-register observer could resolve. Reading PCSX2's
+own capture path (not guest code) traced `NativeSnapshotRoute::Handle()` to
+`MTGS::SaveMemorySnapshot(0, 0, /*apply_aspect=*/true, ...)`
+(`pcsx2/MTGS.cpp:1021`) into `GSRenderer::SaveSnapshotToMemory`
+(`pcsx2/GS/Renderers/Common/GSRenderer.cpp:1033`). With no capture window
+size requested, that function takes the GS's internal render-target texture
+at its full internal resolution (`GSRenderer.cpp:266`, `:445`) and, in the
+`apply_aspect` branch (`GSRenderer.cpp:1049-1067`), compares the texture's
+own aspect ratio against `GetCurrentAspectRatioFloat(is_progressive)`
+(`GSRenderer.cpp:291`). AVP:E is interlaced SDTV, so that call returns the
+default `4/3`; since the texture aspect (`640/448 ≈ 1.4286`) exceeds `4/3`,
+the code keeps texture width and recomputes height as
+`tex_width / (4/3)`, discarding the guest's actual 448-line height entirely.
+For a 640-wide texture that recomputed height is exactly 480.
+
+This gives a citable formula rather than a guess:
+`snapshotY = guestY * (480/448) = guestY * 15/14 ≈ guestY * 1.0714286`, with
+`snapshotX = guestX` unchanged (the branch never touches width). It holds
+only while `GSConfig.Crop` stays all-zero and `GSConfig.AspectRatio` stays at
+the project's default (Stretch/Auto) with interlaced SDTV output — the
+current AVPE configuration — so no live per-frame DISPLAY/SMODE2 register
+capture is required to invert a `/snap` screen coordinate back into the
+guest's 640×448 space under that configuration. Applying the inverse to the
+observed icon-removal screen band (Y=413–428) gives guest Y≈385.5–399.5,
+in the neighborhood of the previously derived pre-projection mesh center Y
+(item Y 375 + mesh offset 28 = 403) but not an exact match, so the remaining
+open question is the vertical HUD projection/viewport transform between
+`CRendPS2Mesh::Render`'s `+0x10` vector and the guest's own 640×448
+framebuffer coordinates, not the 448-to-480 capture scale resolved here.
+
+Evidence: read-only source citations above (`pcsx2/AVPE/NativeSnapshotRoute.cpp:71`,
+`pcsx2/MTGS.cpp:1021`, `pcsx2/GS/GS.cpp:914`,
+`pcsx2/GS/Renderers/Common/GSRenderer.cpp:445,1033,1049-1067,266,291`); no
+new capture was run.
+
 ### Finding (2026-09-12, icon-font candidate)
 
 The archive's system `LIST` at `0x28C10` exports `IconFont` exactly once:
