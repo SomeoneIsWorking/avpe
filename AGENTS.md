@@ -49,6 +49,10 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   `NativePromptRoute.*` owns only the surfaceless diagnostic HTTP presentation.
 - `NativeSnapshotRoute.*` owns `/snap` frame capture and BMP serialization;
   `AVPE.cpp` only dispatches the diagnostic request.
+- `NativeMeshBoundsTrace.*` owns bounded, read-only observation of live
+  `CMeshWorkspace::GetMatrix` screen-space AABB outputs and explicit
+  invalid/overflow counts; `NativeMeshBoundsRoute.*` owns only the
+  surfaceless diagnostic HTTP presentation.
 - `NativeEeExecutionHooks.*` composes AVPE's narrow EE instruction observers;
   the interpreter and recompiler call this owner rather than individual
   diagnostic modules.
