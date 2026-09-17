@@ -383,9 +383,67 @@ rendering evidence: neither the loader nor the prompt-menu vtable establishes
 which text/glyph resource reaches `CzFont::Render`, so changing a `.tbd` would
 not yet be a justified prompt replacement.
 
+### Finding (2026-09-18, live mesh-bounds capture obtained)
+
+`AVPE::NativeMeshBoundsTrace` (landed this session, hooked at EE PC
+`0x00136320`, the return address of the `jalr t9` inside
+`CMeshWorkspace::GetMatrix` identified by the prior finding) was exercised
+against a real running instance for the first time. The capture composes
+deterministically inside a single `tools/run_control_test.py` process via
+the new `--probe-native-mesh-bounds` flag
+(`src/avpe/native_mesh_bounds_probe.py`): clean boot →
+`probe_marine_m1_transition` → `probe_gameplay_pause_menu` (physical
+`PAD_START`) → arm `/mesh/bounds-trace` → poll until `observed_calls>0` →
+stop and capture. This avoids the cross-turn HTTP timing race that defeated
+three earlier manual `--hold-open` attempts (the VM would shut down before a
+follow-up `curl`/`avpe_http.py` call could reach it — the real-world gap
+between a background-monitor notification firing and the next tool call
+landing exceeded even a 600s hold-open window in practice).
+
+Result: `observed_calls=180`, `invalid_reads=0`, `dropped_samples=52`
+(`sample_capacity=64`, so the cap is real and reported, not silently
+dropped), 64 stored samples covering 30 distinct `(xmax,xmin,ymax,ymin)`
+rects across ~20 distinct `workspace`/`bounds_object` pairs. Full raw JSON:
+`scratch/prompt-probe/mesh-bounds-capture.json` (git-ignored scratch, cite by
+path; reproduce with the command above against a clean
+`AVPE_CHD`/`AVPE_BIOS_DIR` and a formatted `Mcd001.ps2`).
+
+Most samples are a `(-10000,-10000,10000,10000)` sentinel — the
+uninitialized/inverted-accumulator pattern (`xmin=+10000 > xmax=-10000`)
+for a mesh whose cull test never got a point to narrow the bound, i.e. an
+always-pass frustum flag rather than a tight rect; this matches the prior
+finding's description of the same call site doing double duty as a coarse
+cull gate. A second cluster (`bounds_object` `0x01578E1C`/`0x0156EFCC`) has
+five small non-sentinel rects with `abs(xmax-xmin)` in `45..157` and
+`abs(ymax-ymin)` in `47..139`, close in scale to the previously measured
+Select-icon `/snap` screen bound (`X=102-118, Y=413-431`, i.e. 16×18 guest
+pixels after applying the grounded `snapshotY=guestY*15/14` inverse). Adding
+a `(320,224)` (half the guest 640×448 resolution) offset to one such rect —
+`xmax=-129, xmin=-75, ymax=215, ymin=262` → screen `x∈[191,245],
+y∈[439,486]` — lands in the same lower-HUD region as the measured Select
+icon but is not pixel-exact, and the guest-space grounding established
+earlier (`iStack_20/1c/18/14` compared directly against `GetResolution()`'s
+non-negative `0,0,640,448`) does not predict a centered/signed origin for
+this rect. This centered-origin reading is therefore a candidate
+calibration, not a proven one.
+
+**Not yet resolved**: which exact `bounds_object`/`workspace` pair is the
+Select/Back prompt icon, and the precise transform from this call's
+`(xmax,xmin,ymax,ymin)` to guest `0,0,640,448` pixel space. The
+discriminator is a capture that also drives a `/snap` screenshot in the
+same paused frame so the two coordinate systems can be correlated
+pixel-for-pixel on the same live geometry, rather than against the
+`2026-09-17` measurement (a different capture/frame). `NativeMeshBoundsRoute`
+already returns `workspace`/`render`/`bounds_object` identity per sample, so
+a same-frame `/snap` plus a guest-object dump at those addresses (name/type
+fields, if any are reachable) should be enough to pin the identification
+without further static RE.
+
 ## Resolution
 
 Not resolved. The correct implementation seam is a dedicated final-frame GPU
-prompt overlay fed by an atomic CPU-produced prompt context, but it remains
-blocked on identifying the guest prompt resource/rectangles and on replacing
-the hard-coded host key mapping with a shared configurable binding owner.
+prompt overlay fed by an atomic CPU-produced prompt context. Live capture of
+the candidate screen-bounds call now works end-to-end and has produced real
+rect data, but the exact prompt-icon identification and its guest-to-screen
+coordinate transform are still open, and the hard-coded host key mapping
+still needs replacing with a shared configurable binding owner.

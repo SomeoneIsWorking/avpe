@@ -65,6 +65,7 @@ from avpe.native_mission_probe import (
     probe_marine_m1_transition,
 )
 from avpe.native_pause_probe import probe_gameplay_pause_menu
+from avpe.native_mesh_bounds_probe import probe_native_mesh_bounds
 from avpe.native_camera_probe import probe_native_camera
 from avpe.native_movie_probe import probe_native_movie_cancellation
 from avpe.native_assets import (
@@ -488,6 +489,12 @@ def main() -> int:
         action="store_true",
         help="prove the clean-boot SetNextLevel-to-M1 native loader path; requires --memory-card-source",
     )
+    parser.add_argument(
+        "--probe-native-mesh-bounds",
+        action="store_true",
+        help="after --probe-native-marine-m1-transition, press Start and capture the live "
+        "NativeMeshBoundsTrace screen-space AABB from the pause menu",
+    )
     parser.add_argument("--probe-native-ioman-state-recovery", action="store_true",
                         help="prove a live native descriptor survives save/load; requires a clean boot and --memory-card-source")
     parser.add_argument("--probe-native-cdvd-state-recovery", action="store_true",
@@ -511,6 +518,10 @@ def main() -> int:
     add_bios_arguments(parser)
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
+    parser.add_argument("--hold-open", action="store_true",
+                        help="do not shut down after requested probes complete; "
+                        "keep serving HTTP until --seconds elapses, for manual "
+                        "follow-up requests against a still-live VM")
     args = parser.parse_args()
 
     if args.seconds <= 0:
@@ -562,6 +573,11 @@ def main() -> int:
     if args.probe_native_marine_m1_transition and args.memory_card_source is None:
         parser.error(
             "--probe-native-marine-m1-transition requires --memory-card-source until native saves replace the card path"
+        )
+    if args.probe_native_mesh_bounds and not args.probe_native_marine_m1_transition:
+        parser.error(
+            "--probe-native-mesh-bounds requires --probe-native-marine-m1-transition "
+            "to reach a live gameplay state first"
         )
     if args.probe_native_marine_m1_transition and args.probe_asset_byte_trace:
         parser.error("--probe-native-marine-m1-transition must run without asset byte tracing")
@@ -703,6 +719,7 @@ def main() -> int:
     mouse_proof: dict[str, object] | None = None
     menu_proof: dict[str, object] | None = None
     pause_menu_proof: dict[str, object] | None = None
+    mesh_bounds_proof: dict[str, object] | None = None
     menu_activation_proof: dict[str, object] | None = None
     menu_pointer_proof: dict[str, object] | None = None
     menu_pointer_dispatch_proof: dict[str, object] | None = None
@@ -783,6 +800,8 @@ def main() -> int:
                             LOG_DIR.parent,
                             require_native_assets=True,
                         )
+                        if args.probe_native_mesh_bounds:
+                            mesh_bounds_proof = probe_native_mesh_bounds(port, deadline)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_ioman_state_recovery:
@@ -907,7 +926,7 @@ def main() -> int:
                         )
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
-                if probe_requested:
+                if probe_requested and not args.hold_open:
                     break
             time.sleep(0.1)
         if proc.poll() is None and card_probe is not None:
@@ -1105,6 +1124,10 @@ def main() -> int:
         return 1
     if not report_json_probe(
         args.probe_native_pause_menu, pause_menu_proof, "native-pause-menu", probe_error, LOG_DIR
+    ):
+        return 1
+    if not report_json_probe(
+        args.probe_native_mesh_bounds, mesh_bounds_proof, "native-mesh-bounds", probe_error, LOG_DIR
     ):
         return 1
     if not report_json_probe(args.probe_native_menu_activate, menu_activation_proof, "native-menu-activation", probe_error, LOG_DIR):
