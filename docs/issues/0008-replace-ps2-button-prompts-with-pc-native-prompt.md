@@ -245,6 +245,45 @@ Evidence: read-only source citations above (`pcsx2/AVPE/NativeSnapshotRoute.cpp:
 `pcsx2/GS/Renderers/Common/GSRenderer.cpp:445,1033,1049-1067,266,291`); no
 new capture was run.
 
+A direct re-measurement of `scratch/prompt-probe/select-mesh-before.png` and
+`select-mesh-after.png` (20% relative color threshold, matching the original
+method) refines the Select icon's screen bound to X=102–118, Y=413–431
+(previously reported as Y=413–428). Applying the 15/14 capture scale to the
+naive additive mesh-center model (item Y 375 + mesh offset 28 = 403, range
+391–415) predicts screen Y≈419–445, center≈432, width≈26px; the observed
+band is Y=413–431, center≈422, width≈18px. The predicted and observed bands
+overlap but neither their centers nor their widths match, so the naive
+additive model (item position + mesh-local center/bounds, then only the GS
+capture scale) is falsified as the guest-side projection.
+
+### Finding (2026-09-17, HUD projection is a runtime matrix, not a constant)
+
+Static Ghidra RE of `Render__12CRendPS2Mesh` (`0x001884E0`) and
+`PS2ProcessVerts` (`0x00188720`) rules out a fixed HUD viewport constant or
+static Y-flip as the source of the mismatch above. `Render__12CRendPS2Mesh`
+fetches a matrix (`uStack_c`) and a second object (`iStack_8`) through a
+vtable call on `*(param_2+0x20)+0x14` — a camera/view object, not a
+constant — and uses that matrix only to compute a scalar depth for submesh
+sort order via `TransformPoint__FiRC7CVectorRf`. The mesh's untransformed
+`+0x10` local vector is passed as-is into `PS2ProcessVerts` alongside a
+separate 4×4 matrix loaded from global `puRam003c65e0`.
+`PS2ProcessVerts` does no vertex math on the host CPU: it packages that
+matrix (into DMA tag fields) and the raw local vertices into GIF/VIF DMA
+packets (`ClaimDMABuffer`, tags `0x5000000d`/`0x6c028000`/`0x6c0b801a`) for
+the PS2 GS/VU hardware pipeline to transform and rasterize. The full
+world/camera/HUD-viewport transform is therefore baked into a runtime matrix
+populated by whatever object reaches `param_2+0x20`, not visible as a static
+constant in either function.
+
+This closes off further static guessing at this boundary. The next
+discriminator is either (a) a live observer reading the matrix at
+`puRam003c65e0` (or the camera vtable's `uStack_c` result) at the exact
+`PS2ProcessVerts` call for the known Select/Back Pause meshes, or (b)
+statically identifying the object that populates `param_2+0x20` for the
+Pause menu's mesh renders and following its `+0x14` vtable target to see
+whether it resolves to a fixed orthographic HUD matrix rather than a
+per-frame camera-dependent one. Neither has been attempted yet.
+
 ### Finding (2026-09-12, icon-font candidate)
 
 The archive's system `LIST` at `0x28C10` exports `IconFont` exactly once:
