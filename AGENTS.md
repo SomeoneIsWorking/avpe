@@ -44,6 +44,11 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativeTitleTransition.*` owns passive, exact-PC observation of the
   title-to-profile handoff. It neither sends input nor mutates guest/profile
   state; `NativeTitleTransitionRoute.*` owns its diagnostic HTTP presentation.
+- `NativePromptTrace.*` owns bounded, read-only observation of live
+  `CzFont::Render` inputs and explicit invalid/overflow counts;
+  `NativePromptRoute.*` owns only the surfaceless diagnostic HTTP presentation.
+- `NativeSnapshotRoute.*` owns `/snap` frame capture and BMP serialization;
+  `AVPE.cpp` only dispatches the diagnostic request.
 - `NativeEeExecutionHooks.*` composes AVPE's narrow EE instruction observers;
   the interpreter and recompiler call this owner rather than individual
   diagnostic modules.

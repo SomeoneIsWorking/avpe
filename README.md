@@ -133,7 +133,7 @@ changes. Claims must state what would falsify them. Maintainer verification
 uses the locked environment and the repository’s normal verifier:
 
 ```sh
-uv run --frozen python tools/verify.py
+uv run --frozen --group verify python tools/verify.py
 ```
 
 Detailed reverse-engineering and runtime artifacts belong under ignored

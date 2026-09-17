@@ -179,6 +179,33 @@ A full decoded search of the supported 76,132,970-byte `TBF.TBF` traversed
 prompts. This negative rules out those literal strings in this archive, not
 encoded font glyphs, unnamed textures, other assets, or runtime-generated text.
 
+### Finding (2026-09-12, live Pause font-render inputs)
+
+A bounded read-only observer at the exact `CzFont::Render` entry
+(`0x001390E0`) captured the font pointer, the renderer's attached resource,
+the first 96 text bytes, and the font's 256-byte glyph map through validated
+guest reads. Its focused native tests exercised a known text input, invalid
+pointer, truncated text, and both capacity limits. A real surfaceless Marine
+M1 run restored the matching native-asset state, waited for the title's Pause
+admission timer, pressed Start once, and verified `GPauseMenu` vtable
+`0x00342120` before arming the observer. The subsequent three rendered frames
+made 66 font-render calls across two live font objects (`0x00A552D8`: 45;
+`0x00A55D18`: 21) and 22 distinct renderer/text samples. The `Select` text
+renderer at `0x011AF830` and the `Back` text renderer at `0x011B0320` each
+submitted their literal six- and four-byte labels three times through the
+first font. Invalid reads, dropped fonts, and dropped texts were all zero;
+three long mission-objective render calls reached the 96-byte text cap and
+were reported as truncated.
+
+This live positive proves that the font path supplies the Pause labels, while
+the independently controlled mesh-removal captures prove that the X and
+Triangle icons use their items' `CRendPS2Mesh` resources. The bounded font
+trace does not claim absence of encoded glyphs beyond its truncated text
+windows or on other screens. The remaining prompt work is to observe the
+mesh-to-GS presentation boundary, derive final rectangles without guessing
+the 448-to-480 mapping, and replace the exact authored prompt meshes with
+bindings-aware PC action presentation across the normal menus and gameplay.
+
 ### Finding (2026-09-12, icon-font candidate)
 
 The archive's system `LIST` at `0x28C10` exports `IconFont` exactly once:

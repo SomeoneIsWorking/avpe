@@ -2,6 +2,7 @@
 """Run AVPE's non-windowed source and unit verification gates."""
 
 import json
+from importlib.metadata import PackageNotFoundError, version
 import shutil
 import subprocess
 import sys
@@ -94,6 +95,26 @@ def require_tool(name: str) -> str:
     return executable
 
 
+def locked_clang_format() -> str:
+    try:
+        expected_version = version("clang-format")
+    except PackageNotFoundError as error:
+        raise RuntimeError(
+            "locked clang-format is unavailable; run with uv run --frozen --group verify"
+        ) from error
+    executable = Path(sys.executable).parent / (
+        "clang-format.exe" if sys.platform == "win32" else "clang-format"
+    )
+    if not executable.is_file():
+        raise RuntimeError(f"locked clang-format executable is missing: {executable}")
+    actual_version = subprocess.check_output([str(executable), "--version"], text=True).strip()
+    if actual_version != f"clang-format version {expected_version}":
+        raise RuntimeError(
+            f"locked clang-format version mismatch: expected {expected_version}, got {actual_version}"
+        )
+    return str(executable)
+
+
 def run(label: str, argv: list[str]) -> None:
     print(f"verify: {label}", flush=True)
     subprocess.run(argv, cwd=ROOT, check=True)
@@ -121,7 +142,7 @@ def main() -> int:
         return 2
 
     try:
-        clang_format = require_tool("clang-format")
+        clang_format = locked_clang_format()
         clang_tidy = require_tool("clang-tidy")
         run("standalone product build", ["cmake", "--build", str(BUILD_DIR), "--target", "avpe", "-j2"])
         run(
@@ -150,7 +171,8 @@ def main() -> int:
                 "NativeCdvdCompletionTest.*:NativeBiosTraceTest.*:"
                 "NativeWindowHandlesTest.*:NativeTitleTransitionTest.*:NativePadReadinessTest.*:"
                 "RuntimeConfigTest.*:"
-                "NativeMenuItemsTest.*:NativeAttractInputTest.*:NativeMovieInputTest.*",
+                "NativeMenuItemsTest.*:NativeAttractInputTest.*:NativeMovieInputTest.*:"
+                "NativePromptTraceTest.*:NativeSnapshotRouteTest.*",
             ],
         )
         run(
