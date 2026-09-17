@@ -1120,6 +1120,12 @@ separately verified Triangle Back icon from `MainBackButton`'s `TopButton`
 mesh. A live `CzFont::Render` observer additionally grounds the Select/Back
 text labels to the same font path, and PCSX2's own capture source (not guest
 RE) resolves the `/snap` 448-to-480 relationship to a citable aspect-scale
-formula rather than a guessed constant. Other glyph producers, the guest-side
-vertical HUD projection into final sprite rectangles, and binding-aware
+formula rather than a guessed constant. A new live observer
+(`NativeMeshBoundsTrace`, hooked at the `CMeshWorkspace::GetMatrix`
+screen-bounds call identified by static RE) has now been exercised
+end-to-end against a real Pause-menu render and returned real captured rect
+data (180 observed calls, 0 invalid reads, 30 distinct rects; raw JSON in
+issue #8). Which exact rect is the Select/Back icon and the guest-to-screen
+coordinate transform for this call are still open — the next discriminator
+is a same-frame `/snap` correlation. Other glyph producers and binding-aware
 replacement remain unidentified or unimplemented (issue #8).
