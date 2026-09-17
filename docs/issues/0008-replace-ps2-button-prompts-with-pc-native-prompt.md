@@ -284,6 +284,43 @@ Pause menu's mesh renders and following its `+0x14` vtable target to see
 whether it resolves to a fixed orthographic HUD matrix rather than a
 per-frame camera-dependent one. Neither has been attempted yet.
 
+### Finding (2026-09-17, discriminator (b): static RE exhausted at VU microcode)
+
+Chasing discriminator (b) above corrects the prior finding's "camera/view
+object" description. `param_2+0x20` is a `CRender`'s attached
+`CRendWorkspace` pointer, and its `+0x14` vtable slot is `GetMatrix`. The
+base `CRendWorkspace::GetMatrix` (`0x001365b0`) is a trivial stub that
+returns 0; if a `CRender` uses it, `Render__12CRendPS2Mesh` sees a null
+matrix and skips rendering entirely. The implementation actually exercised
+by mesh-bearing menu items is
+`CMeshWorkspace::GetMatrix` (`0x001362c0`), which builds a rotation/scale
+matrix from the owning `CRender`'s own stored orientation fields via
+`SetEuler_XYZS__7CMatrixFRC7CVectorRC7CVector(workspace+0x10, CRender+8,
+CRender+0xc)` — not a shared camera object. It then calls the `CRender`'s
+own vtable `+0x20` (a `GetScreenBounds`-shaped function) to get a 4-value
+rect (`iStack_20/1c/18/14`), compares it against
+`GetResolution__9CRendererFv`, and culls (returns 0, no render) when
+off-screen; on success it returns the local rotation/scale matrix, which is
+what `Render__12CRendPS2Mesh` pushes and hands to `PS2ProcessVerts`.
+
+This matrix carries orientation and scale, not the final screen-space
+placement: `PS2ProcessVerts` packages it and the mesh's raw local vertices
+into GIF/VIF DMA packets for the PS2 GS/VU hardware pipeline, so the actual
+world→screen math executes in VU microcode dispatched by those DMA tags —
+outside any host-EE function Ghidra can decompile from this binary. Static
+RE is exhausted at this boundary: there is no fixed orthographic HUD
+constant to extract, and the remaining open question can only be answered
+by a live capture.
+
+The `CRender::+0x20` `GetScreenBounds`-shaped call found along the way is a
+new, more promising live-capture target than the VU matrix itself: if its
+4-value `iStack_20/1c/18/14` result is (or is trivially convertible to) the
+object's own screen-space bounding rect in the guest's 640×448 framebuffer,
+observing it directly for the Select/Back meshes would answer the "final
+sprite rectangles" question without needing to decode VU microcode at all.
+This call site (identify the exact function address and confirm its output
+semantics) is the next concrete discriminator; it has not been chased yet.
+
 ### Finding (2026-09-12, icon-font candidate)
 
 The archive's system `LIST` at `0x28C10` exports `IconFont` exactly once:
