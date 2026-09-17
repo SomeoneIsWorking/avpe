@@ -296,10 +296,10 @@ by mesh-bearing menu items is
 `CMeshWorkspace::GetMatrix` (`0x001362c0`), which builds a rotation/scale
 matrix from the owning `CRender`'s own stored orientation fields via
 `SetEuler_XYZS__7CMatrixFRC7CVectorRC7CVector(workspace+0x10, CRender+8,
-CRender+0xc)` — not a shared camera object. It then calls the `CRender`'s
-own vtable `+0x20` (a `GetScreenBounds`-shaped function) to get a 4-value
-rect (`iStack_20/1c/18/14`), compares it against
-`GetResolution__9CRendererFv`, and culls (returns 0, no render) when
+CRender+0xc)` — not a shared camera object. It then calls a vtable slot
+`+0x20` on a second object at `workspace+8` (corrected below: not the
+`CRender` itself) to get a 4-value rect (`iStack_20/1c/18/14`), compares it
+against `GetResolution__9CRendererFv`, and culls (returns 0, no render) when
 off-screen; on success it returns the local rotation/scale matrix, which is
 what `Render__12CRendPS2Mesh` pushes and hands to `PS2ProcessVerts`.
 
@@ -320,6 +320,44 @@ observing it directly for the Select/Back meshes would answer the "final
 sprite rectangles" question without needing to decode VU microcode at all.
 This call site (identify the exact function address and confirm its output
 semantics) is the next concrete discriminator; it has not been chased yet.
+
+### Finding (2026-09-17, screen-space AABB call identified, live capture required)
+
+Decompiling `CMeshWorkspace::GetMatrix` (`0x001362c0`) line 28 directly
+corrects the framing above: the call is
+`(**(**(workspace+8)+0x20))(*(workspace+8), workspace+0x10, &iStack_20)` —
+the callee is a vtable slot on a *second* object at `workspace+8` (most
+likely the `CRendPS2Mesh` render-resource instance itself, consistent with
+the sibling `*(param_2+0x20)+0x14` pattern already documented for
+`Render__12CRendPS2Mesh`), not the owning `CRender`. The freshly-built
+rotation/scale matrix is passed in as an argument, and `iStack_20/1c/18/14`
+are written as output, not read.
+
+Semantics are high-confidence from the immediately following cull test,
+which compares those four output ints directly against
+`GetResolution__9CRendererFv()`'s known `(0,0,640,448)` result
+(`piVar4[0..3] = xmin,ymin,xmax,ymax`):
+`if (piVar4[2]<iStack_20 || iStack_18<piVar4[0] || piVar4[3]<iStack_1c ||
+iStack_14<piVar4[1]) → cull`, which maps as `iStack_20=xmax, iStack_1c=ymax,
+iStack_18=xmin, iStack_14=ymin`. Both sides are plain `int` in the same
+units as `GetResolution`'s `640×448` values, so this is a screen-space
+axis-aligned bounding rect already expressed in the guest's 640×448
+framebuffer pixel space — computed entirely in host EE code, not VU
+microcode. The same rect is also copied into a `_pSelected__7CRender` array
+a few lines later for selection-highlight bookkeeping, consistent with it
+being a real tight bounding box rather than a coarse frustum flag.
+
+This is a strong candidate for the exact "final sprite rectangle" issue #8
+needs, but the concrete implementing function behind `workspace+8`'s vtable
+slot `+0x20` could not be resolved statically: that object's vtable pointer
+is populated at runtime, and the mesh-resource addresses cited elsewhere in
+this issue (`0x012F291C`/`0x012F27DC`) are live-capture RAM addresses, not
+static ELF data Ghidra can dereference. The next and, per the two prior
+findings, now-only step is a live observer that reads `iStack_20/1c/18/14`
+(or the vtable-resolved vtable pointer, for identification) at this exact
+call boundary during a Pause-menu render of the known Select/Back meshes;
+once captured, no further static chasing should be required to close S029's
+"final sprite rectangles" gap.
 
 ### Finding (2026-09-12, icon-font candidate)
 
