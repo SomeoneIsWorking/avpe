@@ -493,14 +493,64 @@ per-run via the existing `GPauseMenu` child-item walk used in the
 correlates to those two specific meshes instead of relying on capacity
 and dedup to surface them incidentally.
 
+### Finding (2026-09-18, identity-resolved capture: Select/Back meshes never appear in the trace)
+
+`native_mesh_bounds_probe.py` was extended again to resolve the live
+Select/Back items' own `CRendPS2Mesh` resource addresses directly, instead
+of guessing a coordinate transform. It walks the live `GPauseMenu` object
+tree using the same offsets `NativeMenuItems.cpp` already uses
+(`+0x08` first child, `+0x10` next sibling, `+0x1C` name hash) via the
+existing generic `/mem/read` route, matches the grounded `MainSelectButton`
+(`0x6449F1DE`) / `MainBackButton` (`0x36D11C7B`) name hashes from the
+2026-09-12 findings, and reads each matched item's `+0xF0` image-resource
+pointer — the exact field the 2026-09-12 "live profile Select item" finding
+proved is the rendered mesh. No new native code was needed
+(`identify_select_back_meshes` in `native_mesh_bounds_probe.py`).
+
+A fresh run against the same normal-mission `GPauseMenu`
+(`menu_vtable=0x00342120`) resolved `select_mesh=0x0135EB7C` and
+`back_mesh=0x0135EA3C`, and captured `observed_calls=270`,
+`dropped_samples=80`, 64 stored samples
+(`scratch/prompt-probe/mesh-bounds-capture3.json`). Neither resolved
+address appears as either the `render` or the `bounds_object` field of any
+of the 64 stored samples — checked exactly, not by heuristic size/position
+matching this time.
+
+This is stronger evidence than the two prior same-frame correlations, but
+it does not prove absence outright: `dropped_samples=80` means 80 distinct
+`(workspace, render, bounds_object, rect)` combinations were observed and
+discarded past the 64-slot cap, so a genuine Select/Back call could still
+have been dropped. Weighed against that caveat, the cleaner explanation is
+that the icon meshes do not route through this exact
+`CMeshWorkspace::GetMatrix` (`0x001362c0`) implementation at all — `GetMatrix`
+is a vtable slot, `Render__12CRendPS2Mesh` resolves it per-instance via
+`*(param_2+0x20)+0x14`, and a HUD-fixed 2D overlay mesh plausibly uses a
+different `CRendWorkspace` subclass/override (e.g. one that skips the
+world-AABB cull test entirely, since a HUD icon should never be culled)
+that this PC-specific hook (installed at `CMeshWorkspace::GetMatrix`'s own
+return address) structurally cannot see, no matter how long it captures.
+
+The next discriminator is therefore not more capture at this hook, but
+identifying which `GetMatrix` override actually executes for the
+Select/Back meshes: hook `Render__12CRendPS2Mesh`'s own
+`*(param_2+0x20)+0x14` vtable read (not its callee) for the two known live
+mesh addresses above and record the resolved function pointer, which
+directly answers whether it is `CMeshWorkspace::GetMatrix` or a distinct
+implementation before any further live-rect capture is attempted.
+
 ## Resolution
 
 Not resolved. The correct implementation seam is a dedicated final-frame GPU
 prompt overlay fed by an atomic CPU-produced prompt context. Live capture of
 the candidate screen-bounds call works end-to-end and produces real rect
-data, but two same-frame correlation attempts have not found an icon-sized,
-icon-positioned sample among the captured calls; the exact prompt-icon
+data, but three independent correlation attempts — two by size/position, one
+by the live Select/Back mesh addresses themselves — have not matched a
+captured sample to either icon. The likeliest explanation is now that the
+Select/Back meshes render through a different `GetMatrix` vtable
+implementation than the hooked `CMeshWorkspace::GetMatrix`, not that the
+current hook needs a better filter or more capacity. The exact prompt-icon
 identification and its guest-to-screen coordinate transform are still open,
 and the hard-coded host key mapping still needs replacing with a shared
-configurable binding owner. The next step is a workspace-address-filtered
-capture rather than a passive one.
+configurable binding owner. The next step is hooking
+`Render__12CRendPS2Mesh`'s own vtable read to identify which `GetMatrix`
+implementation the Select/Back meshes actually resolve to.
