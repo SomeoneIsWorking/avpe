@@ -801,7 +801,8 @@ def main() -> int:
                             require_native_assets=True,
                         )
                         if args.probe_native_mesh_bounds:
-                            mesh_bounds_proof = probe_native_mesh_bounds(port, deadline)
+                            mesh_bounds_proof = probe_native_mesh_bounds(
+                                port, deadline, LOG_DIR.parent)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_ioman_state_recovery:

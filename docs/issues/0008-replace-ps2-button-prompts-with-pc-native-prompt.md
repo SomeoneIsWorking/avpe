@@ -6,7 +6,7 @@ symptom: The product still presents PlayStation 2 controller button prompts whil
 state_items: S029
 tags: input,ui,prompts,keyboard,mouse
 created: 2026-08-27
-updated: 2026-09-12
+updated: 2026-09-18
 ---
 
 ## Root cause
@@ -439,11 +439,68 @@ a same-frame `/snap` plus a guest-object dump at those addresses (name/type
 fields, if any are reachable) should be enough to pin the identification
 without further static RE.
 
+### Finding (2026-09-18, same-frame correlation is inconclusive — no candidate matches)
+
+`native_mesh_bounds_probe.py` was extended to capture a `/snap` screenshot
+between the last observed call and stopping the trace, so both coordinate
+systems come from the same paused frame
+(`src/avpe/native_mesh_bounds_probe.py:42`,
+`tools/run_control_test.py`'s `--probe-native-mesh-bounds` call site). A
+fresh run against the normal-mission Pause menu
+(`GPauseMenu` vtable `0x00342120`, matching every prior finding) produced
+`observed_calls=180`, `invalid_reads=0`, `dropped_samples=52`, 64 stored
+samples, and a same-frame 640×480 `/snap`
+(`scratch/control-test/mesh-bounds-snap.bmp`,
+sha256 `d6e6111c...09a0e07b62f7`; parsed samples at
+`scratch/prompt-probe/mesh-bounds-capture2.json`).
+
+Direct pixel inspection of the same-frame screenshot (3x-upscaled crop of
+guest region `(60,380)-(220,460)`) places the Select (X) icon center at
+screen ≈(105,422) and the Back (triangle) icon center at screen ≈(175,422),
+each roughly 20–23px across — consistent with the previously measured
+X=102–118/X=162–177, Y=413–431 bands. Inverting the grounded
+`snapshotY=guestY*15/14` scale puts both icons at guest Y≈386–402, with
+guest X unchanged (102–118 and 162–177, since the capture scale never
+touches width).
+
+None of the 64 captured `(xmax,xmin,ymax,ymin)` samples are both
+icon-sized (~16–23px on a side) and positioned near guest
+X∈[102,118]∪[162,177], Y∈[386,402]. The closest-scale cluster
+(`bounds_object` `0x01578E1C`/`0x0156EFCC`, four entries, width 45–56px,
+height 37–56px) reappears in this run at different absolute coordinates
+than the prior capture (same `bounds_object` identity, different
+`workspace`/`render` pointers — expected, since these are per-run heap
+addresses) and is still not pixel-exact, confirming the prior session's
+"candidate, not proven" verdict rather than resolving it. Every other
+sample has one axis in the hundreds or low tens-of-thousands (e.g.
+`xmax=-9331,xmin=-9325,ymax=4002,ymin=4005`) with wildly differing
+magnitudes across samples, which is the shape of unclamped perspective
+screen-space coordinates for the mission's visible 3D character meshes
+(the same paused frame's background shows several soldier models), not
+2D HUD icon rectangles.
+
+This does not prove the hooked call excludes the icon meshes, but it is
+now a concrete negative: across two independent same-context captures
+(180 and an earlier comparable call count), the icon-sized/positioned
+rect never appears among the distinct samples the 64-slot cache retains,
+while `dropped_samples` stays nonzero both times. The next discriminator
+is to stop passively capturing whatever `CMeshWorkspace::GetMatrix` calls
+fire first and instead filter `NativeMeshBoundsTrace::Observe` (or add a
+second targeted route) to the live `CRendPS2Mesh` resource addresses
+already known to be the Select/Back items' `+0xF0` image resource — found
+per-run via the existing `GPauseMenu` child-item walk used in the
+2026-09-12 findings — so the trace only records calls whose `workspace`
+correlates to those two specific meshes instead of relying on capacity
+and dedup to surface them incidentally.
+
 ## Resolution
 
 Not resolved. The correct implementation seam is a dedicated final-frame GPU
 prompt overlay fed by an atomic CPU-produced prompt context. Live capture of
-the candidate screen-bounds call now works end-to-end and has produced real
-rect data, but the exact prompt-icon identification and its guest-to-screen
-coordinate transform are still open, and the hard-coded host key mapping
-still needs replacing with a shared configurable binding owner.
+the candidate screen-bounds call works end-to-end and produces real rect
+data, but two same-frame correlation attempts have not found an icon-sized,
+icon-positioned sample among the captured calls; the exact prompt-icon
+identification and its guest-to-screen coordinate transform are still open,
+and the hard-coded host key mapping still needs replacing with a shared
+configurable binding owner. The next step is a workspace-address-filtered
+capture rather than a passive one.
