@@ -109,13 +109,11 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `src/avpe/native_assets.py`, `iso9660.py`, and `raw_sector.py` own native
   asset-store provisioning. Derived game bytes stay under ignored `scratch/`;
   only the schema, identity anchors, validation logic, and tests are tracked.
-- `src/avpe/bios_inventory.py` owns deterministic summaries of captured BIOS/IOP
-  traces; `tools/analyze_bios_traces.py` is only its JSON-file CLI and must not
-  infer service calls that are absent from the trace.
 - `src/avpe/save_format.py` owns the grounded BWJ decoder and fixed game-save
-  prefix parser; `tools/analyze_save_records.py` is only its JSON-file CLI.
-  This is save-format evidence, not the native-save backend and not permission
-  to infer game-object meanings that have not been decoded.
+  prefix parser, with `save_ex.py`, `save_stream.py`, and
+  `save_descriptor_probe.py` beneath it. This is save-format evidence, not the
+  native-save backend and not permission to infer game-object meanings that
+  have not been decoded.
 - `src/avpe/native_asset_cache_probe.py` owns the bounded-cache evidence
   policy; `tools/run_control_test.py` only orchestrates its surfaceless probe.
 - `src/avpe/native_asset_probe.py` owns native asset lifecycle, byte/timing
@@ -132,4 +130,5 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   proof intent but do not define shipping input policy.
 
 Agent runtime tests use `tools/run_control_test.py` only. They remain surfaceless
-and null-muted; `run.sh` is the user's product launcher.
+and null-muted; `run.sh` is the user's product launcher. The local gate is
+`tools/verify.py` and the hosted gate is `tools/ci.py`.

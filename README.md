@@ -101,8 +101,8 @@ not hidden behind `run.sh`:
 uv run --frozen python tools/run_control_test.py --seconds 30
 ```
 
-It uses a surfaceless, null-muted process and isolated state. See
-[`docs/re/headless.md`](docs/re/headless.md) before using its probes.
+It uses a surfaceless, null-muted process and isolated state. Its routes and
+endpoints are documented in [`docs/re/control-channel.md`](docs/re/control-channel.md).
 
 ## Project layout
 
@@ -112,25 +112,24 @@ It uses a surfaceless, null-muted process and isolated state. See
 - `thirdparty/pcsx2/pcsx2/AVPE/` — AVP:E-specific emulator integration and
   native subsystem owners;
 - `tools/` — Python project tooling and control clients; and
-- `docs/` — goals, factual state, ownership map, reverse-engineering notes,
-  claims, instruments, and atomic issues.
+- `docs/` — goals, factual state, ownership map, reverse-engineering notes, and
+  atomic issues.
 
 The ownership boundaries are documented in [`docs/codemap.md`](docs/codemap.md)
 and the project-specific rules are in [`AGENTS.md`](AGENTS.md).
 
-## Contributing and evidence
+## Contributing
 
-Changes should preserve the project’s evidence-first workflow. Before adding a
-new path, consult the project registries and identify the owning subsystem;
-keep host composition, platform events, input policy, game behavior, storage,
-and diagnostics in separate modules. Do not commit ROMs, disc images, BIOS
-files, extracted game data, or machine-specific paths.
+Changes should preserve the project’s module boundaries. Before adding a new
+path, consult [`docs/codemap.md`](docs/codemap.md) and identify the owning
+subsystem; keep host composition, platform events, input policy, game behavior,
+storage, and diagnostics in separate modules. Do not commit ROMs, disc images,
+BIOS files, extracted game data, or machine-specific paths.
 
-For behavior changes, include positive and negative tests at the production
-boundary, record reproducible evidence in the nearest `docs/` authority, and
-update `docs/project-state.md` only when an observable capability actually
-changes. Claims must state what would falsify them. Maintainer verification
-uses the locked environment and the repository’s normal verifier:
+For behavior changes, add unit tests at the production boundary and update
+`docs/project-state.md` only when an observable capability actually changes.
+Maintainer verification uses the locked environment and the repository’s normal
+verifier:
 
 ```sh
 uv run --frozen --group verify python tools/verify.py
