@@ -10,6 +10,11 @@ Environment:
 import os
 
 
+def parse(text):
+    text = text.strip().lower()
+    return int(text[2:], 16) if text.startswith("0x") else int(text, 16)
+
+
 targets = os.environ.get("AVPE_WORD_TARGETS", "")
 if not targets:
     print("AVPE_WORD_TARGETS not set")
@@ -21,8 +26,8 @@ else:
         parts = raw_target.strip().split(":", 1)
         if not parts[0]:
             continue
-        start = int(parts[0], 0)
-        count = int(parts[1], 0) if len(parts) == 2 else 1
+        start = parse(parts[0])
+        count = parse(parts[1]) if len(parts) == 2 else 1
         if count <= 0:
             raise ValueError("word count must be positive: %s" % raw_target)
         for index in range(count):

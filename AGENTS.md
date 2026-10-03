@@ -68,7 +68,10 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   replacement, FSSOUND's direct cdvdman sector mapping, and store/cache
   lifecycle composition.
   `NativeAssetStore.*` is its private peer for exact manifest admission,
-  member lookup, content validation, and generation-safe asset identity.
+  member lookup, content validation, and generation-safe asset identity. A
+  bound store that does not list a requested path holds no content for it, so
+  the title reads it from the disc; only a listed member that fails validation
+  is a native-store failure to fail closed on.
   `NativeAssetCache.*` owns the bounded immutable-page LRU and transient host
   reads; `NativeAssetFile.*` owns only the per-descriptor guest cursor adapter.
   `NativeCdvdCompletion.*` owns bounded one-shot pairing between a claimed

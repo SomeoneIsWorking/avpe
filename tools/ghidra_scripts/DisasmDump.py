@@ -19,11 +19,13 @@ target = os.environ.get("DISASM_TARGET", "")
 if not target:
     print("DISASM_TARGET not set")
 else:
+    text = target.strip().lower()
+    value = int(text[2:], 16) if text.startswith("0x") else int(text, 16)
     af = currentProgram.getAddressFactory().getDefaultAddressSpace()
     fm = currentProgram.getFunctionManager()
     listing = currentProgram.getListing()
 
-    addr = af.getAddress(int(target, 0))
+    addr = af.getAddress(value)
     fn = fm.getFunctionContaining(addr)
     if fn is None:
         print("no function contains %s" % target)
