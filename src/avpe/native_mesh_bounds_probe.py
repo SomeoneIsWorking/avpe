@@ -89,6 +89,63 @@ def _correlate(stop_body: dict, select_back_meshes: dict[str, dict[str, str]]) -
 _MIN_MATCHED_RECTS = 40
 
 
+def measure_drawn_glyphs(bitmap: bytes, rects: dict[str, list[dict[str, object]]]) -> dict[str, object]:
+    """Locate each prompt glyph in the same-frame snapshot.
+
+    The guest's declared culling box is not the placement box, so the drawn
+    extent is measured from the captured frame instead of assumed. The prompt
+    glyphs are red-dominant (the orange button marks), while the mission HUD
+    behind them is blue-green water, so red exceeding blue isolates them. The
+    label text under each glyph is near-neutral and is excluded.
+    """
+    offset = struct.unpack_from("<I", bitmap, 10)[0]
+    width, height = struct.unpack_from("<ii", bitmap, 18)
+    if struct.unpack_from("<H", bitmap, 28)[0] != 24 or width <= 0 or height <= 0:
+        raise RuntimeError("prompt glyph measurement needs a 24-bit BMP snapshot")
+    # BMP rows are bottom-up and padded to a 4-byte boundary.
+    stride = (width * 3 + 3) & ~3
+
+    def red_dominant(x: int, y: int) -> bool:
+        row = height - 1 - y
+        base = offset + row * stride + x * 3
+        return bitmap[base + 2] > bitmap[base] + 24
+
+    measured: dict[str, object] = {}
+    for name, entries in rects.items():
+        if not entries:
+            continue
+        culling = entries[0]
+        # The culling box matches the drawn column, so search its own x-range.
+        # Bound the search to the prompt row: red-dominant mission-HUD detail
+        # (a Predator's eyes) sits far above the prompt band.
+        x_lo = max(0, int(culling["xmin"]) - 8)
+        x_hi = min(width, int(culling["xmax"]) + 8)
+        y_lo = max(0, int(culling["ymin"]) - 16)
+        y_hi = min(height, int(culling["ymax"]) + 48)
+        rows: dict[int, list[int]] = {}
+        for y in range(y_lo, y_hi):
+            hits = [x for x in range(x_lo, x_hi) if red_dominant(x, y)]
+            if hits:
+                rows[y] = hits
+        if not rows:
+            continue
+        top, bottom = min(rows), max(rows)
+        columns = [x for hits in rows.values() for x in hits]
+        measured[name] = {
+            "drawn_xmin": min(columns),
+            "drawn_ymin": top,
+            "drawn_xmax": max(columns),
+            "drawn_ymax": bottom,
+            "culling_xmin": culling["xmin"],
+            "culling_ymin": culling["ymin"],
+            "culling_xmax": culling["xmax"],
+            "culling_ymax": culling["ymax"],
+            "vertical_offset": top - int(culling["ymin"]),
+            "glyph_height": bottom - top + 1,
+        }
+    return measured
+
+
 def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> dict[str, object]:
     """Press Start into the pause menu, then arm/capture/stop the render trace."""
     pause = probe_gameplay_pause_menu(port, deadline)
@@ -135,13 +192,16 @@ def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> di
             f"CRender::Display: {select_back_meshes}; last_snapshot={last_snapshot}"
         )
 
+    matches = _correlate(stop_body, select_back_meshes)
+    snapshot_path = output_dir / "mesh-bounds-snap.bmp"
     return {
         "pause_menu": pause,
         "select_back_meshes": select_back_meshes,
         "mesh_bounds": stop_body,
-        "select_back_matches": _correlate(stop_body, select_back_meshes),
+        "select_back_matches": matches,
+        "drawn_glyphs": measure_drawn_glyphs(snapshot_path.read_bytes(), matches["rect"]),
         "same_frame_snapshot": {
-            "path": str(output_dir / "mesh-bounds-snap.bmp"),
+            "path": str(snapshot_path),
             "sha256": snapshot_sha256,
         },
     }

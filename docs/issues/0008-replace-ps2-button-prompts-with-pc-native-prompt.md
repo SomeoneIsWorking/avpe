@@ -85,23 +85,32 @@ scale  1.000000    1.000000        offset (110, 375)
 All four corners land inside the captured rect, so the captured rect is the declared bbox under
 a 1:1 axis-aligned projection. There is no vertical flip.
 
-The declared bbox still does not bound what is rasterised. Holding the pause menu open across 21
-draws yields exactly one distinct rect per prompt (no animation), while the drawn glyph occupies
-screen y 411..436, i.e. model y 36..61. So the guest culls against a cell that sits 20 px above
-the geometry it draws.
+The declared bbox still does not bound what is rasterised. The probe now measures the drawn
+glyph directly in the same frame it captures the rect, by isolating the red-dominant button marks
+from the blue-green mission HUD. With the pause menu held open the result is reproducible:
+
+```text
+select  culling x  98..122  y 391..415   drawn x 105..114  y 418..428   offset +27
+back    culling x 158..182  y 391..415   drawn x 164..176  y 415..428   offset +24
+```
+
+Twenty-one draws produce exactly one distinct rect per prompt, so the menu is not animating and the
+gap is a stable property of how this mesh is drawn, not a capture artefact.
 
 ## Remaining gap
 
-The declared bbox cannot place an overlay: placing at it would sit ~20 px above where the guest
-drew the glyph and above the adjacent `Select`/`Back` label text. Correct placement needs the
-screen-space XY the GS actually receives.
+The declared bbox cannot place an overlay: placing at it would sit about 24 px above where the
+guest drew the glyph and above the adjacent `Select`/`Back` label text. The offset above is a
+measurement, not a derivation, so shipping it as a placement constant would be a magic offset; the
+transform that produces it still has to be found.
 
 The mesh's draw record is not inline geometry. At `mesh+0x4c` it is a five-word structure whose
 first word is the depth sort key and whose remaining words are guest pointers into submesh and
 material descriptors that themselves repeat the bbox corner; the vertex array `PS2ProcessVerts`
-(0x00188720) consumes is reached through `material+0x10`, not from the record. `PS2ProcessVerts`
-is a 4228-byte light-tree vertex processor, so the next step is to instrument where it writes
-the final screen coordinate for these quads rather than reading it statically.
+(0x00188720) consumes is reached through `material+0x10`. `PS2ProcessVerts` is a 4228-byte
+light-tree vertex processor that submits through `ClaimDMABuffer`, so the next step is to
+instrument where it writes the final screen coordinate for these quads rather than reading it
+statically.
 
 The hard-coded host key mapping still needs replacing with a shared configurable binding owner.
 
