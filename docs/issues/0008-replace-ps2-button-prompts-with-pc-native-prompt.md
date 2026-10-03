@@ -31,7 +31,7 @@ gives:
 | Back | 0x0135EA3C | 0x00334980 | 0x012E95B0 | x 158..182, y 391..415 |
 
 Both resolve through `resource->vtable[0x18]` = 0x001884e0 and
-`workspace->vtable[0x14]` = 0x001362c0, drawn twice per capture.
+`workspace->vtable[0x14]` = 0x001362c0.
 
 ## What was tried / dead ends
 
@@ -94,8 +94,10 @@ select  culling x  98..122  y 391..415   drawn x 105..114  y 418..428   offset +
 back    culling x 158..182  y 391..415   drawn x 164..176  y 415..428   offset +24
 ```
 
-Twenty-one draws produce exactly one distinct rect per prompt, so the menu is not animating and the
-gap is a stable property of how this mesh is drawn, not a capture artefact.
+Forty rects across 4480 observed draws produce exactly one distinct rect per prompt, so the
+menu is not animating and the gap is a stable property of how this mesh is drawn, not a capture
+artefact. The drawn glyph's horizontal centre matches the culling box's to within half a pixel in
+both cases, so the two describe the same object with a vertical-only discrepancy.
 
 ## Remaining gap
 
