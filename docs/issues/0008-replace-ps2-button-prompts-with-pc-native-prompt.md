@@ -106,11 +106,18 @@ transform that produces it still has to be found.
 
 The mesh's draw record is not inline geometry. At `mesh+0x4c` it is a five-word structure whose
 first word is the depth sort key and whose remaining words are guest pointers into submesh and
-material descriptors that themselves repeat the bbox corner; the vertex array `PS2ProcessVerts`
-(0x00188720) consumes is reached through `material+0x10`. `PS2ProcessVerts` is a 4228-byte
-light-tree vertex processor that submits through `ClaimDMABuffer`, so the next step is to
-instrument where it writes the final screen coordinate for these quads rather than reading it
-statically.
+material descriptors. Scanning the whole reachable record region finds only three coordinate
+values per prompt — the bbox corner `(12, 40, 5)` for Select and `(192, 40, 5)` for Back, with
+`-53.335` and `1.0` — so the sprite's own corners are not stored there and placement cannot be
+read from the mesh object. The vertex array `PS2ProcessVerts` (0x00188720) consumes is reached
+through `material+0x10`. `PS2ProcessVerts` is a 4228-byte light-tree vertex processor that submits
+through `ClaimDMABuffer` (0x0017ad70), so the next step is to instrument where it writes the final
+screen coordinate for these quads rather than reading it statically.
+
+Two placement routes are viable once that is grounded. Either the derived transform is applied to
+the culling box, or the overlay locates the glyph in the presented frame within a search window
+anchored on the culling box's column, which the probe already demonstrates is reliable. Both need
+the same missing derivation.
 
 The hard-coded host key mapping still needs replacing with a shared configurable binding owner.
 
