@@ -68,10 +68,6 @@ def identify_select_back_meshes(port: int, menu_address: int) -> dict[str, dict[
     return meshes
 
 
-def _guest_half(port: int, address: int) -> int:
-    return struct.unpack("<H", bytes.fromhex(read_guest_buffer(port, address, 2)))[0]
-
-
 def _correlate(stop_body: dict, select_back_meshes: dict[str, dict[str, str]]) -> dict[str, object]:
     """Match the admitted live observations against the menu items' own resources."""
     wanted = {entry["mesh"].upper(): name for name, entry in select_back_meshes.items()}
@@ -86,6 +82,11 @@ def _correlate(stop_body: dict, select_back_meshes: dict[str, dict[str, str]]) -
         if name is not None:
             rects.setdefault(name, []).append(sample)
     return {"dispatch": dispatches, "rect": rects}
+
+
+# Accumulate rects across many frames before capturing, so a moving or animated
+# prompt shows up as several distinct rects rather than one.
+_MIN_MATCHED_RECTS = 40
 
 
 def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> dict[str, object]:
@@ -116,7 +117,7 @@ def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> di
         if status != 200 or snapshot is None:
             raise RuntimeError(f"could not poll the native render trace: HTTP {status}: {detail}")
         last_snapshot = snapshot
-        if int(snapshot.get("observed_dispatches", 0)) > 0:
+        if int(snapshot.get("matched_rects", 0)) >= _MIN_MATCHED_RECTS:
             break
         time.sleep(0.05)
 

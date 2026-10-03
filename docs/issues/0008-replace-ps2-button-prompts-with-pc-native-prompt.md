@@ -62,24 +62,46 @@ corners, so the four words read at `[sp+0x60]` are `minX, minY, maxX, maxY`. The
 observer had labelled them `xmax, ymax, xmin, ymin`, which reported an inverted
 rect.
 
+## Renderer vertical transform is grounded
+
+`GetResolution__9CRendererFv` (0x00137b30) returns the array `{0, 0, 640, 480}`, so the
+culling rect and the 640x480 framebuffer are the same space and the vertical gap is neither a
+flip nor a scale. `GetCurrentWindow__Fv` (0x00175290) returns the single global
+`0x003C6680`, which is the same window `CRendPS2Mesh::Render` and
+`GetScreenBoundingBox__13CRendBaseMesh` both transform through.
+
+Reading the live `CRendPS2Mesh` (0x50 bytes, built by `TbdConstruct_CRendPS2Mesh` at
+0x00188420) gives position at +0x10 = `(0, 28, 5)`, the two bounding corners
+`GetScreenBoundingBox` reads at +0x1c/+0x20/+0x24 = `(12, 40, 5)` and
++0x28/+0x2c/+0x30 = `(-12, 16, 5)`, a radius at +0x34 of `16.97` (= 24/sqrt(2)), the record
+count at +0x48, and the record array at +0x4c. The declared bbox is therefore a 24x24 cell in
+model space, and projecting it reproduces the captured rect exactly:
+
+```text
+model  x -12..12   y 16..40        screen x  98..122   y 391..415
+scale  1.000000    1.000000        offset (110, 375)
+```
+
+All four corners land inside the captured rect, so the captured rect is the declared bbox under
+a 1:1 axis-aligned projection. There is no vertical flip.
+
+The declared bbox still does not bound what is rasterised. Holding the pause menu open across 21
+draws yields exactly one distinct rect per prompt (no animation), while the drawn glyph occupies
+screen y 411..436, i.e. model y 36..61. So the guest culls against a cell that sits 20 px above
+the geometry it draws.
+
 ## Remaining gap
 
-The captured AABB is the mesh's *culling* box, not its placement. `GetResolution__9CRendererFv`
-(0x00137b30) returns `{0, 0, 640, 480}`, so the AABB and the 640x480 frame share one space and
-the ~18 px gap is real rather than a flip or a scale.
+The declared bbox cannot place an overlay: placing at it would sit ~20 px above where the guest
+drew the glyph and above the adjacent `Select`/`Back` label text. Correct placement needs the
+screen-space XY the GS actually receives.
 
-`CRendPS2Mesh` is 0x50 bytes, built by `TbdConstruct_CRendPS2Mesh` (0x00188420). Reading the live
-Select object (0x0135EB7C) gives the record count at +0x48 and the record array at +0x4c, and
-`GetScreenBoundingBox__13CRendBaseMesh` (0x00135af0) transforms the object's two bounding corners
-at +0x1c/+0x20/+0x24 and +0x28/+0x2c/+0x30. Those corners are 24x24 in model units, which is the
-24x24 cell observed on screen. The drawn glyph inside it is 16x16 and sits ~18 px below the cell,
-so the box is not simply a loose bound around the same geometry: either the mesh is transformed a
-second time between the bounding-box path and `PS2ProcessVerts` (0x00188720), or the corners are
-not the ones actually rasterised.
-
-Until that is settled the overlay cannot be placed from the AABB. The next RE step is to follow
-the vertex records at mesh+0x4c into `PS2ProcessVerts` and take the screen-space result the GS
-actually receives, rather than the bounding box the culler computed.
+The mesh's draw record is not inline geometry. At `mesh+0x4c` it is a five-word structure whose
+first word is the depth sort key and whose remaining words are guest pointers into submesh and
+material descriptors that themselves repeat the bbox corner; the vertex array `PS2ProcessVerts`
+(0x00188720) consumes is reached through `material+0x10`, not from the record. `PS2ProcessVerts`
+is a 4228-byte light-tree vertex processor, so the next step is to instrument where it writes
+the final screen coordinate for these quads rather than reading it statically.
 
 The hard-coded host key mapping still needs replacing with a shared configurable binding owner.
 
