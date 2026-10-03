@@ -64,16 +64,24 @@ rect.
 
 ## Remaining gap
 
-The captured AABB is the mesh's *culling* box, not its placement. It is a 24x24
-cell centred on the 16x16 glyph in x (glyph x 102..117 / 162..177 against cell
-x 98..122 / 158..182) but sits about 18 px above it in y (glyph y 414..429 /
-415..428 against cell y 391..415), so the guest-to-framebuffer vertical
-transform is still ungrounded. The overlay cannot be placed from the AABB
-alone; the draw geometry, or the renderer's vertical resolution and origin, has
-to be established first.
+The captured AABB is the mesh's *culling* box, not its placement. `GetResolution__9CRendererFv`
+(0x00137b30) returns `{0, 0, 640, 480}`, so the AABB and the 640x480 frame share one space and
+the ~18 px gap is real rather than a flip or a scale.
 
-The hard-coded host key mapping still needs replacing with a shared configurable
-binding owner.
+`CRendPS2Mesh` is 0x50 bytes, built by `TbdConstruct_CRendPS2Mesh` (0x00188420). Reading the live
+Select object (0x0135EB7C) gives the record count at +0x48 and the record array at +0x4c, and
+`GetScreenBoundingBox__13CRendBaseMesh` (0x00135af0) transforms the object's two bounding corners
+at +0x1c/+0x20/+0x24 and +0x28/+0x2c/+0x30. Those corners are 24x24 in model units, which is the
+24x24 cell observed on screen. The drawn glyph inside it is 16x16 and sits ~18 px below the cell,
+so the box is not simply a loose bound around the same geometry: either the mesh is transformed a
+second time between the bounding-box path and `PS2ProcessVerts` (0x00188720), or the corners are
+not the ones actually rasterised.
+
+Until that is settled the overlay cannot be placed from the AABB. The next RE step is to follow
+the vertex records at mesh+0x4c into `PS2ProcessVerts` and take the screen-space result the GS
+actually receives, rather than the bounding box the culler computed.
+
+The hard-coded host key mapping still needs replacing with a shared configurable binding owner.
 
 ## Resolution
 
