@@ -40,5 +40,5 @@ close S029 (PC-native prompts) and S013 (playable windowed product).
 | S026 | Clean-room AVP:E-specific HLE service implementation | blocked | blocked by S025; needs success, error, timing, ordering, and loud refusal of unknown services |
 | S027 | Supported target boots and runs without retail BIOS bytes | blocked | blocked by S026 |
 | S028 | HLE behavior differentially verified against the BIOS oracle | blocked | blocked by S025 and S026 |
-| S029 | Product prompts name PC actions instead of PS2 buttons | missing | guest-rendered prompts still show PS2 glyphs; overlay seam and icon identity open (issue #8) |
+| S029 | Product prompts name PC actions instead of PS2 buttons | missing | prompt producer grounded: Select/Back are `CRendPS2Mesh` drawn via `CRender::Display` -> `CMeshWorkspace::GetMatrix`; the culling AABB is known but the placement rect and overlay remain (issue #8) |
 | S030 | Hosted redistributable build and verification matrix | partial | `.github/workflows/verify.yml` covers Linux, Intel macOS, and Apple Silicon macOS; Windows not covered |
