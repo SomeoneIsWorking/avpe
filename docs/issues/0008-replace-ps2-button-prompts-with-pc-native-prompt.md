@@ -86,23 +86,26 @@ All four corners land inside the captured rect, so the captured rect is the decl
 a 1:1 axis-aligned projection. There is no vertical flip.
 
 The declared bbox still does not bound what is rasterised. The probe now measures the drawn
-glyph directly in the same frame it captures the rect, by isolating the red-dominant button marks
-from the blue-green mission HUD. With the pause menu held open the result is reproducible:
+sprite in the same frame it captures the rect, by luminance (the button is a light grey disc, the
+mission HUD behind it is dark water). With the pause menu held open:
 
 ```text
-select  culling x  98..122  y 391..415   drawn x 105..114  y 418..428   offset +27
-back    culling x 158..182  y 391..415   drawn x 164..176  y 415..428   offset +24
+select  culling x  98..122  y 391..415   sprite y 413..436 (24 rows)  offset +22
+back    culling x 158..182  y 391..415   sprite y 413..436 (24 rows)  offset +22
 ```
 
-Forty rects across 4480 observed draws produce exactly one distinct rect per prompt, so the
-menu is not animating and the gap is a stable property of how this mesh is drawn, not a capture
-artefact. The drawn glyph's horizontal centre matches the culling box's to within half a pixel in
-both cases, so the two describe the same object with a vertical-only discrepancy.
+The label text occupies y 437..449, below the sprite. The sprite is exactly as tall as the culling
+cell and sits a constant 22 px below it; its horizontal centre matches the culling box's to within
+half a pixel in both cases, so the two describe the same object with a vertical-only discrepancy.
+
+Forty rects across 4480 observed draws produce exactly one distinct rect per prompt, so the menu
+is not animating and the offset is a stable property of how this mesh is drawn, not a capture
+artefact.
 
 ## Remaining gap
 
-The declared bbox cannot place an overlay: placing at it would sit about 24 px above where the
-guest drew the glyph and above the adjacent `Select`/`Back` label text. The offset above is a
+The declared bbox cannot place an overlay: placing at it would sit 22 px above where the guest
+drew the sprite and above the adjacent `Select`/`Back` label text. The offset above is a
 measurement, not a derivation, so shipping it as a placement constant would be a magic offset; the
 transform that produces it still has to be found.
 

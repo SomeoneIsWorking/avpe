@@ -34,6 +34,8 @@ _IMAGE_RESOURCE_OFFSET = 0xF0
 _MAIN_SELECT_BUTTON_NAME_HASH = 0x6449F1DE
 _MAIN_BACK_BUTTON_NAME_HASH = 0x36D11C7B
 _MAX_MENU_OBJECTS = 256
+# Luminance that separates the light button sprite from the dark mission HUD.
+_SPRITE_LUMINANCE = 96
 
 
 def _guest_word(port: int, address: int) -> int:
@@ -105,10 +107,14 @@ def measure_drawn_glyphs(bitmap: bytes, rects: dict[str, list[dict[str, object]]
     # BMP rows are bottom-up and padded to a 4-byte boundary.
     stride = (width * 3 + 3) & ~3
 
-    def red_dominant(x: int, y: int) -> bool:
+    def sprite_pixel(x: int, y: int) -> bool:
+        """The button sprite is a light grey disc with a coloured mark; the HUD
+        behind it is dark water, so luminance isolates the whole sprite rather
+        than only its coloured interior."""
         row = height - 1 - y
         base = offset + row * stride + x * 3
-        return bitmap[base + 2] > bitmap[base] + 24
+        blue, green, red = bitmap[base], bitmap[base + 1], bitmap[base + 2]
+        return (red * 299 + green * 587 + blue * 114) // 1000 >= _SPRITE_LUMINANCE
 
     measured: dict[str, object] = {}
     for name, entries in rects.items():
@@ -124,7 +130,7 @@ def measure_drawn_glyphs(bitmap: bytes, rects: dict[str, list[dict[str, object]]
         y_hi = min(height, int(culling["ymax"]) + 48)
         rows: dict[int, list[int]] = {}
         for y in range(y_lo, y_hi):
-            hits = [x for x in range(x_lo, x_hi) if red_dominant(x, y)]
+            hits = [x for x in range(x_lo, x_hi) if sprite_pixel(x, y)]
             if hits:
                 rows[y] = hits
         if not rows:
