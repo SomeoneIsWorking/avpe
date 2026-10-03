@@ -120,6 +120,14 @@ Both the culling path and the draw path push the same workspace matrix
 (`0x003C6680`), so the difference cannot be in the matrix chain. It must be that the vertex
 coordinates `PS2ProcessVerts` consumes are not in the same local frame as the stored bbox corners.
 
+The owning `CRender` node is ruled out too. Dumping the node each prompt dispatch names gives the
+resource at `node+0x1c` and the workspace at `node+0x20`, but no screen-placement fields: the
+halfword `CRender::Display` compares at `node+0x30` is 7 for both prompts (a layer), `node+0x34`
+that it passes to the vtable call is 0, and the remaining fields are parent pointers, flags
+(`0x80008003` at +0x40) and a sequential id (794 and 793 at +0x48).
+
+That leaves the vertex data itself as the only remaining carrier of the 22-unit offset.
+
 ## Remaining gap
 
 The declared bbox cannot place an overlay: placing at it would sit 22 px above where the guest
