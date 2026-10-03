@@ -102,6 +102,24 @@ Forty rects across 4480 observed draws produce exactly one distinct rect per pro
 is not animating and the offset is a stable property of how this mesh is drawn, not a capture
 artefact.
 
+Inverting the grounded projection (screen = model + (110, 375)) puts both in the model's own
+space, which is what the draw path works in:
+
+```text
+declared bbox   model y 16..40      (corners stored at mesh+0x1c/+0x28)
+drawn sprite    model y 38..61      (screen y 413..436)
+mesh position   model y 28          (mesh+0x10)
+```
+
+So the rasterised sprite occupies model y 38..61 while the declared bbox occupies 16..40: the same
+24-unit extent, displaced 22 units, with the mesh origin at 28 between them. The horizontal extents
+agree, so the discrepancy is purely in the model's Y axis and survives the projection unchanged.
+
+Both the culling path and the draw path push the same workspace matrix
+(`CMeshWorkspace::GetMatrix` fills it at `workspace+0x10`) and transform through the same window
+(`0x003C6680`), so the difference cannot be in the matrix chain. It must be that the vertex
+coordinates `PS2ProcessVerts` consumes are not in the same local frame as the stored bbox corners.
+
 ## Remaining gap
 
 The declared bbox cannot place an overlay: placing at it would sit 22 px above where the guest
@@ -122,7 +140,9 @@ screen coordinate for these quads rather than reading it statically.
 Two placement routes are viable once that is grounded. Either the derived transform is applied to
 the culling box, or the overlay locates the glyph in the presented frame within a search window
 anchored on the culling box's column, which the probe already demonstrates is reliable. Both need
-the same missing derivation.
+the same missing derivation. The model-space statement above is the input to that derivation: it
+narrows the question to why the draw path's vertex Y differs from the stored corner Y by 22, with
+the matrix chain already ruled out.
 
 The hard-coded host key mapping still needs replacing with a shared configurable binding owner.
 
