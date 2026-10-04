@@ -85,19 +85,155 @@ validated by the shutdown boundary itself rather than by an action hash.
 
 The name-based route already exists and is the narrower fix: `NativeMenuItems` matches an item by
 its object name at `OBJECT_NAME_OFFSET` 0x1C when a `required_name` is supplied, which is how the
-pause-menu Select and Back buttons are identified elsewhere. What is missing is the pause-menu Quit
-item's name value, so the phase cannot yet select it by name. Establishing that value, or proving
-the last walked item is Quit and selecting on position, removes the dependence on
-`focused_item_action`, which does not discriminate items in this menu.
+pause-menu Select and Back buttons are identified elsewhere.
+
+### The seven pause-menu item identities, observed
+
+`NativeMenuItems::ReadItemName` now exposes that hash through the menu-state route as
+`focus_name`, and walking the live pause menu shows the collision is entirely in the action
+value, not in the items:
+
+```text
+step     object      focus_name  focus_text_address  focused_item_action
+0        0x0150B370  0x6B7CD81C  0x01428134           0x95DF2577
+1        0x0150BE50  0xE1235D6B  0x0142828C           0xCA788CFB
+2        0x01517470  0x914383A8  0x014283D8           0xCA788CFB
+3        0x01517F60  0x931F993B  0x0142850C           0xCA788CFB
+4        0x01518A40  0x513B080C  0x01428644           0xCA788CFB
+5        0x01519520  0xF7278F25  0x01428778           0xCA788CFB
+6        0x0151A000  0xF1F58099  0x014288AC           0xCA788CFB
+```
+
+All seven name hashes are distinct, so the walk does reach seven distinct items and the guest does
+identify each one.
+
+### Correction: Quit is not in this menu, and the shared action is not noise
+
+An initial reading of the table above was wrong in two ways, and both matter.
+
+First, `focused_item_action` is not a defective field. The guest's name hash is
+`CCRC32::GetCRC` at `0x0010C4E0`: CRC-32 reflected, polynomial `0xEDB88320`, table at `0x002D1E40`
+(256/256 words match), initial value `0xFFFFFFFF`, **no final inversion**, 8-bit characters. That is
+`(binascii.crc32(s)) ^ 0xFFFFFFFF`. Decoding the observed values:
+
+```text
+0x6B7CD81C Pause_Resume      0xE1235D6B Pause_Save       0x914383A8 Pause_Load
+0x931F993B Pause_Bestiary    0x513B080C Pause_Option     0xF7278F25 Pause_Restart
+0x95DF2577 CancelKillMe      0xCA788CFB LoadMenu         0x3CF57571 QuitGame
+```
+
+`0x6B7CD81C` and the five other `Pause_*` values are reproduced exactly by hashing those literals.
+`QUIT_GAME_ACTION` is therefore **correct**: it is `GetCRC("QuitGame")`. It fails only because the
+walk never visits an item carrying it.
+
+Second, and this is the actual blocker: **the Quit item is not in the pause menu's top level.**
+Step 0 carries action `CancelKillMe` (resume). Steps 1-6 all carry `LoadMenu`, which
+`GBaseMenu::ItemActivated` dispatches to `Load__5GMenuF...GMenu` — they open submenus. Six siblings
+share one `LoadMenu` value because `GMenuListBox::Add` instantiates them from a single
+`CEmbeddedFillData` template and copies its stored name hash verbatim, so the value is *correct for
+each* item and simply is not a unique identity. Quit lives inside one of those submenus.
+
+So replacing the action match with a name match would not have fixed anything: it selects among
+seven submenu openers, none of which is Quit. `GMenu::ItemActivated` at `0x00124EF0` compares
+`item+0x110` against `GetCRC("QuitGame")` and calls the only `CShell::Quit` on that path, so the
+selection route that works is: open a `LoadMenu` submenu, then find the item whose `+0x110` is
+`0x3CF57571`.
+
+The project already has that route. `src/avpe/native_pause_quit_probe.py` reads the guest's rendered
+selection-rectangle list, moves the native pointer onto each rectangle, and identifies the item by
+its **live text** read from `item+0x148` together with its action and its `item+0x114` target. It
+never selects by screen coordinate. The pointer phase already uses it; that phase arms the boundary
+correctly and still observes no `CShell::Quit`, so the remaining gap is which submenu to enter and
+whether the confirmation needs a second activation.
+
+Also corrected: `native_mesh_bounds_probe.py`'s `_MAIN_SELECT_BUTTON_NAME_HASH = 0x6449F1DE` and
+`_MAIN_BACK_BUTTON_NAME_HASH = 0x36D11C7B` are named for `Select` and `Back`, but
+`(crc32("Select")) ^ 0xFFFFFFFF` is `0xB3A11009` and `Back` is `0x320391F6`, so neither constant is
+the hash of that word. An exhaustive substring sweep of the whole image finds no string hashing to
+either value. The constants are empirically the items carrying those two icons; the string
+identities behind them are unproven and most likely live in disc TBD fill data.
 
 Note that `scratch/states/save-menu.p2s` cannot drive either phase: it loads with the pause menu
 already open, so `probe_gameplay_pause_menu` cannot establish the inactive-menu state it requires. A
 closed-menu gameplay state is needed; the Marine M1 mission state works.
 
+## Firmware service surface, statically enumerated
+
+A read-only static pass over the whole `SLUS_201.47` image (164 `syscall` sites, 124 distinct
+numbers) established the shape of the firmware dependency. Coverage is bounded honestly: 76.4% of
+the `main` block is inside function bodies, and completeness of the remaining 23.6% was not proven.
+
+**There is no syscall dispatch table in the executable.** Every `syscall` site is a wrapper that
+loads the number into `$3` and traps; the table lives in BIOS RAM and the guest finds and patches it
+at runtime. `kFindAddress` at `0x002bc988` word-scans the BIOS mirror for a marker;
+`GetSystemCallTableEntry` at `0x002bc9d0` returns `FindAddress(0x2bc988) - 0x20c`. `_InitSys` at
+`0x002bca40` runs from crt0 (`jal` at `0x00100084`) and drives the whole bootstrap. This is a hard
+HLE prerequisite: without BIOS RAM there is no table to find, and `FindAddress` is itself a syscall.
+
+**The guest writes code into BIOS RAM.** `InitExecPS2` at `0x002bcb50`, reached from crt0, issues
+`setup` (0x74) then `Copy` (0x5A) to place `0x7A8` bytes of guest code at BIOS `0x80074000`, then
+installs further shims. An HLE must reproduce that memory image and patched table, or replace
+`Copy`/`setup`. This is the highest-risk item for a BIOS-free path.
+
+**The IOP service surface cannot be derived from this ELF.** A byte scan for `\x7fELF`, `.irx`,
+`_libent`, and every 8-char library name PCSX2 knows found zero embedded module images and zero
+library-name strings, and `sceSifGetModuleEntry` is not linked at all. There is no by-name export
+lookup: `_sceSifLoadModule` binds services by hardcoded numeric SIF RPC id. So the IOP ordinal
+inventory must come from loading `cdrom0:\IOPRP242.IMG;1` plus the seven disc IRX files the IOP
+bootstrap at `0x00186b70` loads — not from static analysis of this program. The IOP reset packet
+is built with `count = 0` (image mode), so the module set comes from the disc.
+
+`sceSifRegisterRpc` has zero flow references, so the guest registers no EE-side RPC handler and
+there is no IOP->EE SIF-RPC back-channel to reproduce. `SIO2MAN.IRX` is loaded but never bound.
+Syscalls 6 and 7 (`LoadExecPS2`, `ExecPS2`) have zero references — module loading goes through SIF
+RPC, not the EE syscall path.
+
+Of the 124 numbers, 18 have runtime observations. `0x05` and `0x08` have zero static callers, so
+they are issued by the BIOS kernel itself, not the guest. 61 numbers have at least one static caller
+and no observation; the largest untested groups are thread/sema core (`0x20`-`0x22`, `0x25`, `0x29`,
+`0x2B`, `0x33`, `0x37`, `0x38`), interrupt and DMAC handler registration (`0x10`-`0x17`, `0x1A`-
+`0x1C`, never observed at all), SIF register/DMA (`0x79`, `0x7A`, `0x76`, `0x6B`, `0x73`), and OSD
+config (`0x4A`, `0x4B`, `0x6F`).
+
+### Correction: there is no sign-magnitude decode bug
+
+An initial reading concluded that PCSX2's sign-magnitude decode mislabels the alarm services and
+that `SetAlarm` (immediate `0xfc`) decodes as non-returning `KExit` (4). **That is false, and the
+instruction word itself refutes it.** `addiu` sign-extends its 16-bit immediate, so:
+
+```text
+0x240300FC  addiu v1,zero,+252  -> v1 = +252 (positive) -> call = 0xFC
+0x2403FFE6  addiu v1,zero,-26   -> v1 = -26  (negative) -> call = 0x1A
+0x2403FFFC  addiu v1,zero,-4    -> v1 = -4   (negative) -> call = 0x04
+```
+
+`0x240300FC` was misread as `-4`; its immediate is `0x00FC`, which is positive. Sign-magnitude
+therefore yields `0xFC` for `SetAlarm`, exactly as intended, and the census's `number: 252` **is**
+attributable to the guest's `SetAlarm` wrapper. The `i`-variants collapse onto their base service
+only where ps2sdk's own notation is negative, which is consistent. No decode change is warranted.
+
+### Real naming gap found alongside it
+
+The census reports `name: "unknown"` for 252 because `R5900::bios[]` is declared `[256]` but
+initialized for only `0x00`-`0x7F`; the remaining entries are null, so every service above `0x7F`
+falls through to `"unknown"`. That covers the whole alarm group `0xFC`-`0xFF`, which the game
+demonstrably calls. `EeSyscallName` already overrides a few entries with ps2sdk authority and
+should extend that to the alarm group. Names for `0x53`-`0x5B` are also stale in `R5900::bios[]`
+(`RFU08x_*EventFlag` where ps2sdk and the binary's own wrapper symbols say `PutTLBEntry`,
+`_SetTLBEntry`, `GetTLBEntry`, `ProbeTLBEntry`, `ExpandScratchPad`, `Copy`, `GetEntryAddress`).
+
 ## Remaining work
 
 - Firmware services beyond the boot, mission-archive, game-save, game-load,
-  slot-enumeration, guest-reset, and movie slices are not yet inventoried.
+  slot-enumeration, guest-reset, and movie slices are not yet observed at runtime.
+  The static surface is now enumerated above; the gap is 61 statically referenced
+  numbers with no observation, prioritised there.
+- The IOP ordinal inventory cannot be derived from `SLUS_201.47` at all. It requires
+  loading `IOPRP242.IMG` and the seven disc IRX modules the IOP bootstrap pulls.
+- `InitExecPS2`'s BIOS-RAM patch at `0x80074000` and the runtime-found syscall table
+  are unexercised, and both are hard prerequisites for a BIOS-free path.
+- Services above `0x7F` are observed but unnamed, including the whole `0xFC`-`0xFF`
+  alarm group the game calls.
 - Stable title completion is unobserved, and the guest-owned shutdown boundary is
   now diagnosed rather than open: see the shutdown section above. Selecting the
   Quit item by name is unblocked on the host side, because the focused item's
