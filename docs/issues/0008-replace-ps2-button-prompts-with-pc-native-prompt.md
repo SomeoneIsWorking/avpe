@@ -363,6 +363,67 @@ runtime dump of `GS_DMODE` (SCAX1/SCAY1) and `GS_DISPLAY` (DWIDTH/DHEIGHT) would
 Also corrected: `CWindowData+0x1C4` is **640.0** (`0x44200000`), not 1024.0. An earlier pass
 misdecoded that float; exponent field `0x88` with mantissa 1.25 gives 640.
 
+### How the microcode reaches VU1 — mostly settled, with one honest gap
+
+**Read the ELF little-endian.** `readelf -h` reports `Data: 2's complement, little endian`, and
+every static word must be read as a LE `u32`. Big-endian reads produce `0xA3020060`,
+`0x1C000060`, `0x11000010` and an unparseable stream. Confirmed three independent ways:
+
+1. Read as LE, the DMAC tag lengths **tile the region with zero slack** — `0x2CEB00` → 675 QWC →
+   next tag exactly `0x2D1540` → 8 QWC → exactly `0x2D15D0` → 28 QWC → exactly `0x2D17A0` → 17 QWC
+   → `0x2D18C0` = `0x70000000` (`TAG_END`). Big-endian makes those MARK fields `0xA`, `0x1C`,
+   `0x11`, which are invalid.
+2. CPU-written tags read back identically under the same convention: `BeginFrame` stores the `u32`
+   `0x50000000` with `sw`, which must decode the same way a static word does.
+3. The symbol at `0x002D6F10` is named `disable_path3`, which only means anything if the word is
+   `0x06008000` — VIF1 command `0x06` = **MSKPATH3**. Big-endian it is `0x00800006`, a plain NOP,
+   and a NOP is never named `disable_path3`.
+
+This is the single biggest trap in the whole reverse-engineering effort, and it is worth recording
+because it invalidates any search whose output depended on byte order.
+
+**The 16 bytes at `0x002D6F10`** are `0x06008000` followed by three zero words: one **MSKPATH3**
+with `mskpath3 = bit15 = 1`, masking GIF path 3, then three NOPs. It is **not** a memory-address-mode
+tag — bit 31 is 0, so `DMAME` is ruled out. `EndFrame` pushes it with a single 128-bit write to
+`VIF1INIRQ` at `0x10005000`.
+
+**The DMAC chain-tag layout is reconciled.** It is the ordinary PS2 source-chain tag with `MARK` in
+bits 28-31, the count or address in bits 0-15 of word 0, and the jump address in word 1; words 2-3
+are payload transferred only when `CHCR.TTE = 1`. That resolves the earlier contradiction where
+`0x50000000` appeared where a pointer was expected and `0x600002A3` where a length was: `0x50000000`
+is **TAG_CALL with QWC 0** (pointer in word 1, closed by a TAG_RET at the callee) and `0x600002A3`
+is **TAG_RET with QWC 675**. `CHCR = 0x145` sets `ASP = 1`, which is what makes CALL/RET legal.
+
+**One mechanism remains undetermined, and it is recorded as such.** The only VIF1 command in this
+emulator that writes VU *code* memory is `vifCode_MPG`, command byte `0x2D`. A word-aligned scan of
+the 675-QWC body finds **no such command**, and a scan of the whole image finds every apparent hit
+inside MIPS code or inside ASCII strings (`0x2D6D10` is the text `"2D6E6F6E"`). The apparent
+byte-level hits are unaligned coincidences. So no EE code writes a VU1-code-write tag, and only one
+static `VIF1INIRQ` push exists in the entire image. The blob is certainly carried in the per-frame
+`SpriteMeshDMA` payload, but **which word routes it into code memory is not determined.** Either
+AVP:E relies on a VIF1/DMAME mode that this PCSX2 does not implement, or the real upload comes from a
+runtime-built packet that was not located. Not asserted either way.
+
+**The microcode is re-sent every frame, unconditionally.** `BeginFrame` rewrites the chain head at
+`0x003C9FC0` each frame and `EndFrame` restarts VIF1 DMA each frame, so 10800 B — of which 9664 B is
+the VU1 program — is pushed into the VIF1 in-FIFO every frame. `CHCR` bit 7 is also set, which on
+hardware is `CHRTE` (cycle repeatedly); this PCSX2 misnames that bit `TIE` and does not implement
+`CHRTE`.
+
+**Register-map corrections**, taken from this tree's authoritative `Hw.h`, which invalidate earlier
+guessed labels:
+
+| address | actually | earlier guess |
+|---|---|---|
+| `0x10003010` | **GIF_MODE** (CTRL `0x10003000`, STAT `0x10003020`) | DMAC MADR |
+| `0x10009000` | **VIF1** CHCR (MADR `…010`, QWC `…020`, TADR `…030`) | "DMAC1" |
+| `0x10008000` | **VIF0** CHCR — what `InitVu0MathLib` uses for the VU0 upload | "DMAC0" |
+| `0x10003C00` | **VIF1_STAT** | DMAC |
+| `0x10002000..30` | IPU | DMAC |
+
+`0x10009000` being VIF1 is confirmed behaviourally: `sceGsExecStoreImage` (`0x002AA758`) drives it
+while polling `VIF1_STAT` and pushing `VIF1INIRQ`.
+
 ## Remaining gap
 
 The declared bbox still cannot place an overlay: placing at it would sit 22 px above where the
