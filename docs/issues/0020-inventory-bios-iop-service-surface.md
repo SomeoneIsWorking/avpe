@@ -83,6 +83,13 @@ The walk does appear to reach the last item, which in this menu is Quit, but the
 cannot recognise it. Closing this needs either a correct per-item identity or a selection route
 validated by the shutdown boundary itself rather than by an action hash.
 
+The name-based route already exists and is the narrower fix: `NativeMenuItems` matches an item by
+its object name at `OBJECT_NAME_OFFSET` 0x1C when a `required_name` is supplied, which is how the
+pause-menu Select and Back buttons are identified elsewhere. What is missing is the pause-menu Quit
+item's name value, so the phase cannot yet select it by name. Establishing that value, or proving
+the last walked item is Quit and selecting on position, removes the dependence on
+`focused_item_action`, which does not discriminate items in this menu.
+
 Note that `scratch/states/save-menu.p2s` cannot drive either phase: it loads with the pause menu
 already open, so `probe_gameplay_pause_menu` cannot establish the inactive-menu state it requires. A
 closed-menu gameplay state is needed; the Marine M1 mission state works.
