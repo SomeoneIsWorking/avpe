@@ -611,6 +611,106 @@ added on exactly one path. Two candidates remain, in order:
 Note that the `−8.0` in `ViewportData` float 21 is a translation and is still a candidate, but 8 ≠ 22
 and it would have to combine with something else.
 
+### Measured: the draw-path model translation is zero, so the offset is in the vertex data
+
+`piVar9[0x15]` and `piVar9[0x16]` are now observed at draw time. The exact chain, read from raw
+instruction words:
+
+```text
+00189188: lwc1 f2,0x54(s0)     ; piVar9[0x15], the model translate X
+0018918c: lwc1 f0,0xdc(sp)     ; the _EFFECT_SHELL-only X term
+001891ac: lwc1 f1,0x58(s0)     ; piVar9[0x16], the model translate Y
+001891b0: add.S f0,f2,f0
+001891b4: swc1 f0,0xe4(sp)     ; stack slot 0xE4
+001891b8: lwc1 f0,0xd8(sp)     ; the _EFFECT_SHELL-only Y term
+001891bc: add.S f0,f1,f0
+001891c4: swc1 f0,0xe8(sp)     ; stack slot 0xE8
+001892c8: lwc1 f0,0xe4(sp)
+001892cc: swc1 f0,0x70(v0)     ; packet byte 0x70
+001892d0: lwc1 f0,0xe8(sp)
+001892d4: swc1 f0,0x74(v0)     ; packet byte 0x74
+```
+
+`s0` is `piVar9`, the per-primitive parameter record. The skinned copy repeats the stores at
+`0x00189588` and `0x00189590`, so observing either PC reads the same two slots.
+
+`NativeMeshBoundsTrace` now latches the admitted resource at the render dispatch and reads
+`sp+0xE4`/`sp+0xE8` at those two PCs, so each sample is attributed to the draw that caused it rather
+than to whichever packet happened to be built next.
+
+**The result: both are exactly zero, for both prompt meshes, across 118 matched observations.**
+
+```text
+observed_translates = 118   matched_translates = 118
+res=0x0135EA3C (Back)   x=0  y=0
+res=0x0135EB7C (Select) x=0  y=0      (32 samples retained, the rest deduplicated)
+```
+
+**This eliminates the last structural carrier.** The guest applies no draw-path-only model
+translation to these meshes, so `piVar9[0x16]` is not the 22 pixels.
+
+That leaves exactly one place the offset can live: **the vertex data itself.** The declared bbox
+corners at `mesh+0x1C..0x30` do not bound the vertices the draw path actually uses. This is
+consistent with everything measured — both boxes are 24 units tall and horizontally identical, so
+the sprite is the same geometry translated in Y, which is what a vertex array holding different Y
+values than the stored corners would produce.
+
+The chain to reach it is now known from the same disassembly: `puVar7[1] = (int)puVar12 +
+(short)puVar12[2] + 4` is the GS-side vertex source, where `puVar12` is
+`*(ushort**)(*(int*)(param_2+0x10) + index*4)` — so mesh to submesh record to a per-submesh vertex
+pointer array to the vertex data. Reading those Y values and comparing them against the stored bbox
+corners is the remaining test, and it is a host memory read with no further instrumentation.
+
+### The draw-path-only model translation is zero — measured
+
+The last structural carrier is eliminated by direct observation. `PS2ProcessVerts` computes a
+model-space translation the culling path never sees:
+
+```asm
+00189188: lwc1 f2,0x54(s0)      ; piVar9[0x15]   <- model translate X
+001891ac: lwc1 f1,0x58(s0)      ; piVar9[0x16]   <- model translate Y
+001891b0: add.S f0,f2,f0         ; + the _EFFECT_SHELL-only term at sp+0xDC
+001891b4: swc1 f0,0xe4(sp)
+001891c4: swc1 f0,0xe8(sp)      ; delay slot
+...
+001892c8: lwc1 f0,0xe4(sp)
+001892cc: swc1 f0,0x70(v0)      ; packet byte 0x70
+001892d0: lwc1 f0,0xe8(sp)
+001892d4: swc1 f0,0x74(v0)      ; packet byte 0x74
+```
+
+The sums live at `sp+0xE4` and `sp+0xE8` at `0x001892D4`, and the skinned copy repeats the stores at
+`0x00189588`/`0x00189590`, so observing either PC reads the same slots. Both instruction addresses
+and both offsets were read from raw instruction words, not from the decompiler — which renders all four
+stores as writing `f0` and drops the `lwc1` chain entirely.
+
+`NativeMeshBoundsTrace` now latches the admitted resource at the render dispatch and captures those two
+stack slots at the vertex packet that dispatch produces, so each reading is attributed to the draw that
+caused it rather than to whichever packet happened to come next. Measured over 118 matched draws:
+
+```text
+observed_translates = 118   matched_translates = 118
+32 samples, alternating between the two armed resources:
+  res=0x0135EA3C (Back)   x = 0.0   y = 0.0
+  res=0x0135EB7C (Select) x = 0.0   y = 0.0
+```
+
+**Every translate is exactly zero, for both prompts, on every draw.** So `piVar9[0x15]` and
+`piVar9[0x16]` are zero for these submeshes and the draw path applies no translation the culling path
+misses. That carrier is gone.
+
+**What remains is one candidate.** With the scale identical and every transform-side translation zero,
+a constant 22-pixel shift can only come from the geometry itself: **the vertex array carries Y values
+22 units above the stored bounding-box corners** at `mesh+0x1C..0x30`. The two agree in extent (24
+units) but not in origin, which is exactly the signature of a translated copy rather than a
+mis-scaled one.
+
+The mesh's own position at `mesh+0x10` is `y = 28`, which is the midpoint of the declared `16..40`, so
+the declared corners are consistent with the mesh being centred. The drawn extent `38..61` has midpoint
+`49.5`, which is not `28` — so the rasterised geometry is **not** centred on the mesh position. Reading
+the vertex array for these two submeshes and comparing its min/max Y against the stored corners is now
+the single remaining test, and it needs no further transform-side instrumentation.
+
 ## Remaining gap
 
 The declared bbox still cannot place an overlay: placing at it would sit 22 px above where the
