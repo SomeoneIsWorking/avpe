@@ -128,6 +128,16 @@ that it passes to the vtable call is 0, and the remaining fields are parent poin
 
 That leaves the vertex data itself as the only remaining carrier of the 22-unit offset.
 
+The vertex input cannot be read at rest either. `CRendPS2Mesh::Render` takes the Material from the
+owning `CRender` at `+0x28`, a `CVector4*` at `+0x18` and a `PS2SubMesh*` at `+0x38`, and passes
+them to `PS2ProcessVerts` along with the mesh position at `mesh+0x10`. That owner is the node
+`CMeshWorkspace::GetMatrix` returns from `workspace+4`, which turns out to be the same node
+`CRender::Display` dispatches — the node holds the workspace at `+0x20` and the workspace holds the
+node back at `+0x04`. Dumped between frames, all three of those pointers read as null, so they are
+transient draw-time state rather than a resting description of the sprite. Catching them requires
+observing during the draw, which means instrumenting `PS2ProcessVerts` entry rather than reading
+guest memory from a probe.
+
 ## Remaining gap
 
 The declared bbox cannot place an overlay: placing at it would sit 22 px above where the guest
