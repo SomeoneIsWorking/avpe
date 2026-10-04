@@ -183,10 +183,14 @@ discrepancy yields 32 or 16, not 22. Two carriers remain, and they cannot be sep
    `GetScreenBoundingBox` never looks at that record, so this is the one translation the draw path
    sees and the culling path does not. A runtime read of `piVar9[0x16]` for the Select/Back
    submeshes would settle it.
-2. VU1 microcode. `0x3C6690/94/98/9C`, written by `SetOutputScales` (`0x00189E10`), and
-   `CWindowData+0x1E8..0x1F4` are **never read by any EE instruction** — they exist for VU1, and
-   VU1 receives no viewport or projection from `PS2ProcessVerts`. Reading it needs a DMA dump of
-   `0x11008000` or a hook on the IOP `sceDma` RPC targeting channel `vu1.code`.
+2. VU1 microcode. **Superseded — the microcode is in the ELF**, see the section below. The claim
+   recorded here, that `0x3C6690/94/98/9C` and `CWindowData+0x1E8..0x1F4` are never read by any EE
+   instruction, was **wrong**. They are interior fields of `VertexWorkSpace[0]` at
+   `+0x8B0/+0x8B4/+0x8B8/+0x8BC` (`0x3C5DE0 + 0x8B0 = 0x3C6690`), and `CalcInternalViewport`
+   (`0x001761A0`) reads all four **through the workspace pointer**: `lwc1` at `0x8B8`/`0x8BC`
+   @`0x001761D4`, `0x8B4` @`0x001761F0`, `0x8B0` @`0x001761F4` and `0x0017620C`. An address-based
+   reference sweep reports "no readers" for an address that is interior to a known array, so the
+   original conclusion was an artifact of the search method, not a property of the binary.
 
 One further correction: `GetResolution` (`0x00137B30`) returns 640 × **448** (`0x1C0`), not 640 ×
 480. `PlatformInit` confirms `FRAMEBUFFER_Init(0x280, 0x1C0)`, while `BeginLayer` normalises the
@@ -271,10 +275,20 @@ terminator. The clearest statement of the load idiom in the whole image is the V
 `InitVu0MathLib__Fv` (`0x0017AC70`), which does the same five stores against channel 0 with
 `TADR = 0x002D17A0`.
 
-This also explains the four orphaned globals. `SetOutputScales`' `0x003C6690/94/98/9C` and
-`CWindowData+0x1E8..0x1F4` are never read by any EE instruction, which is exactly what you would
-expect if they are **VU1 data-memory operands** rather than EE state. That is now a supported
-inference rather than an unexplained anomaly.
+This also **explains, or rather fails to explain, the four globals.** `SetOutputScales`' writes to
+`0x003C6690/94/98/9C` and the `CWindowData+0x1E8..0x1F4` fields derived from them were recorded here
+as being consumed only by VU1. **That was wrong** — they are interior fields of `VertexWorkSpace[0]`
+and `CalcInternalViewport` reads them on the EE. What survives is weaker but still useful: they are
+depth-precision and sub-pixel scale factors (`+0x1E8 = 32.0/halfWidth + 1`,
+`+0x1EC = 16.0/halfHeight + 1`, and two large z-scale terms), so they carry no screen placement and
+no 448 or 480. The precise decode, from raw `swc1` bit patterns:
+
+| written | bits | as float |
+|---|---|---|
+| `ws+0x8B0` (`0x3C6690`) | `0x4B7FFFF0` | 16777200.0 (= 2²⁴ − 16) |
+| `ws+0x8B4` (`0x3C6694`) | `0xCAFFFFF0` | −8388600.0 (= arg1 − arg0) |
+| `ws+0x8B8` (`0x3C6698`) | `0x42000000` | 32.0 |
+| `ws+0x8BC` (`0x3C669C`) | `0x41800000` | 16.0 |
 
 Every alternative provenance was ruled out with a stated method:
 
@@ -305,6 +319,49 @@ Still undecoded, and the immediate next step:
 
 With the microcode located, the remaining work is a decode rather than a search, and the y-flip and
 viewport scale must live in `_$comp_verts` or `_$mesh_loop`.
+
+### Screen placement is 448 tall, and 480 is the projection box
+
+`GetResolution__9CRendererFv` (`0x00137B30`) is a two-instruction thunk to
+`GetResolution__8CRendAPIFv` at `0x00178930`. It stores `0x280` and `0x1C0` to `0x003C9FE8` and
+`0x003C9FEC`, so it returns a **RECT `{0, 0, 640, 448}`**, not a width/height pair. Every consumer
+subtracts the first two fields from the last two and treats 448 as the bottom of the screen.
+
+**448 is authoritative for screen placement; 480 is the projection box.** That is settled by the
+guest's own arithmetic, not by plausibility:
+
+- `sceGsSetDefDrawEnv` centres the buffer as `2048 − height/2`, which for 448 gives a Y-offset of
+  **1824**. A 480-tall buffer would give 1808. `FRAMEBUFFER_Init` (`0x0017D0E0`) has exactly one
+  caller, so 448 is never revised.
+- The menu pointer centres at **`(320, 224)`** — the exact centre of a 448-tall screen. A 480-tall
+  screen would have produced 240.
+- The FPS HUD is bottom-anchored at **`y = 431`** = 448 − 17. A 480-tall screen would have given 463.
+- Pointer clamping (`Clip2Screen`), link/unlink, selection rect and **screen-bbox culling** all use
+  `[0,640] × [0,448]`. In `CMeshWorkspace::GetMatrix` a box whose `maxY` exceeds 448 is culled.
+- 448 is the NTSC visible height (480 − 32 blanking), and `sceGsSetDefDispEnv` contains ps2sdk's
+  underscan compensation, which only makes sense if 480 is the signal and 448 the visible window.
+
+So a host overlay should be placed in `[0,640] × [0,448]`, y increasing downward, origin top-left.
+
+**There is a real 32-line inconsistency, and nothing in the guest resolves it.** `BeginLayer`
+(`0x00179220`) normalises the layer rect against 640 × **480** and calls
+`SetViewport(0, 0, 640, 480, …)` every frame for every layer; `ShellLoadLevel` separately calls
+`Ortho(0, 640, 480, 0, 0, 1000)` for layer 7; and `GOrdering3dDisplay` divides absolute pixels by
+640 and **480**. Meanwhile `SetViewport` (`0x001754D0`) range-checks only the layer index and
+performs **no clamping** of x/y/w/h, and `CalcScreenMatrix` builds the screen matrix from the
+viewport half-extents with no clamp either. **Content with screen y in (448, 480] is therefore
+generated and not clipped by any EE code** — it simply has no pixel underneath it, because the GS
+draw area is set once from 448.
+
+One residual risk, stated rather than hidden: which GS register does the clipping is not settled from
+EE code, because the register packing lives inside ps2sdk's `sceGsSetDefDispEnv`/`SetDefDrawEnv`
+boilerplate. "Draw area is 448, so the bottom 32 projection lines are dropped" and "480 with a
+448-line display window, so nothing is lost and the TV crops" are both consistent with everything
+read from the EE. The visible extent is 448 either way, so the recommendation above stands; a
+runtime dump of `GS_DMODE` (SCAX1/SCAY1) and `GS_DISPLAY` (DWIDTH/DHEIGHT) would settle which.
+
+Also corrected: `CWindowData+0x1C4` is **640.0** (`0x44200000`), not 1024.0. An earlier pass
+misdecoded that float; exponent field `0x88` with mantissa 1.25 gives 640.
 
 ## Remaining gap
 
