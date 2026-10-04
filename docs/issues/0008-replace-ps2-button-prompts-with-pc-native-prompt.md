@@ -424,6 +424,80 @@ guessed labels:
 `0x10009000` being VIF1 is confirmed behaviourally: `sceGsExecStoreImage` (`0x002AA758`) drives it
 while polling `VIF1_STAT` and pushing `VIF1INIRQ`.
 
+### The GS configuration is exonerated too — the two paths are pixel-identical
+
+Decoding `sceGsSetDefDispEnv` (`0x002A97A0`), `sceGsPutDispEnv` (`0x002A9A10`, which gives the
+decisive struct→register map), `sceGsSetDefDrawEnv` (`0x002A9B98`) and `sceGsResetGraph`
+(`0x002A9598`) settles the GS side completely.
+
+**Two hypotheses from the brief are dead, and they were the load-bearing ones:**
+
+- **`env+0x10` is `DISPFB`, not `DMODE`.** `sceGsPutDispEnv` shows `param_1[2]` →
+  `REG_GS_DISPFB1/2`, and ps2sdk's `GS_SET_DISPFB` puts `FBW` at bits 9-14 and `PSM` at 15-19 — an
+  exact match. **The GS drawing-area enable bits are never written by this title**, and `CSR = 0x200`
+  (`wRESET`) at `sceGsResetGraph` leaves them 0. There is no drawing-area masking at all.
+- **`DISPLAY` never reaches the rasteriser.** Its `DX/DY/DW/DH/MAGH/MAGV` feed only
+  `GSState::GSPCRTCRegs::SetRects()`, i.e. the CRT/upscaler model — never `ConvertVertexBuffer()`,
+  the scissor, or `m_xyof`. Values read: `DX=641`, `DY=50`, `MAGH=3` (×4), `MAGV=0` (×1), `DW=2559`,
+  `DH=446`, with `PMODE=0x83`, `SMODE2=0x2`, `SCISSOR_1 = 0x01BF0000027F0000` (SCAX0=0, SCAX1=639,
+  SCAY0=0, SCAY1=447), `FRAME_1` FBP=0/FBW=10, `ZBUF_1` ZBP=280.
+
+**The only coordinate-relevant register is `XYOFFSET_1 = 0x0000720000006C00`**, computed from the
+shifts at `0x002A9C74`-`0x002A9CB4` as `(0x800 − w/2) << 4 | (0x800 − h/2) << 36`, giving
+`OFX = 27648` and `OFY = 29184`. The guest confirms it independently: `sceGsSetDefClear` emits a
+clear sprite whose vertex sits at exactly `(OFX << 4, OFY << 4)`, so the game itself places the
+framebuffer origin there.
+
+So the complete GS-side transform is:
+
+```text
+framebuffer_x = vertex_X/16 − 1728
+framebuffer_y = vertex_Y/16 − 1824
+```
+
+**No y-negation, no flip, no scale beyond the fixed 1/16, and no additive constant.** (Note the
+field packing: each axis is a *flat* 16-bit value in 1/16-pixel units — ps2sdk's
+`GS_SET_XYOFFSET` and pcSX2's `XYOFFSET_REG_MASK 0x0000FFFF0000FFFF` agree, and the widely-cited
+nibble-split description is wrong for this title.)
+
+**The decisive comparison.** `OFY/16 = 2048 − 1824 = 224`, which is *exactly* the `vh/2 = 224` the
+CPU-side `TransformPoint` adds. So:
+
+```text
+CPU:  ScreenY = n_y·(vh/2) + (y0 + vh/2) = n_y·224 + 224
+GS :  y_px    = n_y·224 + 224                            (from XYOFFSET/16)
+Δ = 0 for every n_y
+```
+
+**The guest's model→screen transform and its GS configuration are the same function, pixel for
+pixel.** No combination of `DISPLAY`, `SMODE2`, `DISPFB`, `FRAME`, `ZBUF`, `SCISSOR` or `XYOFFSET`
+yields 22 pixels (22 px = 352 in 1/16 units; nothing equals 352). The 480-vs-448 ortho was checked
+numerically too: `yd ∈ {0, .25, .5, .75, 1}` gives `Δ = 0.000` at every point, because both are
+centred — a height mismatch produces a *scale* error growing with `|n_y|`, never a constant.
+
+### What is left, stated precisely
+
+Every carrier is now eliminated except one. A **constant** 22-pixel displacement requires a constant
+added on the model→pixel path, and the only structure in the whole chain that carries a
+draw-path-only translation the culling path never reads is the model translation `PS2ProcessVerts`
+ships to VU1:
+
+```c
+puVar7[0x1C] = fVar25 + fStack_174;   /* (float)piVar9[0x15]  -> packet byte 0x70 */
+puVar7[0x1D] = fVar20 + fStack_178;   /* (float)piVar9[0x16]  -> packet byte 0x74 */
+```
+
+`piVar9` is the per-primitive parameter record, and `GetScreenBoundingBox` never looks at it — it
+uses only `mesh+0x1C..0x30` and the matrix stack. So the draw path sees a translation the culling
+path does not.
+
+**This makes the next step exact, and it is not the one originally recorded here.** Instrumenting
+`PS2ProcessVerts` is still right, but for the opposite reason: not to capture a final screen
+coordinate — it computes none — but to read `piVar9[0x15]` and `piVar9[0x16]` for the Select and
+Back submeshes at draw time. If the second is ±22.0, the prompt placement closes with no magic
+constant. If it is zero, the offset is in the vertex array itself, and the only remaining route is
+to compare the vertex Y values against the stored bbox corners for the same draw.
+
 ## Remaining gap
 
 The declared bbox still cannot place an overlay: placing at it would sit 22 px above where the
