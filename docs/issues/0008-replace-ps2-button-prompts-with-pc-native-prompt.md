@@ -193,6 +193,59 @@ One further correction: `GetResolution` (`0x00137B30`) returns 640 × **448** (`
 layer rect against 480. That 448-vs-480 mismatch is real and worth chasing independently, though
 it yields 16 or 32 rather than 22.
 
+### The GS packet layout is now decoded, and it explains none of the offset
+
+The `0x6C..` words are **not** GIF packet headers, which resolves the contradiction noted earlier
+(`N = 0x6C` implied 109-110 words, impossible in a 224-byte buffer). The real header is the
+`0x5000000D` word at byte 0, and the packet is:
+
+```text
++0x00  dword  GIFtag   { NLOOP:15 | EOP:15 | ... }     NLOOP counts 16-byte units
++0x04  dword  DMA chain "next" pointer (0 terminates the chain)
++0x08  dword  REGS[0]   A+D descriptor slot
++0x0C  dword  REGS[1]   A+D descriptor slot
++0x10         data: NLOOP x 16 bytes
+```
+
+Size = `16 + NLOOP*16`, checked against four independently-constructed packets with zero slack: the
+mesh draw packet (`0x5000000D`, NLOOP 13, `ClaimDMABuffer(0xE0)` = 224), the sprite-vertex packet
+(`n*0x30+0x10`), the light-bucket block (`0x60000018`, NLOOP 24, 400 bytes), and `ProcessSprites`
+(`0x10000005`, NLOOP 5, `0x60` = 96).
+
+The `0x6C..` words are 32-bit **A+D register-write descriptors**: bits 31-24 select the variant
+(`0x6C` normal, `0x6D` terminating), byte 2 is the count in 64-bit units, bit 15 `0x80` marks a
+64-bit write, and the low 7 bits are the A+D register number. They tile the packet exactly:
+
+| word | A+D reg | register | count | covers |
+|---|---|---|---|---|
+| `0x6C028000` | `0x00` | **PRIM** | 2 | bytes `0x10`-`0x2F` |
+| `0x6C0B801A` | `0x1A` | **PRMODECONT** | 11 | bytes `0x30`-`0xDF` |
+
+`2 + 11 = 13`, which is the header's NLOOP. No gap, no overlap, and the last dword actually written
+(`0xDC`) is the last byte the descriptor covers.
+
+**This refutes the XYOFFSET speculation.** XYOFFSET is A+D register `0x18`/`0x19`; the descriptor
+says `0x1A`. A whole-image scan of the engine's GS vocabulary (26,755 constants tracked across
+481,169 instructions) finds **no** `0x18`, `0x19`, `0x1B` (PRMODE), `0x40` or `0x41` (SCISSOR)
+descriptor anywhere. The draw path never writes XYOFFSET or SCISSOR at all. `0x6C028000` is PRIM,
+whose payload is a VRAM primitive-list pointer and two control words, not a numeric transform.
+
+And the scale reading is settled by the value rather than the register identity: the leading payload
+of the `0x1A` block is `(0, 1.0f, 0, 0)`, where `1.0f` is a hard `lui $t0,0x3f80` literal in all
+three construction sites. **A scale-based explanation for the 22-pixel offset is ruled out.**
+
+So no GS register write in this packet set produces a pixel-space offset. The 16-float model matrix
+*is* shipped, at bytes `0xA0`-`0xDC`; `SFXTileDraw` hardcodes it as the literal identity. Combined
+with the CPU transform having no 22-pixel term and `PS2ProcessVerts` doing no coordinate math, the
+displacement is narrowed to VU1 microcode or the vertex data itself.
+
+One caveat, recorded so it is not mistaken for a settled result: the `0x1A -> PRMODECONT` identity is
+high-confidence but **not proven**. A strict auto-increment chain from `0x1A` would place the 4x4
+model matrix on `FBA`/`FRAME`/`ZBUF`, which is self-evidently wrong, so either the descriptor's
+coverage is not a pure register chain or `0x1A` is not PRMODECONT. That is the weakest link in the
+decode and it does not affect the conclusion above, which rests on the absence of XYOFFSET/SCISSOR
+and on the literal `1.0f`.
+
 ## Remaining gap
 
 The declared bbox still cannot place an overlay: placing at it would sit 22 px above where the
