@@ -118,6 +118,37 @@ and become camera controls only when no menu owns them. The control route
 `POST /input/camera` is the surfaceless evidence seam for move, rotate, and
 zoom; it does not replace the host route.
 
+## Object and action name hashes
+
+Every `GObject` carries its name as a 32-bit CRC at `this+0x1C`, and a
+`GMenuItem` carries its activation action as a second CRC at `this+0x110`.
+Both come from `CCRC32::GetCRC` at `0x0010C4E0` — CRC-32 reflected,
+polynomial `0xEDB88320`, table at `0x002D1E40` (all 256 words match the
+generated table), initial value `0xFFFFFFFF`, **no final inversion**,
+8-bit characters, NUL not consumed:
+
+```python
+(binascii.crc32(name) & 0xFFFFFFFF) ^ 0xFFFFFFFF
+```
+
+This is not `binascii.crc32`: the final inversion is absent, so the empty
+string hashes to `0xFFFFFFFF`, not `0`. Ghidra's decompiler renders
+`GetCRC` as an empty `strlen` loop and silently drops the CRC body; read
+`0x0010C4E0` from disassembly, never from decompiled C.
+
+The field is a *name*, not a unique identity. `GMenuListBox::Add`
+(`0x00122060`, `0x00122160`) instantiates every sibling from one
+`CEmbeddedFillData` template and copies its stored hash verbatim, so all
+items built from a template report the same `+0x110`. Six pause-menu
+submenu openers all read `0xCA788CFB` = `LoadMenu` for exactly that reason;
+the value is correct for each of them and simply cannot single one out. To
+identify an item, read its live text from `item+0x148` or match `+0x1C`.
+
+Verified anchors: `AudioBackButton` → `0x0797F09F`,
+`ActivateFocused` → `0x21383159`, `QuitGame` → `0x3CF57571`,
+`CancelKillMe` → `0x95DF2577`, `LoadMenu` → `0xCA788CFB`,
+`Pause_Save` → `0xE1235D6B`.
+
 ## Native menu actions
 
 `GInputDevice` stores its live `ZArray<CCallbackTrigger,32>` at `this+0x48`
