@@ -42,6 +42,50 @@ def _guest_word(port: int, address: int) -> int:
     return struct.unpack("<I", bytes.fromhex(read_guest_buffer(port, address, 4)))[0]
 
 
+def _guest_float(port: int, address: int) -> float:
+    return struct.unpack("<f", bytes.fromhex(read_guest_buffer(port, address, 4)))[0]
+
+
+# CWindowData = WorkSpace + 0x8C0, so window i lives at 0x003C66A0 + i * 0x210. SetViewport
+# writes the viewport rect as floats at +0x1C0..+0x1CC as left, right, top, bottom.
+_WINDOW_DATA_BASE = 0x003C66A0
+_WINDOW_DATA_STRIDE = 0x210
+_WINDOW_COUNT = 9
+_CURRENT_WINDOW = 0x003C6680
+_VIEWPORT_RECT_OFFSET = 0x1C0
+
+
+def read_window_viewports(port: int) -> dict[str, object]:
+    """The live per-window viewport rect, which says which vertical space a draw is placed in.
+
+    BeginLayer scales normalised layer rects X by 640 and Y by 480, while the framebuffer
+    is 640x448, so a window height of 480 versus 448 is what decides whether a draw is
+    displaced by height_fraction * 32 pixels.
+    """
+    viewports = []
+    for index in range(_WINDOW_COUNT):
+        base = _WINDOW_DATA_BASE + index * _WINDOW_DATA_STRIDE + _VIEWPORT_RECT_OFFSET
+        left = _guest_float(port, base)
+        right = _guest_float(port, base + 4)
+        top = _guest_float(port, base + 8)
+        bottom = _guest_float(port, base + 12)
+        viewports.append(
+            {
+                "window": index,
+                "left": left,
+                "right": right,
+                "top": top,
+                "bottom": bottom,
+                "width": right - left,
+                "height": bottom - top,
+            }
+        )
+    return {
+        "current_window": _guest_word(port, _CURRENT_WINDOW),
+        "viewports": viewports,
+    }
+
+
 def identify_select_back_meshes(port: int, menu_address: int) -> dict[str, dict[str, str]]:
     """Walk the live menu tree and return the Select/Back items' image objects.
 
@@ -206,6 +250,7 @@ def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> di
         "mesh_bounds": stop_body,
         "select_back_matches": matches,
         "drawn_glyphs": measure_drawn_glyphs(snapshot_path.read_bytes(), matches["rect"]),
+        "window_viewports": read_window_viewports(port),
         "same_frame_snapshot": {
             "path": str(snapshot_path),
             "sha256": snapshot_sha256,
