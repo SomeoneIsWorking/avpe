@@ -498,6 +498,63 @@ Back submeshes at draw time. If the second is ±22.0, the prompt placement close
 constant. If it is zero, the offset is in the vertex array itself, and the only remaining route is
 to compare the vertex Y values against the stored bbox corners for the same draw.
 
+### A mechanism that yields exactly 22 pixels — found, and testable
+
+`ViewportData` (`0x002CEBD0`) is a **write-only CPU→VU1 parameter block**: nine 0x60-byte slots,
+patched per frame by `EndFrame__8CRendAPIFv` (`0x00178B00`) *before* the channel-1 kick at
+`0x001791AC`, and contained inside the per-frame DMA span (`0x2CEBD0 − 0x2CEB00 = 0xD0`, well inside
+the 4112-byte transfer). It lands in VU1 data memory at `VU1_off = guest − 0x2CEB10` via
+`VIF_UNPACK V4-32` at `0x002CEB0C`.
+
+Per-slot contents, read from the binary: floats 0-15 are `projection * camera`; 16-17 are the
+viewport half-extents; 18/22 are depth terms; 19/23 are `WD[0x40]*WD[0x1D4]` and `WD[0x54]*WD[0x1DC]`;
+and **20-21 are the GS draw-env origin**:
+
+```text
+float 20 = 1728.0 + (w*0.5 + left)        1728 = 2048 − 320
+float 21 = (1824.0 + (h*0.5 + top)) − 8.0  1824 = 2048 − 224, less a hard-coded 8
+```
+
+**The mechanism is the 448-vs-480 mismatch, and it is the only one in the binary that yields 22.**
+`BeginLayer__8CRendAPIFi` (`0x00179220`) scales normalised layer rects **X by 640 and Y by 480**
+(`0x44200000` and `0x43F00000`, each built in exactly one place), while the framebuffer is 640 ×
+**448**. Horizontal scale matches; vertical does not:
+
+```text
+guest_y   = v · 480
+correct_y = v · 448
+error     = v · 32 = v / 14
+```
+
+Setting `error = 22` gives `v = 308`, a layer fraction of `308/448 = 0.6875 = 11/16`, and
+`32 × 11/16 = 22` **exactly**. Nothing else in the block can do it: the draw-env path gives at most
+**−8 px**, the packed rect path's `−16` insets plus clamps give at most **18 px**, and `fptosi`
+truncation at most 1 px.
+
+A decisive negative supports the emergent reading: **`480.0f` is built in exactly one place in the
+whole image** (`0x00179284`, `BeginLayer`), and **no `22.0f` exists anywhere**. So 22 is not a stored
+constant — it falls out of 480-vs-448 applied at the right position.
+
+**This is the discriminator to run.** Dump `Layer->f[4]`/`f[5]` (the rect floats at `layer+0x10` /
+`+0x14`) for the prompt's layer, or `CWindowData+0x1C8`/`+0x1CC` (`0x3C6868`/`0x3C686C`) after
+`BeginLayer`. If either is 308, or the fraction is `11/16`, the mechanism is confirmed. The prompt's
+**top** field is the one to read: the bottom edge is hard-capped at 448 after its `−16` inset so it
+can carry at most 16 px, while the top edge's floor is 0 and its ceiling is unclamped, so it can carry
+the full `v/14`.
+
+**Not yet confirmed for the prompts specifically.** The mechanism produces exactly 22 px and nothing
+else does, but whether the prompt layer sits at `11/16` is a runtime fact, not a static one. If the
+dump disagrees, the remaining candidates in priority order are: `piVar9[0x16]` being ±22.0 for those
+submeshes (the draw-path-only model translation, still the single uneliminated structural carrier),
+then the vertex array itself differing from the stored bbox corners.
+
+A broader consequence worth checking separately: if layer rects are scaled against 480 while the
+buffer is 448, then **every** HUD or overlay element positioned through a layer rect is displaced
+downward by `y/14`, not just the prompts. At `y = 308` that is the full 22 px; near the bottom of the
+screen it approaches the full 32 px of overscan. Whether that is a game bug or intentional NTSC
+overscan-safe authoring — the guest selects NTSC interlaced, with `DHEIGHT = 446` — is not resolved,
+but it should be checked before any host overlay is anchored to a guest-authored layer rect.
+
 ## Remaining gap
 
 The declared bbox still cannot place an overlay: placing at it would sit 22 px above where the
