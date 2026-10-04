@@ -98,7 +98,10 @@ closed-menu gameplay state is needed; the Marine M1 mission state works.
 
 - Firmware services beyond the boot, mission-archive, game-save, game-load,
   slot-enumeration, guest-reset, and movie slices are not yet inventoried.
-- Stable title completion and the guest-owned shutdown boundary are unobserved.
+- Stable title completion is unobserved, and the guest-owned shutdown boundary is
+  now diagnosed rather than open: see the shutdown section above. Selecting the
+  Quit item by name is unblocked on the host side, because the focused item's
+  guest name hash is now observed; it needs the pause-menu Quit item's name value.
 - Service negative paths (unobserved result types, failing and busy services)
   are not exercised for the inventoried contracts.
 - Clock, counter, and interrupt relationships in the title's own state machine
