@@ -6,7 +6,7 @@ symptom: The AVP:E-specific BIOS/HLE service surface is not yet inventoried
 state_items: S025,S026,S027,S028
 tags: bios,hle,iop,inventory,re
 created: 2026-08-28
-updated: 2026-09-12
+updated: 2026-10-04
 ---
 
 ## Root cause
@@ -52,6 +52,40 @@ reached IOP import is now admitted to the census while it is enabled, including
 imports without an HLE or debug handler; unresolved names are recorded as
 `unknown` with their library and ordinal, while dispatch remains on the
 original oracle path.
+
+## Shutdown boundary: observer grounded, probe cannot reach Quit
+
+The guest-owned shutdown boundary stays unobserved, and the cause is now diagnosed rather than
+assumed.
+
+`NativeShellShutdownBoundary` correctly locates its targets from a live pause-menu state:
+`CShell::Quit` at `0x0016F9C0`, the `CShell::MainLoop` return at `0x0016F9B0`, and the shell
+singleton at `0x00497850`. In the pointer phase both PCs are reported but stay `null`, so the
+observer is armed and grounded while the guest never executes them, and the phase fails with
+`HTTP 504` and every boundary field false.
+
+Neither probe phase can drive the game to invoke Quit, for the same underlying reason. In the
+pad-driven phase the focus walk from the mission pause menu behaves like this:
+
+```text
+step 0     action 0x95DF2577  object 0x0150B370
+steps 1-6  action 0xCA788CFB  six distinct objects, 0x0150BE50 .. 0x0151A000
+step 7     action 0xCA788CFB  object 0x0151A000  (repeat of step 6)
+```
+
+DOWN advances through seven distinct items and then stops rather than wrapping, so the walk reaches
+the last item and then trips its "repeated a non-target focus" guard. Two things are wrong with the
+match: six of the seven items report the *same* `focused_item_action`, so that field does not
+uniquely identify an item in this menu, and the final item reports `0xCA788CFB`, which never equals
+the `QUIT_GAME_ACTION` constant `0x3CF57571` the phase requires.
+
+The walk does appear to reach the last item, which in this menu is Quit, but the action-hash match
+cannot recognise it. Closing this needs either a correct per-item identity or a selection route
+validated by the shutdown boundary itself rather than by an action hash.
+
+Note that `scratch/states/save-menu.p2s` cannot drive either phase: it loads with the pause menu
+already open, so `probe_gameplay_pause_menu` cannot establish the inactive-menu state it requires. A
+closed-menu gameplay state is needed; the Marine M1 mission state works.
 
 ## Remaining work
 
