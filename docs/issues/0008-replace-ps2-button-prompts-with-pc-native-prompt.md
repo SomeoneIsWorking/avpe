@@ -246,6 +246,66 @@ coverage is not a pure register chain or `0x1A` is not PRMODECONT. That is the w
 decode and it does not affect the conclusion above, which rests on the absence of XYOFFSET/SCISSOR
 and on the literal `1.0f`.
 
+### The VU1 microcode is in the ELF — the transform is obtainable
+
+The blocking assumption was wrong: the microcode is **not** absent. It is embedded in the loaded
+image, with the original assembler's own local labels intact in the ELF symbol table.
+
+- **VU1 code: `0x002CEF80` (`_$entry`) … `0x002D1538` exclusive — 9656 bytes.** Labels inside it:
+  `_$kick_it`, `_$no_kick`, `_$scissor`, `_$code_mesh`, `_$comp_verts`, `_$mesh_loop`,
+  `_$spriteloop`, `_$code_sprite`, `_$offscreen`, `_$code_background`, `_$colour_loop`,
+  `_$batch_loop`, `_$nothing_to_flush`.
+- **VU0 code is a separate blob: `vu0Math` at `0x002D17A0`…`0x002D18B4`, 272 bytes**, containing
+  `_$vu0SinCos`, `_$vu0ATan2`, `_$vu0MatrixMult`, `_$vu0SetEuler`.
+- Both sit inside static DMA/VIF/GIF packets alongside macro-generated labels (`.dma.NN`,
+  `.vif.NN`, `.gif.NN`) from the assembler's macro package — `.dma.1` appears twice, once per
+  expansion, at `0x002CEB00` and `0x002D17A0`.
+
+**The upload is EE-driven over DMAC channel 1, in chain mode, once per frame.** There is no
+`InitVu1`; the load is fused into `EndFrame__8CRendAPIFv` (`0x00178B00`), which pushes 16 bytes into
+the VIF1 in-FIFO at `0x10005000`, calls `FlushTextureBuffer__Fv` (`0x00188290`), then sets
+`QWC = 0`, `TADR = 0x003C9FC0`, `STAT = 2`, `FlushCache(0)`, `CHCR = 0x145`. The chain head is built
+by `BeginFrame__8CRendAPIFv` (`0x00178970`) as two nodes — `&SpriteMeshDMA` (`0x002CEB00`,
+675 QWC = 10800 B, spanning the VU1 blob) and `&GateTexture` (`0x002D15D0`, 28 QWC = 448 B) — plus a
+terminator. The clearest statement of the load idiom in the whole image is the VU0 analogue,
+`InitVu0MathLib__Fv` (`0x0017AC70`), which does the same five stores against channel 0 with
+`TADR = 0x002D17A0`.
+
+This also explains the four orphaned globals. `SetOutputScales`' `0x003C6690/94/98/9C` and
+`CWindowData+0x1E8..0x1F4` are never read by any EE instruction, which is exactly what you would
+expect if they are **VU1 data-memory operands** rather than EE state. That is now a supported
+inference rather than an unexplained anomaly.
+
+Every alternative provenance was ruled out with a stated method:
+
+| hypothesis | verdict | method |
+|---|---|---|
+| microcode file on disc | **ruled out** | full printable-ASCII extraction of all initialized blocks (35,973 strings). The only `cdrom0:` paths are `IOPRP242.IMG`, the seven IRX files, `TBD\`, and `MOVIES\`. No `.bin`, `.vu`, `.code`, `.irx` or microcode-named string exists anywhere |
+| an IOP service carries it | **ruled out** | `sceSifInitRpc` is called once, from `PS2_PlayMovie__FPci`. The `sceSif*`/`sceDma*` symbols at `0x002AAEA8..` are the IOP-side `libdma`/`libetc` linked into the EE ELF, and `sceDmaOpen`/`FastNext`/`Sync`/`Close` do not exist in this ELF at all |
+| an IRX owns VU loading | **ruled out** | the seven IRX files are SIO2, pad, libc, SD, memcard and FSSOUND; `IOPRP242.IMG` is the stock IOP reboot image. None is a graphics module |
+| generated at runtime | **ruled out** | the EE never forms a VU address at all — a `lui` immediate sweep over all 481,169 instructions gives 0 hits for `0x1100` and 0 for `0x1F80`, and a raw byte scan of all 4,829,548 bytes gives 0 hits for `0x11008000` |
+
+Two register-map notes, because they invalidate an obvious search method. Hardware is reached at
+**`0x1000xxxx`**, never `0x1F80xxxx`, so scanning for the retail `0x1F80xxxx` operands finds
+nothing; addresses are built with `lui`+`ori` **or** `lui 0x1001` plus a *negative* `sw` offset, so an
+`ori`-backreference census under-counts and misses sites. Separately, the DMAC channel stride here
+is `0x1000` where the retail map uses `0x10`. Whether this build was linked against a modified
+ps2sdk base is unresolved; the channel assignment itself is self-consistent and corroborated by
+which blob each channel loads (ch0 → VU0 labels, ch1 → VU1 labels).
+
+Still undecoded, and the immediate next step:
+
+1. **How the `.vu` words reach VU1 *code* memory.** No VIF1 DMAME tag with a code-memory mode bit was
+   found, and DMAC1 MADR is never given a VU address — MADR is written only at five sites, all
+   inside the IOP-side `libdma` blob. The likely control is the `0x00008006` word `EndFrame` pushes
+   into the VIF1 in-FIFO every frame, from `disable_path3$859` at `0x002D6F10`. **Undecoded.**
+2. **The VU1 instruction stream itself.** 16-byte cadence, but `0x002CEF80 → _$kick_it` is `+0x88`
+   (136 B), which is not a multiple of 16 — so instruction boundaries are not yet certain. Disassemble
+   `0x002CEF80..0x002D1538` with a real VU1 disassembler before assuming offsets.
+
+With the microcode located, the remaining work is a decode rather than a search, and the y-flip and
+viewport scale must live in `_$comp_verts` or `_$mesh_loop`.
+
 ## Remaining gap
 
 The declared bbox still cannot place an overlay: placing at it would sit 22 px above where the
