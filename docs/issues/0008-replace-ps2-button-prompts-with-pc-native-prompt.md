@@ -555,6 +555,62 @@ screen it approaches the full 32 px of overscan. Whether that is a game bug or i
 overscan-safe authoring — the guest selects NTSC interlaced, with `DHEIGHT = 446` — is not resolved,
 but it should be checked before any host overlay is anchored to a guest-authored layer rect.
 
+### Runtime check: the 480-tall viewport is real, and it is NOT the cause
+
+The probe now reads the live per-window viewport rect alongside the glyph measurement, so this is
+measured rather than inferred. In the pause menu with the prompts on screen:
+
+```text
+current_window = 7
+win  left   top   width  height
+  0    0.0   0.0  640.0  480.0
+  1    0.0   0.0  640.0  480.0
+  2    0.0   0.0  640.0  480.0
+  3    0.0   0.0  640.0  480.0
+  4    0.0   0.0  640.0  480.0
+  5  335.0  30.0  265.0  395.0
+  6    0.0   0.0  640.0  448.0
+  7    0.0   0.0  640.0  480.0    <-- the window the prompts are drawn in
+  8    0.0   0.0    0.0    0.0    unused
+```
+
+**Confirmed:** the current window is **7** and its viewport is **640 × 480** while the framebuffer is
+640 × **448**. Seven of the nine windows are 480 tall and only window 6 is 448. So the 480-vs-480
+split is real and is now runtime-confirmed rather than inferred from `BeginLayer`.
+
+**Falsified: this is not what displaces the prompts.** The measurement kills the hypothesis:
+
+```text
+culling rect   y 391..415   (24 tall)
+drawn sprite   y 413..436   (24 tall)
+vertical_offset = 22        (reproduced exactly)
+```
+
+**Both boxes are exactly 24 units tall.** A viewport height mismatch between 448 and 480 would change
+the projection *scale* and therefore the projected *height* of the box. The heights are identical, so
+the two paths share a scale and the offset is a **pure translation** of ~22 pixels. Working the
+arithmetic through confirms it: with the culling path at `n_y·240 + 240` and `n_y = (391−240)/240 =
+0.6292`, a 448-tall draw origin would put the sprite at `0.6292·224 + 224 = 364.9` — 26 px *above*,
+the wrong direction. No 448/480 pairing reproduces a 22 px downward shift at unchanged scale.
+
+So the `v/14` model is wrong for this symptom, and the earlier claim that it "yields exactly 22" was
+arithmetic that fitted the number without fitting the geometry. It remains a **real inconsistency**
+worth fixing in its own right — every HUD element placed through a 480-tall window is authored
+against the NTSC field while the buffer is 448 — but it is not the prompt offset.
+
+**This returns the offset to the geometry.** A pure translation with identical scale means a constant
+added on exactly one path. Two candidates remain, in order:
+
+1. **`piVar9[0x16]`**, the draw-path-only model translation `PS2ProcessVerts` ships to VU1 at packet
+   byte `0x74` and `GetScreenBoundingBox` never reads. This is the single uneliminated structural
+   carrier, and reading it needs no new instrumentation beyond observing that packet word.
+2. **The vertex array itself**, carrying Y values 22 units above the stored bbox corners at
+   `mesh+0x1C..0x30`. The two agree in extent (24 units) but not in origin, which is exactly the
+   signature of a translated copy.
+
+Note that the `−8.0` in `ViewportData` float 21 is a translation and is still a candidate, but 8 ≠ 22
+and it would have to combine with something else.
+
 ## Remaining gap
 
 The declared bbox still cannot place an overlay: placing at it would sit 22 px above where the
