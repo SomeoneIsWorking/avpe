@@ -138,29 +138,79 @@ transient draw-time state rather than a resting description of the sprite. Catch
 observing during the draw, which means instrumenting `PS2ProcessVerts` entry rather than reading
 guest memory from a probe.
 
+## Correction: `PS2ProcessVerts` does no coordinate math, and the culling box is in pixels
+
+Both halves of the reasoning above are wrong. A full decompilation and disassembly of
+`PS2ProcessVerts` (0x00188720, 4228 bytes) shows it is a **DMA/GIF packet builder**, not a vertex
+processor in the mathematical sense. It reads no vertex coordinates: it copies the 16-float model
+matrix from `0x003C65E0` into the packet at `+0xA0` and hands VU1 a *pointer* to the guest's
+vertex array via the in-FIFO at `0x6C000000 + n*0x20000`. The only floating-point literal in the
+whole function is `1.0f`; there is no `mul`, no y-flip, no perspective divide. So the documented
+next step — instrument its entry for the transient pointers and the "final screen coordinate" —
+would have captured nothing. The real transform is in **VU1 microcode, which is not in this ELF**.
+
+The model→screen transform the CPU *does* compute is `TransformPoint` at `0x00175BF0`, reached from
+`GetScreenBoundingBox` (`0x00135af0`). It is fully recovered:
+
+```text
+p     = (vx, vy, vz, Wseed)                  Wseed = *(float*)0x003C5DD0  (a global, not 1.0)
+M     = model(0x003C65E0) · screen(window)
+c     = M · p                                row-vector v·M
+invw  = (c.w == 0) ? 1e38f : 1/c.w           at 0x00175D38, applied in place
+ScreenX = (c.x·invw)·(vw/2) + (x0 + vw/2)
+ScreenY = (c.y·invw)·(vh/2) + (y0 + vh/2)
+```
+
+`screen(window)` is `CWindowData+0x140`, built by `CalcScreenMatrix` (`0x00176240`) as
+`local · (CWindowData+0x0C0)`, where `local` scales by `vw/2`, `vh/2` and offsets by the viewport
+centre. Those four constants come from `SetViewport` (`0x001754D0`) out of `layer[]·640` and
+`layer[]·480` in `BeginLayer` (`0x00179220`). **There is no y-flip anywhere in the chain**, and
+the result is top-origin with y increasing downward.
+
+This also corrects the units. `GetScreenBoundingBox` does not report model space: it runs
+`fptosi()` over the perspective-divided, viewport-scaled values, so `y 16..40` is **integer pixels,
+top-origin**, for the current window. The 22-unit discrepancy is therefore **22 pixels**, not 22
+model units, and the "invert the projection into model space" step above was operating on the wrong
+quantity. Both numbers describe pixels: the culling rect from the observer, the sprite from a frame
+capture.
+
+Decisively: **the recovered formula contains no term that can produce a 22-pixel offset.** The only
+additive term is the viewport centre, which both paths share, and the framebuffer 448-vs-480
+discrepancy yields 32 or 16, not 22. Two carriers remain, and they cannot be separated statically:
+
+1. `PS2ProcessVerts` ships a draw-path-only model translation, `puVar7[0x1C]/[0x1D]` =
+   `(float)piVar9[0x15], (float)piVar9[0x16]`, read from the per-primitive parameter record.
+   `GetScreenBoundingBox` never looks at that record, so this is the one translation the draw path
+   sees and the culling path does not. A runtime read of `piVar9[0x16]` for the Select/Back
+   submeshes would settle it.
+2. VU1 microcode. `0x3C6690/94/98/9C`, written by `SetOutputScales` (`0x00189E10`), and
+   `CWindowData+0x1E8..0x1F4` are **never read by any EE instruction** — they exist for VU1, and
+   VU1 receives no viewport or projection from `PS2ProcessVerts`. Reading it needs a DMA dump of
+   `0x11008000` or a hook on the IOP `sceDma` RPC targeting channel `vu1.code`.
+
+One further correction: `GetResolution` (`0x00137B30`) returns 640 × **448** (`0x1C0`), not 640 ×
+480. `PlatformInit` confirms `FRAMEBUFFER_Init(0x280, 0x1C0)`, while `BeginLayer` normalises the
+layer rect against 480. That 448-vs-480 mismatch is real and worth chasing independently, though
+it yields 16 or 32 rather than 22.
+
 ## Remaining gap
 
-The declared bbox cannot place an overlay: placing at it would sit 22 px above where the guest
-drew the sprite and above the adjacent `Select`/`Back` label text. The offset above is a
-measurement, not a derivation, so shipping it as a placement constant would be a magic offset; the
-transform that produces it still has to be found.
+The declared bbox still cannot place an overlay: placing at it would sit 22 px above where the
+guest drew the sprite and above the adjacent `Select`/`Back` label text. The offset is a
+measurement, not a derivation, so shipping it as a placement constant would be a magic offset.
 
 The mesh's draw record is not inline geometry. At `mesh+0x4c` it is a five-word structure whose
 first word is the depth sort key and whose remaining words are guest pointers into submesh and
 material descriptors. Scanning the whole reachable record region finds only three coordinate
 values per prompt — the bbox corner `(12, 40, 5)` for Select and `(192, 40, 5)` for Back, with
 `-53.335` and `1.0` — so the sprite's own corners are not stored there and placement cannot be
-read from the mesh object. The vertex array `PS2ProcessVerts` (0x00188720) consumes is reached
-through `material+0x10`. `PS2ProcessVerts` is a 4228-byte light-tree vertex processor that submits
-through `ClaimDMABuffer` (0x0017ad70), so the next step is to instrument where it writes the final
-screen coordinate for these quads rather than reading it statically.
+read from the mesh object. The vertex array is reached through `material+0x10`, and both prompt
+addresses are runtime heap allocations with no static image.
 
-Two placement routes are viable once that is grounded. Either the derived transform is applied to
-the culling box, or the overlay locates the glyph in the presented frame within a search window
-anchored on the culling box's column, which the probe already demonstrates is reliable. Both need
-the same missing derivation. The model-space statement above is the input to that derivation: it
-narrows the question to why the draw path's vertex Y differs from the stored corner Y by 22, with
-the matrix chain already ruled out.
+Two placement routes are viable. Either the recovered transform is applied to the culling box once
+the draw-path translation in (1) or the VU1 microcode in (2) is known, or the overlay locates the
+glyph in the presented frame within a search window anchored on the culling box's column, which
+the probe already demonstrates is reliable.
 
 The hard-coded host key mapping still needs replacing with a shared configurable binding owner.
 
