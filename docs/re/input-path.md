@@ -453,13 +453,20 @@ the sliders without closing; Accept commits the preview values. Generic
 menu without that rollback; reopening Audio then copies the leaked sound-system
 volumes into the profile in its constructor (`0x001FD560`).
 
-`FindCancellationCallback` therefore requires the unique registered Audio Back
-descendant's `GMenuItem::HotKeyActivate` (`0x00120F40`) and queues that original
-action. Missing or competing Back owners fail admission, rather than closing
-the menu through the generic path. Other menus retain existing virtual Cancel.
-The physical Back binding also registers `FocusKeyActivate` (`0x00120F90`),
-which only focuses the item; it is not the complete cancellation action.
-Issue #6 records the live preview/Cancel/Accept discriminator.
+`GMenu::Cancel(menu, item)` hides the menu and, only for a non-null item,
+calls the parent's `+0xd8` with it; called with no item it leaves the parent
+live but undrawn (Esc from Load Profile left Load/New blank). The pad never
+calls it directly: Back fires the `HotKeyActivate` that the menu's Back item
+(HotKey `FrontEndBack` 0xC5AA0E7F, or `MenuTriangle_Release`, at item `+0x118`)
+registers, and that menu's `ItemActivated` closes it, rolls back and shows the
+parent. A menu with no Back item (Load/New Profile, Press Start) ignores Back.
+
+`FindCancellationCallback` therefore admits only the unique registered Back
+item's `GMenuItem::HotKeyActivate` (`0x00120F40`) in any callback-registry
+menu; none refuses the cancel, competing owners are ambiguous. The physical
+Back binding also registers `FocusKeyActivate` (`0x00120F90`), which only
+focuses the item; it is not the complete cancellation action. Issue #6 records
+the live Audio preview/Cancel/Accept discriminator.
 
 ## Native bridge
 
