@@ -77,12 +77,13 @@ def build_argv(
     log_path: Path,
     chd: Path,
     statefile: Path | None = None,
+    window: bool = False,
 ) -> list[str]:
     argv = [
         str(pcsx2),
         "-batch",
         "-nogui",
-        "-avpe-control-test",
+        "-avpe-control-test-window" if window else "-avpe-control-test",
         "-datapath",
         str(data_dir),
         "-logfile",
@@ -107,16 +108,19 @@ def build_environment(
     asset_load_timing_target: str | None = None,
     bios_trace_enabled: bool = True,
     bios_movie_trace: bool = False,
+    display: str | None = None,
 ) -> dict[str, str]:
     env = dict(base)
     env.update({
         "AVPE_HTTP_PORT": str(port),
         "AVPE_CONTROL_NONCE": nonce,
-        "QT_QPA_PLATFORM": "offscreen",
+        "QT_QPA_PLATFORM": "offscreen" if display is None else "xcb",
         "SDL_AUDIODRIVER": "dummy",
     })
     env.pop("DISPLAY", None)
     env.pop("WAYLAND_DISPLAY", None)
+    if display is not None:
+        env["DISPLAY"] = display
     if native_asset_root is None:
         env.pop("AVPE_NATIVE_ASSET_ROOT", None)
         env.pop(MANIFEST_SHA256_ENVIRONMENT, None)
@@ -148,14 +152,16 @@ def build_environment(
     return env
 
 
-def status_is_verified(status: dict[str, object] | None, nonce: str) -> bool:
+def status_is_verified(
+    status: dict[str, object] | None, nonce: str, surface: str = "surfaceless"
+) -> bool:
     return bool(
         status is not None
         and status.get("vm") == "Running"
         and status.get("serial") == EXPECTED_SERIAL
         and status.get("nonce") == nonce
         and status.get("host_mode") == "control-test"
-        and status.get("surface") == "surfaceless"
+        and status.get("surface") == surface
         and status.get("audio") == "null-muted"
     )
 

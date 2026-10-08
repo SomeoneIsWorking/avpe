@@ -170,6 +170,10 @@ A letter key triggers its item through the item's own registered `GMenuItem::Hot
 (`NativeMenuInput::ActivateItem`; surfaceless seam `POST /input/menu-item`). W/A/S/D are not
 bound, so the letters stay free.
 
+In the `avpe` product on Xvfb, real Enter/Esc key presses (xdotool) drove the profile menus and the
+key caps read Enter over Select and Esc over Back, covering the glyphs. A windowed control test
+(`run_control_test.py --window`) captured the M1 pause menu with caps over both glyphs.
+
 Live in the Marine M1 pause menu, `/prompt/placement` keys Back `back` (item `0x012E9540`) and
 Select `confirm` (item `0x012E8A60`); with focus on Resume, `POST /input/menu-item` on the Back item
 dispatched its `HotKeyActivate` (`0x00120F40`) and the pause menu closed.
@@ -191,9 +195,11 @@ Square, Circle, Triangle, Cross, R1, R2, L1, L2 and the four d-pad directions. `
 
 ## Remaining gap
 
-- The key caps are drawn by `NativePromptOverlay` in `EndPresentFrame`; the control test is
-  surfaceless, so their appearance is covered by geometry tests only and needs a look in the
-  product (pause menu, Marine M1).
+- The control-test frontend (`pcsx2-qt`) never publishes the Enter/Esc labels, so its windowed
+  captures show blank key caps; only the `avpe` product host labels them.
+- The title still reads "Press START button", which is font text, not a glyph mesh.
+- After Esc from Load Profile, the Load/New Profile buttons were not drawn for 20 s although the
+  menu still took Enter; not yet investigated.
 - Letter commands are covered by unit tests through the shipping placement path; no
   `GCommandListMenu` panel has been reached live, so their dispatch there is unproven.
 - Inline font glyphs (`TheFont` 0xA9..0xB4) are not replaced.

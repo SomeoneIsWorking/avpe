@@ -16,6 +16,7 @@ rather than that a bounded table filled up first.
 
 import struct
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from avpe.control_http import request_json
@@ -234,8 +235,16 @@ def measure_drawn_glyphs(
     return measured
 
 
-def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> dict[str, object]:
-    """Press Start into the pause menu, then arm/capture/stop the render trace."""
+def probe_native_mesh_bounds(
+    port: int,
+    deadline: float,
+    output_dir: Path,
+    capture: Callable[[Path], Path] | None = None,
+) -> dict[str, object]:
+    """Press Start into the pause menu, then arm/capture/stop the render trace.
+
+    With a window, `capture` also records the presented frame, prompt key caps included.
+    """
     pause = probe_gameplay_pause_menu(port, deadline)
 
     menu_address_text = pause["menu"].get("menu") if isinstance(pause.get("menu"), dict) else None
@@ -273,6 +282,8 @@ def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> di
             f"could not read the prompt placement: HTTP {placement_status}: {placement_detail}"
         )
 
+    presented = capture(output_dir / "presented-pause.png") if capture is not None else None
+
     stop_status, stop_body, stop_detail = request_json(
         port, "POST", "/mesh/bounds-trace/stop", {}
     )
@@ -298,6 +309,7 @@ def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> di
         ),
         "window_viewports": read_window_viewports(port),
         "prompt_placement": placement,
+        "presented_frame": None if presented is None else str(presented),
         "prompt_vertices": {
             name: read_prompt_vertices(port, int(entry["mesh"], 16))
             for name, entry in select_back_meshes.items()
