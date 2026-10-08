@@ -172,7 +172,7 @@ def main() -> int:
                 "NativeWindowHandlesTest.*:NativeTitleTransitionTest.*:NativePadReadinessTest.*:"
                 "RuntimeConfigTest.*:"
                 "NativeMenuItemsTest.*:NativeAttractInputTest.*:NativeMovieInputTest.*:"
-                "NativePromptTraceTest.*:NativePromptKeysTest.*:NativePromptOverlayTest.*:NativePromptPlacementTest.*:PresentedDisplayTest.*:"
+                "NativePromptTraceTest.*:NativePromptKeysTest.*:NativeTbdTextTest.*:NativePromptOverlayTest.*:NativePromptPlacementTest.*:PresentedDisplayTest.*:"
                 "NativeMeshBoundsTraceTest.*:NativeSnapshotRouteTest.*",
             ],
         )
