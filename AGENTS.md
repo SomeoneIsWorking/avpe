@@ -20,7 +20,7 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   mission-goals modal focus, and invocation of AVP:E keyboard and pointer actions.
 - `NativeMenuItems.*` owns bounded menu-descendant traversal, activation-hotkey
   and focused-item callback admission, registered focused-slider adjustment,
-  authored Audio Back-item cancellation admission, attract-owner exclusion, and
+  Back-item cancellation admission, attract-owner exclusion, and
   exact mission-goals Exit-item discovery. It reads guest state but never invokes actions.
 - `NativeAttractInput.*` owns exact registered attract-button cancellation
   admission; `NativeMenuInput` composes it before requiring a menu. The guest

@@ -170,6 +170,13 @@ A letter key triggers its item through the item's own registered `GMenuItem::Hot
 (`NativeMenuInput::ActivateItem`; surfaceless seam `POST /input/menu-item`). W/A/S/D are not
 bound, so the letters stay free.
 
+Esc fires the menu's Back item the same way, as the pad's Back does (`docs/re/input-path.md`).
+Calling `GMenu::Cancel` with no item instead left Load/New Profile undrawn after Esc from Load
+Profile; live, Esc now returns from Load Profile to a drawn Load/New menu, from Audio to Options and
+from the pause menu to the mission, and is refused on Load/New, which has no Back item. The ~30 s
+return to the title from an idle front-end menu is the authored `GBaseMenu` `AttractDelay`, re-armed
+on every focus change.
+
 In the `avpe` product on Xvfb, real Enter/Esc key presses (xdotool) drove the profile menus and the
 key caps read Enter over Select and Esc over Back, covering the glyphs. A windowed control test
 (`run_control_test.py --window`) captured the M1 pause menu with caps over both glyphs.
@@ -198,8 +205,6 @@ Square, Circle, Triangle, Cross, R1, R2, L1, L2 and the four d-pad directions. `
 - The control-test frontend (`pcsx2-qt`) never publishes the Enter/Esc labels, so its windowed
   captures show blank key caps; only the `avpe` product host labels them.
 - The title still reads "Press START button", which is font text, not a glyph mesh.
-- After Esc from Load Profile, the Load/New Profile buttons were not drawn for 20 s although the
-  menu still took Enter; not yet investigated.
 - Letter commands are covered by unit tests through the shipping placement path; no
   `GCommandListMenu` panel has been reached live, so their dispatch there is unproven.
 - Inline font glyphs (`TheFont` 0xA9..0xB4) are not replaced.
