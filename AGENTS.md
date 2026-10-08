@@ -53,7 +53,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   owns per-frame EE collection of drawn glyph rects, their items and their VU1
   placement; `NativePromptOverlay.*` owns the GS-thread key caps drawn over
   them. Enter/Esc labels come from `pcsx2-avpe/HostMenuBindings.*`, the one
-  key-to-menu-action table, which `HostInputRouter` also reads.
+  key-to-menu-action table, which `HostInputRouter` also reads. It builds as
+  the `avpe-menu-bindings` library, which the control-test frontend also links
+  so its captures show the product's labels.
 - `PresentedDisplay.*` owns where the guest image sits in the window; the
   overlay and the host pointer both read it.
 - `NativeSnapshotRoute.*` owns `/snap` frame capture and BMP serialization;

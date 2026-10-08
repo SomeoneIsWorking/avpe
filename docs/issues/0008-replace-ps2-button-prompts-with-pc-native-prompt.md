@@ -202,8 +202,6 @@ Square, Circle, Triangle, Cross, R1, R2, L1, L2 and the four d-pad directions. `
 
 ## Remaining gap
 
-- The control-test frontend (`pcsx2-qt`) never publishes the Enter/Esc labels, so its windowed
-  captures show blank key caps; only the `avpe` product host labels them.
 - The title still reads "Press START button", which is font text, not a glyph mesh.
 - Letter commands are covered by unit tests through the shipping placement path; no
   `GCommandListMenu` panel has been reached live, so their dispatch there is unproven.
