@@ -56,7 +56,7 @@ CORE_SCOPED_SOURCES = {
 	ROOT / "thirdparty/pcsx2/pcsx2/Counters.cpp": ((1, 20), (488, 494), (682, 723)),
 	ROOT / "thirdparty/pcsx2/pcsx2/R5900OpcodeImpl.cpp": (
 		(1, 18), (910, 925), (1059, 1063), (1196, 1201), (1206, 1210)),
-    ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp": ((1, 20), (63, 70), (102, 105), (368, 375)),
+    ROOT / "thirdparty/pcsx2/pcsx2/R5900.cpp": ((1, 21), (64, 72), (104, 107), (370, 377)),
     ROOT / "thirdparty/pcsx2/pcsx2/Interpreter.cpp": (
         (1, 10), (22, 35), (177, 182), (563, 620), (688, 720)),
     ROOT / "thirdparty/pcsx2/pcsx2/R3000A.cpp": ((1, 10), (50, 57), (64, 69)),
@@ -64,8 +64,8 @@ CORE_SCOPED_SOURCES = {
     ROOT / "thirdparty/pcsx2/pcsx2/x86/iR3000A.cpp": (
         (1, 15), (705, 765), (1685, 1695)),
     ROOT / "thirdparty/pcsx2/pcsx2/SaveState.cpp": (
-        (1, 8), (53, 59), (96, 111), (321, 331), (1086, 1136),
-        (1146, 1171), (1181, 1221)),
+        (1, 9), (54, 61), (98, 113), (323, 333), (1088, 1138),
+        (1148, 1173), (1183, 1223)),
     ROOT / "thirdparty/pcsx2/pcsx2/VMManager.cpp": (
         (1, 12), (1692, 1712), (2337, 2402), (2770, 2774), (2938, 2945)),
 	ROOT / "thirdparty/pcsx2/pcsx2/x86/ix86-32/iR5900.cpp": (
@@ -172,7 +172,8 @@ def main() -> int:
                 "NativeWindowHandlesTest.*:NativeTitleTransitionTest.*:NativePadReadinessTest.*:"
                 "RuntimeConfigTest.*:"
                 "NativeMenuItemsTest.*:NativeAttractInputTest.*:NativeMovieInputTest.*:"
-                "NativePromptTraceTest.*:NativeMeshBoundsTraceTest.*:NativeSnapshotRouteTest.*",
+                "NativePromptTraceTest.*:NativePromptOverlayTest.*:NativePromptPlacementTest.*:"
+                "NativeMeshBoundsTraceTest.*:NativeSnapshotRouteTest.*",
             ],
         )
         run(

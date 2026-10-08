@@ -115,13 +115,47 @@ figure compared stretched snapshot rows (413) with framebuffer rows (391).
 
 ## Placement
 
-A prompt's on-screen rect is its culling rect moved up by the `EndFrame` constant:
+A prompt's on-screen rect is its culling rect moved by the VU1 draw-env offset:
 
 ```text
-framebuffer rect = GetScreenBoundingBox(mesh) - (0, 8)    in the 640 x 448 framebuffer
+offset = ViewportData slot origin - window centre - (2048 - framebuffer / 2)
+       = (0, -8) for every window EndFrame writes
 ```
 
-The overlay maps that rect from the 640 x 448 framebuffer into the presented display rect.
+`NativePromptPlacement` reads the slot origin (`0x002CEBD0 + 0x60 * window + 0x50`) and the window
+centre (`WD+0x1D0`/`+0x1D8`) at EndFrame's VIF1 kick (`0x001791AC`), so the 8 is the guest's own
+value. Live in the Marine M1 pause menu, `/prompt/placement` reports Select (Activate) at
+98..122 x 383..407 and Back (Cancel) at 158..182 x 383..407.
+
+## Glyph identity
+
+Every menu button icon is one of five `CRendPS2Mesh` publics in `MASTER.TBD`, all on
+`__avp_art_menus_main_ps2buttons_tga` except R1:
+
+| label | GetCRC | button | menu action |
+|---|---|---|---|
+| `TopButton` | `0x5F8391BF` | Triangle | Cancel |
+| `BottomButton` | `0xA67152A0` | Cross | Activate |
+| `RightButton` | `0x361BAEBF` | Circle | none yet |
+| `LeftButton` | `0x0CCCE1E0` | Square | none yet |
+| `R1Button` | `0x0FA27263` | R1 | none yet |
+
+Each is found through the TBD fixup symbol table (`pSymbolTable__16CTbdFixupManager` at
+`0x00367350` -> `{mask, buckets}`; bucket `buckets + (key & mask) * 0xC` = `{entries, last index,
+cap}`; entry `{value, key, label}`; `CHashTableElement::Find` at `0x001731A0` scans `0..last`
+inclusive). Live, `BottomButton` and `TopButton` resolve to the Select/Back meshes `0x0135EB7C` and
+`0x0135EA3C`. The pause items are `MainSelectButton` (`0x6449F1DE`) and `MainBackButton`
+(`0x36D11C7B`), whose authored `pResource` (`GMenuItem+0xF0`) points at those meshes.
+
+Items bind their glyph's button as their `HotKey`: Cross items use `FrontEndSelect`, Triangle items
+the menus' back triggers, so Cross is the host's Activate and Triangle its Cancel. Circle, Square and
+R1 items (ordering panels, `MenuSquare_Release`) have no host binding yet, so their glyphs are not
+covered.
+
+Button glyphs also appear inline in text: `TheFont` (CRC `0x519EE0DF`) maps bytes `0xA9..0xB4` to
+Square, Circle, Triangle, Cross, R1, R2, L1, L2 and the four d-pad directions. `TitleFont` maps
+`0xAC` to the registered sign, so the byte alone is not an identity. The tutorial strings and "Press
+\xAC to Skip Intro" use these codes.
 
 ## Dead ends
 
@@ -135,11 +169,13 @@ The overlay maps that rect from the 640 x 448 framebuffer into the presented dis
 
 ## Remaining gap
 
-- The host overlay itself: an owner that reads the two prompt rects through the culling observer,
-  applies the VU1 offset above, and draws PC-native prompts over them.
-- The hard-coded host key mapping still needs replacing with a shared configurable binding owner.
+- The key caps are drawn by `NativePromptOverlay` in `EndPresentFrame`; the control test is
+  surfaceless, so their appearance is covered by geometry tests only and needs a look in the
+  product (pause menu, Marine M1).
+- Circle, Square and R1 glyphs need host bindings before they can be covered.
+- Inline font glyphs (`TheFont` 0xA9..0xB4) are not replaced.
+- Bindings are a fixed table in `HostMenuBindings`; they are not yet user-configurable.
 
 ## Resolution
 
-Not resolved. The producer, its resource identity, and its on-screen rect are grounded; the
-PC-native overlay remains open.
+Not resolved. Cross and Triangle menu glyphs are covered by PC key caps; the gaps above remain.

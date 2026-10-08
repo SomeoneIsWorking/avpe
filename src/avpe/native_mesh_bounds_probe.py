@@ -267,6 +267,11 @@ def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> di
         time.sleep(0.05)
 
     snapshot_sha256 = capture_menu_snapshot(port, "mesh-bounds-snap.bmp", output_dir)
+    placement_status, placement, placement_detail = request_json(port, "GET", "/prompt/placement", {})
+    if placement_status != 200 or placement is None:
+        raise RuntimeError(
+            f"could not read the prompt placement: HTTP {placement_status}: {placement_detail}"
+        )
 
     stop_status, stop_body, stop_detail = request_json(
         port, "POST", "/mesh/bounds-trace/stop", {}
@@ -292,6 +297,7 @@ def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> di
             snapshot_path.read_bytes(), matches["rect"], _guest_word(port, _RESOLUTION_HEIGHT)
         ),
         "window_viewports": read_window_viewports(port),
+        "prompt_placement": placement,
         "prompt_vertices": {
             name: read_prompt_vertices(port, int(entry["mesh"], 16))
             for name, entry in select_back_meshes.items()
