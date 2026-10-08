@@ -80,7 +80,7 @@ Active GMenu discovery is grounded through GInputDevice's callback ZArray at
 verified on pause/Save menus. The active callback-owned menu pointer is
 identified by its GetMenuItem, absolute-motion, and action virtual slots;
 deferred MenuCheck hit-testing focused distinct Resume and Save objects, and
-pointer activation entered Save. `HostInputRouter` maps arrows/WASD,
+pointer activation entered Save. `HostInputRouter` maps arrows,
 Enter/Space, Escape/Backspace, pointer motion, and primary/secondary edges to
 typed menu or gameplay owners without virtual-pad writes.
 

@@ -48,10 +48,11 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   `CzFont::Render` inputs and explicit invalid/overflow counts;
   `NativePromptRoute.*` owns only the surfaceless diagnostic HTTP presentation.
 - `NativePromptGlyphs.*` owns the identity of the PS2 button-glyph meshes (TBD
-  symbol lookup by name CRC) and which menu action each glyph stands for.
-  `NativePromptPlacement.*` owns per-frame EE collection of drawn glyph rects
-  and their VU1 placement; `NativePromptOverlay.*` owns the GS-thread key caps
-  drawn over them. Labels come from `pcsx2-avpe/HostMenuBindings.*`, the one
+  symbol lookup by name CRC). `NativePromptKeys.*` owns which PC key each
+  prompted item takes (Enter, Esc or a label letter). `NativePromptPlacement.*`
+  owns per-frame EE collection of drawn glyph rects, their items and their VU1
+  placement; `NativePromptOverlay.*` owns the GS-thread key caps drawn over
+  them. Enter/Esc labels come from `pcsx2-avpe/HostMenuBindings.*`, the one
   key-to-menu-action table, which `HostInputRouter` also reads.
 - `PresentedDisplay.*` owns where the guest image sits in the window; the
   overlay and the host pointer both read it.

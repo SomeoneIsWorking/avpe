@@ -35,6 +35,7 @@ added upstream). Started from QtHost after EmuThread::start(); port from env
 | GET `/input/menu-readiness` | — | state of the single bounded exact-menu physical-pad request |
 | GET `/input/movie-cancellation` | — | native movie ticket, player/decoder identity, pending/dispatch/lifetime outcome, and matching deferred-call ID |
 | POST `/input/menu-action` | `{"action":"down"}` | typed menu direction, activate, or cancel; Activate first admits a live movie or attract cancellation without chaining into the next menu; paired `when_menu_vtable` and `when_focused_item_action` arm one exact-state physical-pad action |
+| POST `/input/menu-item` | `{"item":"0x012e9540"}` | activates one live menu item through its own registered `GMenuItem::HotKeyActivate`, focused or not; the seam for prompted letter keys |
 | GET `/input/menu-pointer` | — | read-only active menu-capable pointer owner and focused item |
 | POST `/input/menu-pointer-move` | `{"x":0.7,"y":0.4}` | absolute motion followed by deferred AVP:E menu hit-testing |
 | POST `/input/menu-pointer-activate` | `{}` | deferred activation through the focused menu pointer item |
