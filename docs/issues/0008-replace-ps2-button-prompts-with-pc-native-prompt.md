@@ -202,9 +202,20 @@ Square, Circle, Triangle, Cross, R1, R2, L1, L2 and the four d-pad directions. `
 
 ## Remaining gap
 
-- The title still reads "Press START button", which is font text, not a glyph mesh.
-- Letter commands are covered by unit tests through the shipping placement path; no
-  `GCommandListMenu` panel has been reached live, so their dispatch there is unproven.
+- The title still reads "Press START button". It is TBD string symbol CRC `0x9BD83674` in the
+  `CTbdFixupManager` symbol table (element `{value, crc, ...}`), whose value points into the loaded
+  `background.tbd` data; the text is not plain in `TBD/TBF.TBF`, whose packing is not decoded.
+  Memory-card and load-error messages ("... Press START button to continue") sit in a separate
+  string table. Replacing them needs the TBD symbol load path traced so a PC text owner can swap
+  symbol values at load.
+- Letter commands do not dispatch on the order panel. Live (Marine M1, R2 held), placement keys
+  Follow `F`, Waypoint `W` and Patrol `P` on the right `GCommandListButton` items
+  (`GGuardButton`/`GWaypointMoveButton` vtables `0x0035ACA0`/`0x0035ABA0`, text at `+0x148`), but
+  `POST /input/menu-item` is refused: no navigation menu is active, and the buttons register no
+  input callback. `GMenuItem::AttachHotkeys` (`0x00120E60`) registers only when
+  `flags(+0x10C) & 0x2010 == 0x10`; these read `0x400C`. `GCommandListMenu::ItemActivated`
+  (`0x0027B3B0`) executes the order by item id. The pad's route (R2 plus a face button through
+  `GInGameMenu`) is not traced; the letter must call that same route.
 - Inline font glyphs (`TheFont` 0xA9..0xB4) are not replaced.
 - Bindings are a fixed table in `HostMenuBindings`; they are not yet user-configurable.
 
