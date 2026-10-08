@@ -124,21 +124,21 @@ offset = ViewportData slot origin - window centre - (2048 - framebuffer / 2)
 
 `NativePromptPlacement` reads the slot origin (`0x002CEBD0 + 0x60 * window + 0x50`) and the window
 centre (`WD+0x1D0`/`+0x1D8`) at EndFrame's VIF1 kick (`0x001791AC`), so the 8 is the guest's own
-value. Live in the Marine M1 pause menu, `/prompt/placement` reports Select (Activate) at
-98..122 x 383..407 and Back (Cancel) at 158..182 x 383..407.
+value. Live in the Marine M1 pause menu, `/prompt/placement` reports Select at 98..122 x 383..407
+and Back at 158..182 x 383..407.
 
 ## Glyph identity
 
 Every menu button icon is one of five `CRendPS2Mesh` publics in `MASTER.TBD`, all on
 `__avp_art_menus_main_ps2buttons_tga` except R1:
 
-| label | GetCRC | button | menu action |
-|---|---|---|---|
-| `TopButton` | `0x5F8391BF` | Triangle | Cancel |
-| `BottomButton` | `0xA67152A0` | Cross | Activate |
-| `RightButton` | `0x361BAEBF` | Circle | none yet |
-| `LeftButton` | `0x0CCCE1E0` | Square | none yet |
-| `R1Button` | `0x0FA27263` | R1 | none yet |
+| label | GetCRC | button |
+|---|---|---|
+| `TopButton` | `0x5F8391BF` | Triangle |
+| `BottomButton` | `0xA67152A0` | Cross |
+| `RightButton` | `0x361BAEBF` | Circle |
+| `LeftButton` | `0x0CCCE1E0` | Square |
+| `R1Button` | `0x0FA27263` | R1 |
 
 Each is found through the TBD fixup symbol table (`pSymbolTable__16CTbdFixupManager` at
 `0x00367350` -> `{mask, buckets}`; bucket `buckets + (key & mask) * 0xC` = `{entries, last index,
@@ -147,10 +147,32 @@ inclusive). Live, `BottomButton` and `TopButton` resolve to the Select/Back mesh
 `0x0135EA3C`. The pause items are `MainSelectButton` (`0x6449F1DE`) and `MainBackButton`
 (`0x36D11C7B`), whose authored `pResource` (`GMenuItem+0xF0`) points at those meshes.
 
-Items bind their glyph's button as their `HotKey`: Cross items use `FrontEndSelect`, Triangle items
-the menus' back triggers, so Cross is the host's Activate and Triangle its Cancel. Circle, Square and
-R1 items (ordering panels, `MenuSquare_Release`) have no host binding yet, so their glyphs are not
-covered.
+A glyph does not say what its item does: `GCommandListMenu` panels draw the Cross glyph for Patrol
+and the Triangle glyph for Gather. The meaning is the drawing item's. Its `CRender` node is
+`workspace+4` at the `GetMatrix` hook and is embedded at `GMenuItem+0x70`; the item carries its
+`HotKey` event CRC at `+0x118` and its label C string at `+0x148` (live: `MainBackButton`
+`0x012E9540`, `FrontEndBack`, "Back"; `MainSelectButton` `0x012E8A60`, `FrontEndSelect`, "Select").
+
+## PC keys
+
+The keys follow PC RTS conventions (StarCraft): Enter confirms, Esc backs out, arrows navigate, and
+every other command takes a letter of its label. `NativePromptKeys` keys each frame's prompts in
+draw order:
+
+| item `HotKey` | key |
+|---|---|
+| `FrontEndSelect` `0x39504A77` | Enter (host Activate) |
+| `FrontEndBack` `0xC5AA0E7F`, `MenuTriangle_Release` `0x2E16A928` | Esc (host Cancel) |
+| none | Cross glyph Enter, Triangle glyph Esc, else a letter |
+| any other (`MenuSquare_Release`, `MenuCircle_Release`, command-panel events) | first letter of the label not yet taken in the frame |
+
+A letter key triggers its item through the item's own registered `GMenuItem::HotKeyActivate`
+(`NativeMenuInput::ActivateItem`; surfaceless seam `POST /input/menu-item`). W/A/S/D are not
+bound, so the letters stay free.
+
+Live in the Marine M1 pause menu, `/prompt/placement` keys Back `back` (item `0x012E9540`) and
+Select `confirm` (item `0x012E8A60`); with focus on Resume, `POST /input/menu-item` on the Back item
+dispatched its `HotKeyActivate` (`0x00120F40`) and the pause menu closed.
 
 Button glyphs also appear inline in text: `TheFont` (CRC `0x519EE0DF`) maps bytes `0xA9..0xB4` to
 Square, Circle, Triangle, Cross, R1, R2, L1, L2 and the four d-pad directions. `TitleFont` maps
@@ -172,10 +194,12 @@ Square, Circle, Triangle, Cross, R1, R2, L1, L2 and the four d-pad directions. `
 - The key caps are drawn by `NativePromptOverlay` in `EndPresentFrame`; the control test is
   surfaceless, so their appearance is covered by geometry tests only and needs a look in the
   product (pause menu, Marine M1).
-- Circle, Square and R1 glyphs need host bindings before they can be covered.
+- Letter commands are covered by unit tests through the shipping placement path; no
+  `GCommandListMenu` panel has been reached live, so their dispatch there is unproven.
 - Inline font glyphs (`TheFont` 0xA9..0xB4) are not replaced.
 - Bindings are a fixed table in `HostMenuBindings`; they are not yet user-configurable.
 
 ## Resolution
 
-Not resolved. Cross and Triangle menu glyphs are covered by PC key caps; the gaps above remain.
+Not resolved. Every glyph-mesh prompt is covered by a PC key cap keyed by its item; the gaps above
+remain.

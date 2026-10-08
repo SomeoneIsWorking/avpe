@@ -111,12 +111,14 @@ minimap cursor at `+0xbc0/+0xbc4/+0xbc8` and derives the camera pointer at
 these original functions through the EE shuttle and captures the camera,
 minimap, and pointer-mode fields before and after each call.
 
-The standalone host maps held W/A/S/D and arrow keys to the grounded
+The standalone host maps held arrow keys to the grounded
 `Input_GPMove` pair at a 16 ms tick, and the mouse wheel to `Input_GPZoom`.
 Menu discovery is attempted first, so the same keys navigate a live AVP:E menu
 and become camera controls only when no menu owns them. The control route
 `POST /input/camera` is the surfaceless evidence seam for move, rotate, and
-zoom; it does not replace the host route.
+zoom; it does not replace the host route. Letter keys are reserved for prompted
+menu commands (issue #8): a letter activates the prompted item it names through
+that item's registered `GMenuItem::HotKeyActivate`.
 
 ## Object and action name hashes
 
