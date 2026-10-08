@@ -190,6 +190,20 @@ Square, Circle, Triangle, Cross, R1, R2, L1, L2 and the four d-pad directions. `
 `0xAC` to the registered sign, so the byte alone is not an identity. The tutorial strings and "Press
 \xAC to Skip Intro" use these codes.
 
+## Order panel
+
+Holding R2 in a mission shows a `GCommandListMenu` whose buttons (`GCommandListButton`,
+`GGuardButton` Follow, `GWaypointMoveButton` Waypoint) carry the order hotkeys. Each button's
+`Process` greys it unless its order applies (Follow needs a unit under the pointer, Waypoint a
+selection), and `GMenuItem::AttachHotkeys` (`0x00120E60`) registers `HotKeyActivate` only while
+`flags(+0x10C) & 0x2010 == 0x10`, so a greyed button has no callback and its letter is refused.
+The panel registers no navigation callbacks, so `ActivateItem` takes the menu from the item's
+parent (`+0x0C`, which `GMenuItem::Activate` reports to). The panel's `GScrollingTextDisplay`
+child has no handle; `GInputDevice::Register` takes an `HGOBJECT`, so handle-less descendants are
+skipped rather than rejected. Live (Marine M1, units selected, R2 held): W ran the Waypoint branch
+of `GCommandListMenu::ItemActivated` (`0x0027B3B0`; waypoint count 0 to 1, panel mode `0x4`) and P
+set Patrol (mode `0x8`, Waypoint then greyed by the game).
+
 ## Dead ends
 
 - A Qt sibling overlay: the render surface is a native child window and stacking is not portable;
@@ -208,14 +222,10 @@ Square, Circle, Triangle, Cross, R1, R2, L1, L2 and the four d-pad directions. `
   Memory-card and load-error messages ("... Press START button to continue") sit in a separate
   string table. Replacing them needs the TBD symbol load path traced so a PC text owner can swap
   symbol values at load.
-- Letter commands do not dispatch on the order panel. Live (Marine M1, R2 held), placement keys
-  Follow `F`, Waypoint `W` and Patrol `P` on the right `GCommandListButton` items
-  (`GGuardButton`/`GWaypointMoveButton` vtables `0x0035ACA0`/`0x0035ABA0`, text at `+0x148`), but
-  `POST /input/menu-item` is refused: no navigation menu is active, and the buttons register no
-  input callback. `GMenuItem::AttachHotkeys` (`0x00120E60`) registers only when
-  `flags(+0x10C) & 0x2010 == 0x10`; these read `0x400C`. `GCommandListMenu::ItemActivated`
-  (`0x0027B3B0`) executes the order by item id. The pad's route (R2 plus a face button through
-  `GInGameMenu`) is not traced; the letter must call that same route.
+- No PC key opens the order panel; letters reach it only while the pad's R2 holds it open.
+  `GInGameMenu::Shift(bool)` (`0x00279AE0`) stores `+0x290` and shifts the child panels; it is
+  the likely R2 owner, not yet confirmed. A PC command card (shown whenever units are selected,
+  as in StarCraft) needs that owner traced and a product decision.
 - Inline font glyphs (`TheFont` 0xA9..0xB4) are not replaced.
 - Bindings are a fixed table in `HostMenuBindings`; they are not yet user-configurable.
 
