@@ -6,7 +6,7 @@ symptom: The product still presents PlayStation 2 controller button prompts whil
 state_items: S029
 tags: input,ui,prompts,keyboard,mouse
 created: 2026-08-27
-updated: 2026-10-04
+updated: 2026-10-08
 ---
 
 ## Root cause
@@ -611,105 +611,62 @@ added on exactly one path. Two candidates remain, in order:
 Note that the `−8.0` in `ViewportData` float 21 is a translation and is still a candidate, but 8 ≠ 22
 and it would have to combine with something else.
 
-### Measured: the draw-path model translation is zero, so the offset is in the vertex data
+### Measured: the draw-path model translation is zero
 
-`piVar9[0x15]` and `piVar9[0x16]` are now observed at draw time. The exact chain, read from raw
-instruction words:
+`piVar9[0x15]` and `piVar9[0x16]` are observed at draw time. The chain, read from raw instruction
+words (the decompiler renders all four stores as writing `f0` and drops the `lwc1` chain):
 
 ```text
 00189188: lwc1 f2,0x54(s0)     ; piVar9[0x15], the model translate X
 0018918c: lwc1 f0,0xdc(sp)     ; the _EFFECT_SHELL-only X term
 001891ac: lwc1 f1,0x58(s0)     ; piVar9[0x16], the model translate Y
 001891b0: add.S f0,f2,f0
-001891b4: swc1 f0,0xe4(sp)     ; stack slot 0xE4
+001891b4: swc1 f0,0xe4(sp)
 001891b8: lwc1 f0,0xd8(sp)     ; the _EFFECT_SHELL-only Y term
 001891bc: add.S f0,f1,f0
-001891c4: swc1 f0,0xe8(sp)     ; stack slot 0xE8
-001892c8: lwc1 f0,0xe4(sp)
+001891c4: swc1 f0,0xe8(sp)
 001892cc: swc1 f0,0x70(v0)     ; packet byte 0x70
-001892d0: lwc1 f0,0xe8(sp)
 001892d4: swc1 f0,0x74(v0)     ; packet byte 0x74
 ```
 
-`s0` is `piVar9`, the per-primitive parameter record. The skinned copy repeats the stores at
-`0x00189588` and `0x00189590`, so observing either PC reads the same two slots.
-
-`NativeMeshBoundsTrace` now latches the admitted resource at the render dispatch and reads
-`sp+0xE4`/`sp+0xE8` at those two PCs, so each sample is attributed to the draw that caused it rather
-than to whichever packet happened to be built next.
-
-**The result: both are exactly zero, for both prompt meshes, across 118 matched observations.**
+`s0` is `piVar9`, the per-primitive parameter record; the skinned copy repeats the stores at
+`0x00189588`/`0x00189590`. `NativeMeshBoundsTrace` latches the admitted resource at the render
+dispatch and reads `sp+0xE4`/`sp+0xE8` at those PCs, so each sample is attributed to its own draw.
+Over 118 matched draws both are exactly zero for both prompts:
 
 ```text
 observed_translates = 118   matched_translates = 118
-res=0x0135EA3C (Back)   x=0  y=0
-res=0x0135EB7C (Select) x=0  y=0      (32 samples retained, the rest deduplicated)
+res=0x0135EA3C (Back)   x = 0.0   y = 0.0
+res=0x0135EB7C (Select) x = 0.0   y = 0.0
 ```
 
-**This eliminates the last structural carrier.** The guest applies no draw-path-only model
-translation to these meshes, so `piVar9[0x16]` is not the 22 pixels.
+### Measured: the vertex stream matches the stored bbox, so the offset is not in the geometry
 
-That leaves exactly one place the offset can live: **the vertex data itself.** The declared bbox
-corners at `mesh+0x1C..0x30` do not bound the vertices the draw path actually uses. This is
-consistent with everything measured — both boxes are 24 units tall and horizontally identical, so
-the sprite is the same geometry translated in Y, which is what a vertex array holding different Y
-values than the stored corners would produce.
-
-The chain to reach it is now known from the same disassembly: `puVar7[1] = (int)puVar12 +
-(short)puVar12[2] + 4` is the GS-side vertex source, where `puVar12` is
-`*(ushort**)(*(int*)(param_2+0x10) + index*4)` — so mesh to submesh record to a per-submesh vertex
-pointer array to the vertex data. Reading those Y values and comparing them against the stored bbox
-corners is the remaining test, and it is a host memory read with no further instrumentation.
-
-### The draw-path-only model translation is zero — measured
-
-The last structural carrier is eliminated by direct observation. `PS2ProcessVerts` computes a
-model-space translation the culling path never sees:
-
-```asm
-00189188: lwc1 f2,0x54(s0)      ; piVar9[0x15]   <- model translate X
-001891ac: lwc1 f1,0x58(s0)      ; piVar9[0x16]   <- model translate Y
-001891b0: add.S f0,f2,f0         ; + the _EFFECT_SHELL-only term at sp+0xDC
-001891b4: swc1 f0,0xe4(sp)
-001891c4: swc1 f0,0xe8(sp)      ; delay slot
-...
-001892c8: lwc1 f0,0xe4(sp)
-001892cc: swc1 f0,0x70(v0)      ; packet byte 0x70
-001892d0: lwc1 f0,0xe8(sp)
-001892d4: swc1 f0,0x74(v0)      ; packet byte 0x74
-```
-
-The sums live at `sp+0xE4` and `sp+0xE8` at `0x001892D4`, and the skinned copy repeats the stores at
-`0x00189588`/`0x00189590`, so observing either PC reads the same slots. Both instruction addresses
-and both offsets were read from raw instruction words, not from the decompiler — which renders all four
-stores as writing `f0` and drops the `lwc1` chain entirely.
-
-`NativeMeshBoundsTrace` now latches the admitted resource at the render dispatch and captures those two
-stack slots at the vertex packet that dispatch produces, so each reading is attributed to the draw that
-caused it rather than to whichever packet happened to come next. Measured over 118 matched draws:
+`src/avpe/ps2_submesh_stream.py` decodes the stream `PS2ProcessVerts` hands VU1, and the mesh-bounds
+probe reads it live (`prompt_vertices`). The path is `mesh+0x4C` → submesh record → `record+0x10`
+stream pointer array → stream. A stream is:
 
 ```text
-observed_translates = 118   matched_translates = 118
-32 samples, alternating between the two armed resources:
-  res=0x0135EA3C (Back)   x = 0.0   y = 0.0
-  res=0x0135EB7C (Select) x = 0.0   y = 0.0
++0x00  u16 count, u16 count, u16 packet offset (from +4), u16 0
++0x08  f32 scale x, y, z            (the bbox max corner: Back 192,40,5; Select 12,40,5)
++4+off DMAtag RET qwc=4 | VIF NOP | UNPACK V4-16 num=8 addr=0x25 FLG
+       per vertex: (x, y, z, u) (nx, ny, nz, v) as int16
 ```
 
-**Every translate is exactly zero, for both prompts, on every draw.** So `piVar9[0x15]` and
-`piVar9[0x16]` are zero for these submeshes and the draw path applies no translation the culling path
-misses. That carrier is gone.
+Positions are `q / 32768 × scale` (ITOF15 assumed until the microcode is read). Live values:
 
-**What remains is one candidate.** With the scale identical and every transform-side translation zero,
-a constant 22-pixel shift can only come from the geometry itself: **the vertex array carries Y values
-22 units above the stored bounding-box corners** at `mesh+0x1C..0x30`. The two agree in extent (24
-units) but not in origin, which is exactly the signature of a translated copy rather than a
-mis-scaled one.
+```text
+back    x 168..192  y 16..40  z 5   u 2063/4098  v -1/2034
+select  x -12..12   y 16..40  z 5   u 2063/4098  v 2005/4041
+```
 
-The mesh's own position at `mesh+0x10` is `y = 28`, which is the midpoint of the declared `16..40`, so
-the declared corners are consistent with the mesh being centred. The drawn extent `38..61` has midpoint
-`49.5`, which is not `28` — so the rasterised geometry is **not** centred on the mesh position. Reading
-the vertex array for these two submeshes and comparing its min/max Y against the stored corners is now
-the single remaining test, and it needs no further transform-side instrumentation.
+These are exactly the stored corners at `mesh+0x1C..0x30`, so the geometry VU1 receives is the
+geometry the culling path transforms. The quantised normal is `(0, 0, 1)` for every vertex.
+
+With the vertex data, the draw-path translation and the GS configuration all eliminated, the
+22-pixel displacement must be introduced inside the VU1 microcode (`_$entry` at `0x002CEF80`), by a
+term the CPU's `TransformPoint` does not apply or by a VU1 data-memory input the culling path never
+reads. Decoding `_$code_mesh`/`_$comp_verts` is the next step.
 
 ## Remaining gap
 
@@ -717,18 +674,10 @@ The declared bbox still cannot place an overlay: placing at it would sit 22 px a
 guest drew the sprite and above the adjacent `Select`/`Back` label text. The offset is a
 measurement, not a derivation, so shipping it as a placement constant would be a magic offset.
 
-The mesh's draw record is not inline geometry. At `mesh+0x4c` it is a five-word structure whose
-first word is the depth sort key and whose remaining words are guest pointers into submesh and
-material descriptors. Scanning the whole reachable record region finds only three coordinate
-values per prompt — the bbox corner `(12, 40, 5)` for Select and `(192, 40, 5)` for Back, with
-`-53.335` and `1.0` — so the sprite's own corners are not stored there and placement cannot be
-read from the mesh object. The vertex array is reached through `material+0x10`, and both prompt
-addresses are runtime heap allocations with no static image.
-
-Two placement routes are viable. Either the recovered transform is applied to the culling box once
-the draw-path translation in (1) or the VU1 microcode in (2) is known, or the overlay locates the
-glyph in the presented frame within a search window anchored on the culling box's column, which
-the probe already demonstrates is reliable.
+Placement needs the VU1 transform: once `_$code_mesh` is decoded, the overlay rect is the stored
+bbox (equal to the decoded vertex extent) under that transform. The fallback is locating the glyph
+in the presented frame within a window anchored on the culling box's column, which the probe
+already does reliably.
 
 The hard-coded host key mapping still needs replacing with a shared configurable binding owner.
 
