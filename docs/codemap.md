@@ -22,7 +22,7 @@ in [`project-state.md`](project-state.md), and atomic work is in
 | Dependency-prefix provisioning | Selects and invokes the tracked PCSX2 Qt/dependency workflow under top-level `build/`, with tool checks and post-build prefix validation | `src/avpe/dependency_prefix.py`, `thirdparty/pcsx2/.github/workflows/scripts/` | `provision_dependency_prefix()` | — |
 | Product launch | Native-store validation, persistent product datapath and supplied BIOS directory, AVPE host argv/environment, product config, process lifetime | `src/avpe/launch.py` | `launch()` | — |
 | Standalone frontend runtime | Product process composition, PCSX2 core thread/lifecycle, and host callbacks | `thirdparty/pcsx2/pcsx2-avpe/Runtime.*`, `EmulationThread.*`, `HostServices.cpp`, `Main.cpp` | `avpe` executable | — |
-| Native host shell | Sole visible top-level window, render-surface lifecycle, resize/fullscreen, focus, product shutdown | `thirdparty/pcsx2/pcsx2-avpe/HostWindow.*`, `RenderSurface.*`, `NativeWindow.*` | `AVPE::HostWindow` | — |
+| Native host shell | Sole visible top-level window, render-surface lifecycle, resize/fullscreen, focus, product shutdown, termination signals | `thirdparty/pcsx2/pcsx2-avpe/HostWindow.*`, `HostTermination.*`, `RenderSurface.*`, `NativeWindow.*` | `AVPE::HostWindow`, `AVPE::HostTermination` | — |
 | Product input routing | Qt key and mouse translation, held-input ownership across menu/game transitions, dispatch-bound menu pointer movement, wheel translation, and typed action dispatch | `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*`, `HostWindow.*` | `AVPE::HostInputRouter` | [input path](re/input-path.md) |
 | Presentation bridge | GS-to-host window acquisition and narrow display/settings control | `thirdparty/pcsx2/pcsx2-avpe/HostServices.cpp`, `Runtime.*` | `Host::AcquireRenderWindow()` | — |
 | Control-test runner | Silent surfaceless PCSX2 process, isolated profile/card working copies, observed pad-hold and card-readiness lifecycles, independent bounded card-write drain, loopback transport, timebox, exact process-group cleanup | `tools/run_control_test.py`, `src/avpe/control_http.py`, `src/avpe/input_probe.py`, `src/avpe/memory_card_probe.py` | `main()`, `press_buttons()`, `await_memory_card_ready()`, `drain_memory_card_writes()` | — |
@@ -211,6 +211,7 @@ thirdparty/pcsx2/pcsx2-avpe/    standalone product frontend
 ├── EmulationThread.*           PCSX2 core lifecycle owner
 ├── HostServices.cpp            PCSX2 Host callback implementation
 ├── HostInputRouter.*          key/mouse-to-typed-action policy
+├── HostTermination.*          SIGTERM/SIGINT/SIGHUP to graceful window close
 ├── HostMenuBindings.*         key-to-menu-action table and Enter/Esc prompt labels
 ├── HostWindow.*               window and platform event capture
 └── RenderSurface.*            low-level native graphics surface
