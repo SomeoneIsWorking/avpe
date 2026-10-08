@@ -66,6 +66,7 @@ from avpe.native_mission_probe import (
 )
 from avpe.native_pause_probe import probe_gameplay_pause_menu
 from avpe.native_mesh_bounds_probe import probe_native_mesh_bounds
+from avpe.virtual_display import VirtualDisplay
 from avpe.native_camera_probe import probe_native_camera
 from avpe.native_movie_probe import probe_native_movie_cancellation
 from avpe.native_assets import (
@@ -518,6 +519,9 @@ def main() -> int:
     add_bios_arguments(parser)
     parser.add_argument("--http-port", type=int, default=0,
                         help="control port; zero allocates an available loopback port")
+    parser.add_argument("--window", action="store_true",
+                        help="present to a window on a private Xvfb display so probes can "
+                        "capture the presented frame")
     parser.add_argument("--hold-open", action="store_true",
                         help="do not shut down after requested probes complete; "
                         "keep serving HTTP until --seconds elapses, for manual "
@@ -673,6 +677,7 @@ def main() -> int:
         DATA_DIR,
         bios,
         card_probe.working.name if card_probe is not None else None,
+        window=args.window,
     )
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     try:
@@ -681,7 +686,16 @@ def main() -> int:
         print(f"FATAL control port {args.http_port} is unavailable: {error}", file=sys.stderr)
         return 2
     nonce = secrets.token_hex(16)
-    argv = build_argv(pcsx2, DATA_DIR, LOG_DIR / "emulog.txt", chd, args.statefile)
+    display: VirtualDisplay | None = None
+    display_name: str | None = None
+    try:
+        if args.window:
+            display = VirtualDisplay()
+            display_name = display.start()
+    except (RuntimeError, OSError) as error:
+        print(f"FATAL virtual display: {error}", file=sys.stderr)
+        return 2
+    argv = build_argv(pcsx2, DATA_DIR, LOG_DIR / "emulog.txt", chd, args.statefile, window=args.window)
     env = build_environment(
         os.environ,
         port,
@@ -693,6 +707,7 @@ def main() -> int:
         asset_load_timing_target=args.load_timing_target if args.probe_load_timing and args.load_timing_target != "startup" else None,
         bios_trace_enabled=args.probe_bios_trace,
         bios_movie_trace=args.probe_bios_phase == "movie",
+        display=display_name,
     )
     stdout = (LOG_DIR / "stdout.log").open("wb")
     try:
@@ -701,9 +716,12 @@ def main() -> int:
                                 start_new_session=True)
     except OSError as error:
         stdout.close()
+        if display is not None:
+            display.stop()
         print(f"FATAL could not start control test: {error}", file=sys.stderr)
         return 2
-    print(f"control-test pid={proc.pid} port={port} display=surfaceless audio=null", flush=True)
+    surface = "window" if args.window else "surfaceless"
+    print(f"control-test pid={proc.pid} port={port} display={display_name or surface} audio=null", flush=True)
 
     def handle_signal(_signum: int, _frame: object) -> None:
         stop_process_group(proc)
@@ -741,7 +759,7 @@ def main() -> int:
     try:
         while proc.poll() is None and time.monotonic() < deadline:
             status = read_status(port)
-            if status_is_verified(status, nonce):
+            if status_is_verified(status, nonce, surface):
                 if boot_status is None:
                     print(
                         f"control-test verified status={json.dumps(status, sort_keys=True)}",
@@ -802,7 +820,8 @@ def main() -> int:
                         )
                         if args.probe_native_mesh_bounds:
                             mesh_bounds_proof = probe_native_mesh_bounds(
-                                port, deadline, LOG_DIR.parent)
+                                port, deadline, LOG_DIR.parent,
+                                capture=display.capture if display is not None else None)
                     except (RuntimeError, ValueError, json.JSONDecodeError) as error:
                         probe_error = str(error)
                 if args.probe_native_ioman_state_recovery:
@@ -945,6 +964,8 @@ def main() -> int:
     finally:
         stop_process_group(proc)
         stdout.close()
+        if display is not None:
+            display.stop()
 
     if proc.returncode != 0:
         print(f"FATAL control test exited rc={proc.returncode}; see {LOG_DIR}", file=sys.stderr)

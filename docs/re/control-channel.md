@@ -56,6 +56,11 @@ port and nonce, removes desktop display sockets from the child environment,
 uses an isolated settings profile, and accepts the process only when `/status`
 reports the actual `control-test` / `surfaceless` / `null-muted` runtime state.
 The nonce prevents a stale or unrelated process from satisfying the check.
+`--window` instead starts a private Xvfb display, launches with
+`-avpe-control-test-window` and the OpenGL renderer (Xvfb presents only through
+GLX), requires `/status` surface `window`, and lets probes capture the presented
+frame with ImageMagick `import`; the mesh-bounds probe saves
+`presented-pause.png`.
 Guest/menu and memory-card routes refuse with HTTP 409 before a valid VM exists;
 they never dispatch synchronously onto an unstarted emulation thread.
 When a copied memory card accompanies a savestate, the runner also waits for

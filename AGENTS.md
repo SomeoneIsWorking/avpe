@@ -141,6 +141,8 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `AVPE.cpp` owns the diagnostic control transport only. Its routes may carry
   proof intent but do not define shipping input policy.
 
-Agent runtime tests use `tools/run_control_test.py` only. They remain surfaceless
-and null-muted; `run.sh` is the user's product launcher. The local gate is
+Agent runtime tests use `tools/run_control_test.py` only. They are null-muted
+and surfaceless, except that `--window` presents to a private Xvfb display
+(`src/avpe/virtual_display.py`) so a probe can capture the presented frame;
+`run.sh` is the user's product launcher. The local gate is
 `tools/verify.py` and the hosted gate is `tools/ci.py`.

@@ -89,8 +89,12 @@ def ensure_test_config(
     data_dir: Path,
     bios: Path,
     memory_card_filename: str | None = None,
+    window: bool = False,
 ) -> None:
-    """Create the isolated, silent configuration used by control tests."""
+    """Create the isolated, silent configuration used by control tests.
+
+    A windowed test on Xvfb can only present through GLX, so it renders with OpenGL.
+    """
     path = ini_path(data_dir)
     sections = _base_sections(path)
     sections.setdefault("SPU2/Output", {}).update({
@@ -98,7 +102,7 @@ def ensure_test_config(
         "OutputMuted": "True",
     })
     sections.setdefault("EmuCore/CPU/Recompiler", {})["EnableEE"] = "true"
-    sections.setdefault("EmuCore/GS", {})["Renderer"] = "13"
+    sections.setdefault("EmuCore/GS", {})["Renderer"] = "12" if window else "13"
     sections.setdefault("MemoryCards", {}).update({
         "Slot1_Enable": "true" if memory_card_filename else "false",
         "Slot1_Filename": memory_card_filename or "Mcd001.ps2",
