@@ -461,6 +461,11 @@ Issue #6 records the live preview/Cancel/Accept discriminator.
 
 ## Native bridge
 
+- The host normalizes a surface pointer position against the presented guest
+  image, not the window: `PresentedDisplay` holds the top-origin present rect the
+  GS thread stores each frame, and `HostWindow` scales the Qt position by the
+  surface's device pixel ratio and clamps it into that rect. The default 4:3
+  present letterboxes any other window shape.
 - `NativePointerMotion::MoveAbsolute` accepts normalized coordinates, validates
   the resolution and caller-supplied pointer, and calls
   `UpdatePositionAbsolute(pointer, {x,y})`. `NativeInput` owns live gameplay

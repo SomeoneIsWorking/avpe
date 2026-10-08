@@ -53,6 +53,8 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   and their VU1 placement; `NativePromptOverlay.*` owns the GS-thread key caps
   drawn over them. Labels come from `pcsx2-avpe/HostMenuBindings.*`, the one
   key-to-menu-action table, which `HostInputRouter` also reads.
+- `PresentedDisplay.*` owns where the guest image sits in the window; the
+  overlay and the host pointer both read it.
 - `NativeSnapshotRoute.*` owns `/snap` frame capture and BMP serialization;
   `AVPE.cpp` only dispatches the diagnostic request.
 - `NativeMeshBoundsTrace.*` owns bounded, read-only observation of live
