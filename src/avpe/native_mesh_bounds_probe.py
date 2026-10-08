@@ -22,6 +22,7 @@ from avpe.control_http import request_json
 from avpe.menu_probe import capture_menu_snapshot
 from avpe.native_guest_buffer import read_guest_buffer
 from avpe.native_pause_probe import probe_gameplay_pause_menu
+from avpe.ps2_submesh_stream import STREAM_HEADER_SIZE, decode_submesh_stream, packet_size
 
 # GMenuItem/GMenu layout shared with NativeMenuItems.cpp's ReadMenuDescendants
 # and OBJECT_NAME_OFFSET. GMenuItem::Redraw attaches this item's image resource
@@ -53,6 +54,32 @@ _WINDOW_DATA_STRIDE = 0x210
 _WINDOW_COUNT = 9
 _CURRENT_WINDOW = 0x003C6680
 _VIEWPORT_RECT_OFFSET = 0x1C0
+
+
+# CRendPS2Mesh+0x4C points at its submesh record; the record's +0x10 is the
+# per-submesh stream pointer array PS2ProcessVerts indexes.
+_MESH_SUBMESH_RECORD_OFFSET = 0x4C
+_SUBMESH_STREAM_ARRAY_OFFSET = 0x10
+
+
+def read_prompt_vertices(port: int, mesh: int) -> dict[str, object]:
+    """Decode the vertex stream VU1 receives for a prompt mesh's first submesh."""
+    record = _guest_word(port, mesh + _MESH_SUBMESH_RECORD_OFFSET)
+    stream_address = _guest_word(port, _guest_word(port, record + _SUBMESH_STREAM_ARRAY_OFFSET))
+    header = bytes.fromhex(read_guest_buffer(port, stream_address, STREAM_HEADER_SIZE))
+    raw = bytes.fromhex(read_guest_buffer(port, stream_address, packet_size(header)))
+    stream = decode_submesh_stream(raw)
+    y_min, y_max = stream.y_extent()
+    return {
+        "stream": f"0x{stream_address:08X}",
+        "scale": list(stream.scale),
+        "y_min": y_min,
+        "y_max": y_max,
+        "vertices": [
+            {"position": list(vertex.position), "u": vertex.u, "v": vertex.v}
+            for vertex in stream.vertices
+        ],
+    }
 
 
 def read_window_viewports(port: int) -> dict[str, object]:
@@ -251,6 +278,10 @@ def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> di
         "select_back_matches": matches,
         "drawn_glyphs": measure_drawn_glyphs(snapshot_path.read_bytes(), matches["rect"]),
         "window_viewports": read_window_viewports(port),
+        "prompt_vertices": {
+            name: read_prompt_vertices(port, int(entry["mesh"], 16))
+            for name, entry in select_back_meshes.items()
+        },
         "same_frame_snapshot": {
             "path": str(snapshot_path),
             "sha256": snapshot_sha256,
