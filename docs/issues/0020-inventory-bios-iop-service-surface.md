@@ -146,12 +146,9 @@ never selects by screen coordinate. The pointer phase already uses it; that phas
 correctly and still observes no `CShell::Quit`, so the remaining gap is which submenu to enter and
 whether the confirmation needs a second activation.
 
-Also corrected: `native_mesh_bounds_probe.py`'s `_MAIN_SELECT_BUTTON_NAME_HASH = 0x6449F1DE` and
-`_MAIN_BACK_BUTTON_NAME_HASH = 0x36D11C7B` are named for `Select` and `Back`, but
-`(crc32("Select")) ^ 0xFFFFFFFF` is `0xB3A11009` and `Back` is `0x320391F6`, so neither constant is
-the hash of that word. An exhaustive substring sweep of the whole image finds no string hashing to
-either value. The constants are empirically the items carrying those two icons; the string
-identities behind them are unproven and most likely live in disc TBD fill data.
+The pause items' name hashes are `GetCRC("MainSelectButton")` = `0x6449F1DE` and
+`GetCRC("MainBackButton")` = `0x36D11C7B`, recovered from the `CHausLabelFixup` labels in
+`MASTER.TBD` (issue 0008, glyph identity).
 
 Note that `scratch/states/save-menu.p2s` cannot drive either phase: it loads with the pause menu
 already open, so `probe_gameplay_pause_menu` cannot establish the inactive-menu state it requires. A

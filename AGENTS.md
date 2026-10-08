@@ -47,6 +47,12 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 - `NativePromptTrace.*` owns bounded, read-only observation of live
   `CzFont::Render` inputs and explicit invalid/overflow counts;
   `NativePromptRoute.*` owns only the surfaceless diagnostic HTTP presentation.
+- `NativePromptGlyphs.*` owns the identity of the PS2 button-glyph meshes (TBD
+  symbol lookup by name CRC) and which menu action each glyph stands for.
+  `NativePromptPlacement.*` owns per-frame EE collection of drawn glyph rects
+  and their VU1 placement; `NativePromptOverlay.*` owns the GS-thread key caps
+  drawn over them. Labels come from `pcsx2-avpe/HostMenuBindings.*`, the one
+  key-to-menu-action table, which `HostInputRouter` also reads.
 - `NativeSnapshotRoute.*` owns `/snap` frame capture and BMP serialization;
   `AVPE.cpp` only dispatches the diagnostic request.
 - `NativeMeshBoundsTrace.*` owns bounded, read-only observation of live
