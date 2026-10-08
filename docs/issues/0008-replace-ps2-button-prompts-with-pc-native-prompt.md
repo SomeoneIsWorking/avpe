@@ -190,6 +190,19 @@ Square, Circle, Triangle, Cross, R1, R2, L1, L2 and the four d-pad directions. `
 `0xAC` to the registered sign, so the byte alone is not an identity. The tutorial strings and "Press
 \xAC to Skip Intro" use these codes.
 
+## Title text
+
+The title's "Press START button" is TBD public `0x9BD83674`. TBD files are RIFF chunk sets
+(`CTbdFile::LoadCore` `0x00173FC0`): `CTbdFile::SetupPublics` (`0x00174480`) publishes each PUBL
+entry `{crc, region:4|offset:28}` into `CTbdFixupManager`'s symbol table (`pSymbolTable`
+`0x00367350` to `{mask, buckets}`; bucket `{entries, last index, capacity}`; entry `{value, crc,
+label}`), and `FixupExterns` resolves other files' references through it. The title object reads
+the string once at creation, after `InitTypes`; a live write to the loaded bytes changes nothing
+until the title TBD reloads (each return from the attract demo reloads it). `NativeTbdText`
+therefore rewrites it at the `SetupPublics` epilogue (`0x00174520`), in place, to "Press " plus the
+bound confirm key, only while the bytes are still exactly the original. Live: after an attract
+cycle the title reads "Press Enter" and the log shows the rewrite at `0x015474B0`.
+
 ## Order panel
 
 Holding R2 in a mission shows a `GCommandListMenu` whose buttons (`GCommandListButton`,
@@ -216,16 +229,18 @@ set Patrol (mode `0x8`, Waypoint then greyed by the game).
 
 ## Remaining gap
 
-- The title still reads "Press START button". It is TBD string symbol CRC `0x9BD83674` in the
-  `CTbdFixupManager` symbol table (element `{value, crc, ...}`), whose value points into the loaded
-  `background.tbd` data; the text is not plain in `TBD/TBF.TBF`, whose packing is not decoded.
-  Memory-card and load-error messages ("... Press START button to continue") sit in a separate
-  string table. Replacing them needs the TBD symbol load path traced so a PC text owner can swap
-  symbol values at load.
-- No PC key opens the order panel; letters reach it only while the pad's R2 holds it open.
-  `GInGameMenu::Shift(bool)` (`0x00279AE0`) stores `+0x290` and shifts the child panels; it is
-  the likely R2 owner, not yet confirmed. A PC command card (shown whenever units are selected,
-  as in StarCraft) needs that owner traced and a product decision.
+- Memory-card and load-error messages ("... Press START button to continue") sit in a separate
+  string table (around `0x009EE540` at the title) and are not rewritten.
+- No PC key opens the order panel; letters reach it only while the pad's R2 holds it open. R2 is
+  the in-game `GToggleMenuButton` (vtable `0x0035B3A0`): `RightBottomShoulderButton_Press`
+  (item `+0x11C`) fires its `FocusKeyActivate` (`0x0027D1F0`), which, unless the pointer is busy
+  (`GAvPPointer+0x1B8`) or L1 shift (`GInGameMenu+0x290`) is held, sets `GInGameMenu+0x293` and
+  `SwitchMenu`s to the embedded order menu at item `+0x114`; `_Release` (`+0x118`) fires its
+  `HotKeyActivate` (`0x0027D1B0`), which clears the flag and `Refresh`es. L1 is `GShiftButton`
+  (`LeftTopShoulderButton_Press/_Release` to `GInGameMenu::Shift(true/false)`, vtable `+0x100`),
+  which swaps `GShiftActionButton` icons. A PC key can hold the panel by dispatching the toggle
+  button's two registered callbacks; which key, and whether the card should instead stay up while
+  units are selected (StarCraft), is a product decision.
 - Inline font glyphs (`TheFont` 0xA9..0xB4) are not replaced.
 - Bindings are a fixed table in `HostMenuBindings`; they are not yet user-configurable.
 
