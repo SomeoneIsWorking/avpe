@@ -227,20 +227,30 @@ set Patrol (mode `0x8`, Waypoint then greyed by the game).
 - A 22 px offset carrier (draw-path translation, vertex data, GS registers, 448-vs-480 viewport
   scale): all measured or decoded as absent; the 22 px was snapshot stretch plus the VU1 `-8`.
 
+## Command card
+
+The order card is the in-game `GToggleMenuButton` (vtable `0x0035B3A0`, R2):
+`RightBottomShoulderButton_Press` fires its `FocusKeyActivate` (`0x0027D1F0`), which, unless the
+pointer is busy (`GAvPPointer+0x1B8`) or L1 shift (`GInGameMenu+0x290`) is held, sets
+`GInGameMenu+0x293` and `SwitchMenu`s to the order menu at item `+0x114`; `_Release` fires its
+`HotKeyActivate` (`0x0027D1B0`), which clears the flag and `Refresh`es back to the unit's menu.
+The card replaces the unit's menu while shown, unregistering its items, so it cannot stay up as a
+StarCraft card would. Unit-menu pad bindings (Marine): d-pad `Left_{Top,Right,Bottom,Left}ClusterButton_Release`
+= control groups 1-4, Triangle `Right_TopClusterButton_Release` = event, Cross
+`Right_BottomClusterButton_Release` = select, Square `Right_LeftClusterButton_Release` = jump to
+base, R1 `RightTopShoulderButton_Release` = the unit's special, L1 shift, L2 grouping.
+
+`NativeCommandCard` makes it a PC command card: an unprompted letter with units selected opens the
+card through the toggle's registered callback, fires the card item that letter names (the same
+label rule as the key caps, in registry order: Aggressive A, No Attack N, Defensive D, Stand
+Ground S, Patrol P, Follow F, Waypoint W) and closes it, one dispatch per frame. Waypoint places
+one waypoint at the pointer per press. Holding Tab shows the card as R2 does. Live: W with one
+marine selected placed a waypoint and returned to the unit menu; Tab showed and hid the card.
+
 ## Remaining gap
 
 - Memory-card and load-error messages ("... Press START button to continue") sit in a separate
   string table (around `0x009EE540` at the title) and are not rewritten.
-- No PC key opens the order panel; letters reach it only while the pad's R2 holds it open. R2 is
-  the in-game `GToggleMenuButton` (vtable `0x0035B3A0`): `RightBottomShoulderButton_Press`
-  (item `+0x11C`) fires its `FocusKeyActivate` (`0x0027D1F0`), which, unless the pointer is busy
-  (`GAvPPointer+0x1B8`) or L1 shift (`GInGameMenu+0x290`) is held, sets `GInGameMenu+0x293` and
-  `SwitchMenu`s to the embedded order menu at item `+0x114`; `_Release` (`+0x118`) fires its
-  `HotKeyActivate` (`0x0027D1B0`), which clears the flag and `Refresh`es. L1 is `GShiftButton`
-  (`LeftTopShoulderButton_Press/_Release` to `GInGameMenu::Shift(true/false)`, vtable `+0x100`),
-  which swaps `GShiftActionButton` icons. A PC key can hold the panel by dispatching the toggle
-  button's two registered callbacks; which key, and whether the card should instead stay up while
-  units are selected (StarCraft), is a product decision.
 - Inline font glyphs (`TheFont` 0xA9..0xB4) are not replaced.
 - Bindings are a fixed table in `HostMenuBindings`; they are not yet user-configurable.
 
