@@ -162,7 +162,14 @@ def _correlate(stop_body: dict, select_back_meshes: dict[str, dict[str, str]]) -
 _MIN_MATCHED_RECTS = 40
 
 
-def measure_drawn_glyphs(bitmap: bytes, rects: dict[str, list[dict[str, object]]]) -> dict[str, object]:
+# CRendAPI::GetResolution's RECT {0, 0, width, height}; the culling rects are in this space.
+_RESOLUTION_WIDTH = 0x003C9FE8
+_RESOLUTION_HEIGHT = 0x003C9FEC
+
+
+def measure_drawn_glyphs(
+    bitmap: bytes, rects: dict[str, list[dict[str, object]]], framebuffer_height: int
+) -> dict[str, object]:
     """Locate each prompt glyph in the same-frame snapshot.
 
     The guest's declared culling box is not the placement box, so the drawn
@@ -197,8 +204,8 @@ def measure_drawn_glyphs(bitmap: bytes, rects: dict[str, list[dict[str, object]]
         # (a Predator's eyes) sits far above the prompt band.
         x_lo = max(0, int(culling["xmin"]) - 8)
         x_hi = min(width, int(culling["xmax"]) + 8)
-        y_lo = max(0, int(culling["ymin"]) - 16)
-        y_hi = min(height, int(culling["ymax"]) + 48)
+        y_lo = max(0, int(culling["ymin"]) * height // framebuffer_height - 16)
+        y_hi = min(height, int(culling["ymax"]) * height // framebuffer_height + 48)
         rows: dict[int, list[int]] = {}
         for y in range(y_lo, y_hi):
             hits = [x for x in range(x_lo, x_hi) if sprite_pixel(x, y)]
@@ -217,7 +224,11 @@ def measure_drawn_glyphs(bitmap: bytes, rects: dict[str, list[dict[str, object]]
             "culling_ymin": culling["ymin"],
             "culling_xmax": culling["xmax"],
             "culling_ymax": culling["ymax"],
-            "vertical_offset": top - int(culling["ymin"]),
+            # /snap is aspect-stretched to the display height, so map rows back to
+            # the framebuffer the culling rect is measured in.
+            "drawn_ymin_framebuffer": top * framebuffer_height / height,
+            "drawn_ymax_framebuffer": bottom * framebuffer_height / height,
+            "vertical_offset_framebuffer": top * framebuffer_height / height - int(culling["ymin"]),
             "glyph_height": bottom - top + 1,
         }
     return measured
@@ -276,7 +287,10 @@ def probe_native_mesh_bounds(port: int, deadline: float, output_dir: Path) -> di
         "select_back_meshes": select_back_meshes,
         "mesh_bounds": stop_body,
         "select_back_matches": matches,
-        "drawn_glyphs": measure_drawn_glyphs(snapshot_path.read_bytes(), matches["rect"]),
+        "framebuffer": [_guest_word(port, _RESOLUTION_WIDTH), _guest_word(port, _RESOLUTION_HEIGHT)],
+        "drawn_glyphs": measure_drawn_glyphs(
+            snapshot_path.read_bytes(), matches["rect"], _guest_word(port, _RESOLUTION_HEIGHT)
+        ),
         "window_viewports": read_window_viewports(port),
         "prompt_vertices": {
             name: read_prompt_vertices(port, int(entry["mesh"], 16))
