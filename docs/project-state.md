@@ -54,7 +54,7 @@ User-visible differences from the original PS2 release:
 | orders | hold R2, press a face button | order letters (A, N, D, S, P, F, W) without a hold; Tab holds the order card |
 | control groups | d-pad recalls, L2 + d-pad assigns | 1-4 recalls, Ctrl+1-4 assigns |
 | jumps and special | Triangle event, Square base, R1 special | Space, Backspace, Q |
-| mouse selection | hold grows a selection disk around the press point | drag a box from the press point to the cursor; double-click selects the type; the cursor at the edge scrolls |
+| mouse selection | hold grows a selection disk around the press point | drag a box from the press point to the cursor; double-click or Ctrl+click selects the type; Shift+click adds or removes; the cursor at the edge scrolls |
 | minimap | pad only | left click or drag on the map moves the camera there |
 | mission intro | ✕ skips | Enter, Esc or a click skips |
 | unit status panel | the unit under the pointer only | the unit under the pointer, else the first selected unit |
