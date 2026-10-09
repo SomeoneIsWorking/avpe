@@ -17,7 +17,8 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   state directly.
 - `NativeInput.*` owns gameplay pointer and button semantics.
 - `NativeMenuInput.*` owns callback-registry menu discovery, synchronous
-  mission-goals modal focus, and invocation of AVP:E keyboard and pointer actions.
+  mission-goals modal focus, the load-error and intro-skip confirmations, and
+  invocation of AVP:E keyboard and pointer actions.
 - `NativeMenuItems.*` owns bounded menu-descendant traversal, activation-hotkey
   and focused-item callback admission, registered focused-slider adjustment,
   Back-item cancellation admission, attract-owner exclusion, and
@@ -61,6 +62,8 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   order card, Tab to show it, control groups, event and base jumps, the unit special. Each runs as a sequence of the
   guest's registered callbacks, one `NativeInputDispatch` callback per frame from the
   `GInputDevice::Process` hook; `HostInputRouter` owns which key requests which command.
+- `NativeDragSelect.*` owns the mouse selection box: after `UpdateGrowBox` it
+  spans the press point and the cursor instead of the pad's growing box.
 - `NativeStatPanel.*` owns the unit status panel's subject: at the return of
   `GInGameStatMenu::Process`'s hover query it substitutes the first selected unit when nothing is
   under the pointer.
@@ -146,8 +149,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   polling, and live save/load recovery proof policy; the runner only selects
   and reports those surfaceless probes.
 - `thirdparty/pcsx2/pcsx2-avpe/HostInputRouter.*` owns product key-to-action
-  and mouse-to-action policy; `HostWindow.*` owns only platform event capture
-  and window lifecycle.
+  policy and `HostPointerInput.*` mouse-to-action policy (menu or mission
+  pointer, double-click, wheel, edge scrolling); `HostWindow.*` owns only
+  platform event capture and window lifecycle.
   Neither may emulate keyboard/mouse as a DualShock. `HostTermination.*` owns
   SIGTERM/SIGINT/SIGHUP: the first closes the window through the same graceful
   shutdown, the second takes the default action. It installs before SDL, which
