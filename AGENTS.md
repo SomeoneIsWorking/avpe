@@ -60,6 +60,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   order card, Tab to show it, control groups, event and base jumps, the unit special. Each runs as a sequence of the
   guest's registered callbacks, one `NativeInputDispatch` callback per frame from the
   `GInputDevice::Process` hook; `HostInputRouter` owns which key requests which command.
+- `NativeStatPanel.*` owns the unit status panel's subject: at the return of
+  `GInGameStatMenu::Process`'s hover query it substitutes the first selected unit when nothing is
+  under the pointer.
 - `NativeTbdText.*` owns PC wording for PS2-specific TBD strings: at the
   `CTbdFile::SetupPublics` exit it rewrites a published string in place, only
   while it still holds the exact original and never longer than it.

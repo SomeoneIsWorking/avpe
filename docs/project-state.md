@@ -42,3 +42,18 @@ close S029 (PC-native prompts) and S013 (playable windowed product).
 | S028 | HLE behavior differentially verified against the BIOS oracle | blocked | blocked by S025 and S026 |
 | S029 | Product prompts name PC actions instead of PS2 buttons | partial | every `MASTER.TBD` glyph-mesh prompt is covered by a key cap keyed by its drawing item (Enter confirm, Esc back, label letter for other commands, as in a PC RTS) at the VU1-placed rect; live placement and keys verified in the M1 pause menu; key caps seen in the product's profile menus (Enter/Esc); order letters fire without R2 through `NativeUnitCommands` (W placed a waypoint live), Tab holds the card, 1-4/Ctrl+1-4 recall/assign control groups and Space/Backspace jump to event/base and Q fires the unit special (group, base and Comm Tech special verified live); inline font glyphs and configurable bindings missing (issue #8) |
 | S030 | Hosted redistributable build and verification matrix | partial | `.github/workflows/verify.yml` covers Linux, Intel macOS, and Apple Silicon macOS; Windows not covered |
+
+## Comparison baseline
+
+User-visible differences from the original PS2 release:
+
+| area | original | this port |
+|---|---|---|
+| prompts | PS2 button glyphs; title "Press START button" | PC key caps over every glyph-mesh prompt; title "Press Enter" |
+| menus | pad | arrows, Enter/Space, Esc/Backspace, mouse, prompted letters |
+| orders | hold R2, press a face button | order letters (A, N, D, S, P, F, W) without a hold; Tab holds the order card |
+| control groups | d-pad recalls, L2 + d-pad assigns | 1-4 recalls, Ctrl+1-4 assigns |
+| jumps and special | Triangle event, Square base, R1 special | Space, Backspace, Q |
+| unit status panel | the unit under the pointer only | the unit under the pointer, else the first selected unit |
+| loading | optical reads | native asset store (S024) |
+

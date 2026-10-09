@@ -255,9 +255,19 @@ dispatch per frame:
 
 Unit-menu keys do nothing while the card is shown: its stance items take the same d-pad events.
 Live: W placed a waypoint and returned to the unit menu; Tab showed and hid the card; Ctrl+1 then
-1 reselected a deselected marine (the HUD matches a pad recall, which also omits the unit panel);
+1 reselected a deselected marine;
 Backspace moved the camera to the base; Q on the Comm Tech opened the Dropship Uplink, whose own
 items then took key caps (Order O, Clear C, Select S, Exit E).
+
+## Status panel
+
+`GInGameStatMenu::Process` (`0x00281DD0`) shows the object `GAvPPointer::GetOneSelectedGobject(0, 0)`
+returns: the first object under the pointer (`GAvPPointer+0x214`), not the selection. In the
+original a selected unit's name and health vanish when the pointer leaves it and never appear after
+a group recall. `NativeStatPanel` rewrites that call's empty result (`[sp+0x50]` at `0x00281DFC`)
+to the first selected unit's handle, so a hovered object still wins and the selection fills in
+otherwise. Live: the panel stayed after the pointer left the unit, appeared after recalling group
+1, and cleared on deselect.
 
 ## Remaining gap
 
