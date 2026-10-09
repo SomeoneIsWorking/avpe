@@ -20,7 +20,7 @@ close S029 (PC-native prompts) and S013 (playable windowed product).
 | S006 | Reproducible mission state and located live cursor | verified | control-test mission state + `GMarinePointer` address |
 | S007 | Reusable VM-thread EE-call shuttle | verified | fork-local `EECallShuttle`; fails closed on cycle budget |
 | S008 | Native absolute pointer injection moves the cursor | verified | `NativeInput::MoveAbsolute` renders through guest input |
-| S009 | Native mouse selection and command clicks | verified | original four mouse handlers invoked; Audio-menu buttons work |
+| S009 | Native mouse selection and command clicks | verified | mouse edges run the guest's handlers and DWIM buttons on the deferred shuttle (issue 0021); Audio-menu buttons work |
 | S010 | Keyboard and mouse menu navigation | partial | pause-menu navigation verified; product-window delivery and full menu coverage open (issue #6) |
 | S011 | Selector, camera, minimap, pointer-mode integration | partial | `Input_GPMove/Rotate/Zoom` invoked; minimap click/drag jumps the camera (live, issue 0021); no live selector-mode proof |
 | S012 | Fresh-clone provisioning through the zero-argument launcher | partial | submodule + deps prefix + target build automated; Ghidra-class RE prerequisites and platform gaps remain (issue #18) |
