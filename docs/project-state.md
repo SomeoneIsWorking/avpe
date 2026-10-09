@@ -22,7 +22,7 @@ close S029 (PC-native prompts) and S013 (playable windowed product).
 | S008 | Native absolute pointer injection moves the cursor | verified | `NativeInput::MoveAbsolute` renders through guest input |
 | S009 | Native mouse selection and command clicks | verified | original four mouse handlers invoked; Audio-menu buttons work |
 | S010 | Keyboard and mouse menu navigation | partial | pause-menu navigation verified; product-window delivery and full menu coverage open (issue #6) |
-| S011 | Selector, camera, minimap, pointer-mode integration | partial | `Input_GPMove/Rotate/Zoom` invoked; no live selector-mode or minimap proof (issue #19 resolved, camera only) |
+| S011 | Selector, camera, minimap, pointer-mode integration | partial | `Input_GPMove/Rotate/Zoom` invoked; minimap click/drag jumps the camera (live, issue 0021); no live selector-mode proof |
 | S012 | Fresh-clone provisioning through the zero-argument launcher | partial | submodule + deps prefix + target build automated; Ghidra-class RE prerequisites and platform gaps remain (issue #18) |
 | S013 | End-to-end windowed product playable with PC RTS controls | blocked | needs S009–S012 and S020; requires a clean windowed run through menus, selection, commands, camera, minimap |
 | S014 | AVP:E save/load boundary and on-card schema | partial | `CProfile` create/load/save/list boundary and record layout grounded; editable field semantics unproven |
@@ -54,6 +54,9 @@ User-visible differences from the original PS2 release:
 | orders | hold R2, press a face button | order letters (A, N, D, S, P, F, W) without a hold; Tab holds the order card |
 | control groups | d-pad recalls, L2 + d-pad assigns | 1-4 recalls, Ctrl+1-4 assigns |
 | jumps and special | Triangle event, Square base, R1 special | Space, Backspace, Q |
+| mouse selection | hold grows a selection disk around the press point | drag a box from the press point to the cursor; double-click selects the type; the cursor at the edge scrolls |
+| minimap | pad only | left click or drag on the map moves the camera there |
+| mission intro | ✕ skips | Enter, Esc or a click skips |
 | unit status panel | the unit under the pointer only | the unit under the pointer, else the first selected unit |
 | loading | optical reads | native asset store (S024) |
 
