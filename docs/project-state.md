@@ -49,7 +49,7 @@ User-visible differences from the original PS2 release:
 
 | area | original | this port |
 |---|---|---|
-| prompts | PS2 button glyphs; title "Press START button" | PC key caps over every glyph-mesh prompt; title "Press Enter" |
+| prompts | PS2 button glyphs; title and load errors "Press START button" | PC key caps over every glyph-mesh prompt; title and load errors name Enter, which dismisses the load error |
 | menus | pad | arrows, Enter/Space, Esc/Backspace, mouse, prompted letters |
 | orders | hold R2, press a face button | order letters (A, N, D, S, P, F, W) without a hold; Tab holds the order card |
 | control groups | d-pad recalls, L2 + d-pad assigns | 1-4 recalls, Ctrl+1-4 assigns |

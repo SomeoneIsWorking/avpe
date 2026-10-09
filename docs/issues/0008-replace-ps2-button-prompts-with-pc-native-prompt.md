@@ -203,6 +203,18 @@ therefore rewrites it at the `SetupPublics` epilogue (`0x00174520`), in place, t
 bound confirm key, only while the bytes are still exactly the original. Live: after an attract
 cycle the title reads "Press Enter" and the log shows the rewrite at `0x015474B0`.
 
+## Load-error screen
+
+`CShell::MainLoop` (`0x0016F720`, the only caller of `CProfile::LoadGame`) creates
+`GLevelLoadErrorMenu` (vtable `0x00342B50`) when a requested load (`CShell+0x808 & 2`) fails. Its
+constructor unregisters every input callback, registers only FrontEndSelect to `Input_Exit`
+(`0x00209E50`, clears `+0x27C`; registered once per bound pad event) and spins
+`GInputDevice::Process` until that byte clears. With no per-frame callback the dispatch at
+`0x001147CC` never runs, so `NativeMenuInput` admits Enter as a direct shuttle call of
+`Input_Exit` on the exact registered owner; the shell then returns to the title. Its text
+(public `0x421389F5`, or `0x1CE48D9B` when `CProfile::TargetCount` is 0) names the confirm key
+through `NativeTbdText`. Repro: set profile `+0xC` to -1 and `CShell+0x808 |= 2`.
+
 ## Order panel
 
 Holding R2 in a mission shows a `GCommandListMenu` whose buttons (`GCommandListButton`,
@@ -271,8 +283,10 @@ otherwise. Live: the panel stayed after the pointer left the unit, appeared afte
 
 ## Remaining gap
 
-- Memory-card and load-error messages ("... Press START button to continue") sit in a separate
-  string table (around `0x009EE540` at the title) and are not rewritten.
+- Mission public `0x7B0E244D` ("Press START button", a string field of an M01 TBD object) is not
+  rewritten: the screen that draws it, and so the key it should name, is not identified.
+- The controller-removed and card-space messages keep their PS2 wording; the first cannot show
+  (the host pad never disconnects), the second names no button.
 - Inline font glyphs (`TheFont` 0xA9..0xB4) are not replaced.
 - Bindings are a fixed table in `HostMenuBindings`; they are not yet user-configurable.
 
