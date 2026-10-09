@@ -24,6 +24,14 @@ relative paths, 1 is the absolute path the port drives (`SetInputType(1)`,
   (the box follows the cursor) and calls `CheckBorderPan` (`0x001B4740`), which moves the camera
   when the pointer is in the outer eighth of the screen.
 - Right release (`Input_ReleaseMouse2` `0x001B5310`) calls `CommandMove`.
+- The pad's context button is Circle (`GInputDevice` input 7 on device 4). While units are
+  selected the game registers one DWIM button for what the cursor is over: `GDwimMenuButton`
+  (vt `0x0035B9A0`; attack, pick up, enter, ...) or, over ground, `GMoveDwimMenuButton` (vt
+  `0x0035B8A0`). Press runs its focus key, release its hotkey (`GMenuItem` `0x00120F90`/
+  `0x00120F40`; move `0x0027C530`/`0x0027C3A0`, which also rotate the formation while held).
+- These callbacks play unit audio over SIF: a synchronous shuttle call into the move hotkey can
+  spin in `sceSifCheckStatRpc` (`0x002B71A0`) until its cycle budget runs out, because IOP
+  events are deferred during the call. They must run in the guest's own dispatch.
 - `GfsPointer::Select` (`0x0012DC30`) takes every object whose screen bounds overlap the box;
   a box of 15 pixels or less takes the object nearest its centre.
 
@@ -39,9 +47,10 @@ relative paths, 1 is the absolute path the port drives (`SetInputType(1)`,
 | arrows scroll, wheel zooms | yes (camera input is unregistered while the left button is held) |
 | Esc or Enter skips the intro | fixed: with no menu open, `NativeMenuInput` calls the `GSkipLevelIntro` button's registered `GMenuItem::HotKeyActivate` synchronously (the guest dispatches input only on pad events); its `Process` stops the intro and destroys the button; checked live from `scratch/prompt-probe/mission-current.p2s` |
 | inline prompt text ("Press ✕ to Skip Intro") | PS2 glyph |
-| right click on an enemy attacks | no: `Input_ReleaseMouse2` always calls `CommandMove` (`0x001B3A50`); attack is the hover menu's item (`GAvPMenu::ItemActivated` calls `CommandAttack(false)` `0x001B2D60` on the object at pointer `+0xDC`); a smart right click needs the guest's hostility test (ally mask `GUnit+0xAB4`, `IsAlly` `0x0018A4C0`), not yet traced to a team index |
+| right click on an enemy attacks | fixed: `NativeContextAction` runs the registered DWIM button's focus key on press and hotkey on release through `NativeInputDispatch` at `GInputDevice::Process`, as Circle does; live from `scratch/rts-audit/contact.p2s` (five marines next to drones): an enemy gives attack `0x60030`, ground moves the squad, no budget overrun in repeated clicks |
 | minimap click jumps the camera | fixed: a left press or drag on the map calls `GAvPCamera::Move` (`0x001AF660`) with the world point under the pointer (`GMiniMap::GetCamPointerPos` mapping in `NativeMinimap`) and is not passed to selection; checked live at map centre (target 113, 113) and corner (9, 7) |
 | command card always visible and clickable | no: shown only while Tab (R2) is held |
+| primary clicks run in the guest's dispatch | no: press and release still call the guest handlers synchronously through the shuttle; selection audio could hit the same SIF wait |
 
 ## Resolution
 

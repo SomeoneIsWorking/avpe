@@ -62,6 +62,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   order card, Tab to show it, control groups, event and base jumps, the unit special. Each runs as a sequence of the
   guest's registered callbacks, one `NativeInputDispatch` callback per frame from the
   `GInputDevice::Process` hook; `HostInputRouter` owns which key requests which command.
+- `NativeContextAction.*` owns the right mouse button as the pad's context button: its press
+  and release queue the registered DWIM button's focus key and hotkey through
+  `NativeInputDispatch`, one per `GInputDevice::Process`, so their SIF audio waits complete.
 - `NativeDragSelect.*` owns the mouse selection box: after `UpdateGrowBox` it
   spans the press point and the cursor instead of the pad's growing box.
 - `NativeStatPanel.*` owns the unit status panel's subject: at the return of

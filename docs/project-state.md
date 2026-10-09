@@ -57,6 +57,7 @@ User-visible differences from the original PS2 release:
 | mouse selection | hold grows a selection disk around the press point | drag a box from the press point to the cursor; double-click or Ctrl+click selects the type; Shift+click adds or removes; the cursor at the edge scrolls |
 | minimap | pad only | left click or drag on the map moves the camera there |
 | mission intro | ✕ skips | Enter, Esc or a click skips |
+| right click | moves the selection (Circle runs the context action) | the context action, as Circle: attack an enemy, move on ground, hold to rotate the formation |
 | unit status panel | the unit under the pointer only | the unit under the pointer, else the first selected unit |
 | loading | optical reads | native asset store (S024) |
 
