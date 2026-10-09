@@ -57,7 +57,7 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   reads. It builds as the `avpe-menu-bindings` library, which the control-test
   frontend also links so its captures show the product's labels.
 - `NativeUnitCommands.*` owns PC keys for in-mission unit commands: order letters through the R2
-  order card, Tab to show it, control groups, event and base jumps. Each runs as a sequence of the
+  order card, Tab to show it, control groups, event and base jumps, the unit special. Each runs as a sequence of the
   guest's registered callbacks, one `NativeInputDispatch` callback per frame from the
   `GInputDevice::Process` hook; `HostInputRouter` owns which key requests which command.
 - `NativeTbdText.*` owns PC wording for PS2-specific TBD strings: at the
