@@ -56,9 +56,10 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   publishes from the one key-to-menu-action table, which `HostInputRouter` also
   reads. It builds as the `avpe-menu-bindings` library, which the control-test
   frontend also links so its captures show the product's labels.
-- `NativeCommandCard.*` owns PC command keys for the in-game order card: it opens the card
-  through the R2 toggle's registered callback, fires the item a letter names and closes it, one
-  `NativeInputDispatch` callback per frame from the `GInputDevice::Process` hook.
+- `NativeUnitCommands.*` owns PC keys for in-mission unit commands: order letters through the R2
+  order card, Tab to show it, control groups, event and base jumps. Each runs as a sequence of the
+  guest's registered callbacks, one `NativeInputDispatch` callback per frame from the
+  `GInputDevice::Process` hook; `HostInputRouter` owns which key requests which command.
 - `NativeTbdText.*` owns PC wording for PS2-specific TBD strings: at the
   `CTbdFile::SetupPublics` exit it rewrites a published string in place, only
   while it still holds the exact original and never longer than it.

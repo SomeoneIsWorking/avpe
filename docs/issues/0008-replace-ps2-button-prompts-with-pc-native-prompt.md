@@ -240,12 +240,23 @@ StarCraft card would. Unit-menu pad bindings (Marine): d-pad `Left_{Top,Right,Bo
 `Right_BottomClusterButton_Release` = select, Square `Right_LeftClusterButton_Release` = jump to
 base, R1 `RightTopShoulderButton_Release` = the unit's special, L1 shift, L2 grouping.
 
-`NativeCommandCard` makes it a PC command card: an unprompted letter with units selected opens the
-card through the toggle's registered callback, fires the card item that letter names (the same
-label rule as the key caps, in registry order: Aggressive A, No Attack N, Defensive D, Stand
-Ground S, Patrol P, Follow F, Waypoint W) and closes it, one dispatch per frame. Waypoint places
-one waypoint at the pointer per press. Holding Tab shows the card as R2 does. Live: W with one
-marine selected placed a waypoint and returned to the unit menu; Tab showed and hid the card.
+`NativeUnitCommands` runs each PC unit key as a short sequence of these registered callbacks, one
+dispatch per frame:
+
+| PC key | Sequence | Guest effect |
+|---|---|---|
+| unprompted letter, units selected | R2 press, card item by letter, R2 release | the order (label rule of the key caps, registry order: Aggressive A, No Attack N, Defensive D, Stand Ground S, Patrol P, Follow F, Waypoint W; Waypoint adds one at the pointer) |
+| Tab held | R2 press / R2 release | shows the card |
+| 1-4 | group item (d-pad up, right, down, left) | `GPlayerManager::SelectGroup`; a second press within the window centres the camera |
+| Ctrl+1-4 | L2 press (`GGroupingButton`, `GInGameMenu+0x291/0x292`), group item, L2 release | `CreateGroup` |
+| Space | event item | `GMiniMap::GoToBattleEvent` |
+| Backspace | base item | `GAvPMenu::JumpToBase` |
+
+Unit-menu keys do nothing while the card is shown: its stance items take the same d-pad events.
+Live: W placed a waypoint and returned to the unit menu; Tab showed and hid the card; Ctrl+1 then
+1 reselected a deselected marine (the HUD matches a pad recall, which also omits the unit panel);
+Backspace moved the camera to the base. The R1 special (`RightTopShoulderButton_Release`, Comm
+Tech's dropship) has no PC key yet.
 
 ## Remaining gap
 
