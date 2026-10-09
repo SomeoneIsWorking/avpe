@@ -29,9 +29,12 @@ relative paths, 1 is the absolute path the port drives (`SetInputType(1)`,
   (vt `0x0035B9A0`; attack, pick up, enter, ...) or, over ground, `GMoveDwimMenuButton` (vt
   `0x0035B8A0`). Press runs its focus key, release its hotkey (`GMenuItem` `0x00120F90`/
   `0x00120F40`; move `0x0027C530`/`0x0027C3A0`, which also rotate the formation while held).
-- These callbacks play unit audio over SIF: a synchronous shuttle call into the move hotkey can
-  spin in `sceSifCheckStatRpc` (`0x002B71A0`) until its cycle budget runs out, because IOP
-  events are deferred during the call. They must run in the guest's own dispatch.
+- These callbacks, and `SelectChanging`'s `PlaySound`, wait on SIF: a synchronous shuttle call
+  can spin in `sceSifCheckStatRpc` (`0x002B71A0`) until its cycle budget runs out, because IOP
+  events are deferred during the call (17 of 60 synchronous left clicks overran, and the faulted
+  shuttle then refuses all native input until a state load). They run on the deferred shuttle,
+  through the ordinary scheduler. Injecting them as `GInputDevice` callbacks does not work: the
+  guest dispatches only when some callback's input fires, which an idle mission rarely does.
 - `GfsPointer::Select` (`0x0012DC30`) takes every object whose screen bounds overlap the box;
   a box of 15 pixels or less takes the object nearest its centre.
 
@@ -42,15 +45,15 @@ relative paths, 1 is the absolute path the port drives (`SetInputType(1)`,
 | drag a rectangle from press to cursor | fixed: `NativeDragSelect` pins the corners to the press point and cursor after each `UpdateGrowBox`; holding still on empty ground selects nothing; the guest still draws its circle inside the box |
 | click selects the unit under it | yes |
 | double-click selects the type | fixed: `HostPointerInput` passes a mission double-click as a second click (unit-tested; the guest times it) |
-| Ctrl+click / Shift+click | fixed: `NativeInput::PrimaryReleaseCalls` runs the guest's own sequences: Shift is `SelectChanging(p, false, true)` (`0x001B26A0`), so `GfsPointer::Select` adds the box and toggles a clicked unit; Ctrl adds `DoubleClickSelectChanging` (`0x001B2790`); both end with `GInGameMenu::Refresh` (`0x00279670`) as `Input_ReleaseMouse1` does; live: 1, Shift 2, Shift 3, Shift on a selected unit 2, Ctrl on infantry 5 |
+| Ctrl+click / Shift+click | fixed: `NativeMouseButtons::Calls` runs the guest's own sequences: Shift is `SelectChanging(p, false, true)` (`0x001B26A0`), so `GfsPointer::Select` adds the box and toggles a clicked unit; Ctrl adds `DoubleClickSelectChanging` (`0x001B2790`); both end with `GInGameMenu::Refresh` (`0x00279670`) as `Input_ReleaseMouse1` does; live: 1, Shift 2, Shift 3, Shift on a selected unit 2, Ctrl on infantry 5 |
 | cursor at the screen edge scrolls | fixed: `HostPointerInput` scrolls the camera at arrow-key speed while the cursor is within 2% of an image edge or in a letterbox bar, and stops when it leaves the window (unit-tested) |
 | arrows scroll, wheel zooms | yes (camera input is unregistered while the left button is held) |
 | Esc or Enter skips the intro | fixed: with no menu open, `NativeMenuInput` calls the `GSkipLevelIntro` button's registered `GMenuItem::HotKeyActivate` synchronously (the guest dispatches input only on pad events); its `Process` stops the intro and destroys the button; checked live from `scratch/prompt-probe/mission-current.p2s` |
 | inline prompt text ("Press ✕ to Skip Intro") | PS2 glyph |
-| right click on an enemy attacks | fixed: `NativeContextAction` runs the registered DWIM button's focus key on press and hotkey on release through `NativeInputDispatch` at `GInputDevice::Process`, as Circle does; live from `scratch/rts-audit/contact.p2s` (five marines next to drones): an enemy gives attack `0x60030`, ground moves the squad, no budget overrun in repeated clicks |
+| right click on an enemy attacks | fixed: `NativeMouseButtons` runs the registered DWIM button's focus key on press and hotkey on release, as Circle does, on the deferred shuttle; live from `scratch/rts-audit/contact.p2s` (five marines next to drones): an enemy gives attack `0x60030`, ground moves the squad |
 | minimap click jumps the camera | fixed: a left press or drag on the map calls `GAvPCamera::Move` (`0x001AF660`) with the world point under the pointer (`GMiniMap::GetCamPointerPos` mapping in `NativeMinimap`) and is not passed to selection; checked live at map centre (target 113, 113) and corner (9, 7) |
 | command card always visible and clickable | no: shown only while Tab (R2) is held |
-| primary clicks run in the guest's dispatch | no: press and release still call the guest handlers synchronously through the shuttle; selection audio could hit the same SIF wait |
+| clicks never stall the shuttle | fixed: every mouse edge's calls run in order on the deferred shuttle; live: 180 mixed plain, Shift and Ctrl clicks with no overrun or refusal after one run of 60 with 36 refused edges that did not recur |
 
 ## Resolution
 

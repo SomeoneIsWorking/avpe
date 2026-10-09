@@ -31,7 +31,8 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   original abort function through the deferred shuttle. CPU reset and savestate
   preparation discard pending input. The guest retains all movie teardown.
 - `EECallShuttle.*` owns deferred request admission separately from guest
-  context installation. `VMManager::Execute` brackets its safe outer execution
+  context installation. A deferred ticket may hold several calls; in-order tickets wait
+  behind the pending one instead of being refused as Busy. `VMManager::Execute` brackets its safe outer execution
   boundary; event callbacks never install a deferred EE call mid-interrupt.
   CPU reset and savestate preparation own cancellation of shuttle state.
 - `NativeInputCallbacks.*` owns the shared callback descriptor layout, bounded
@@ -62,9 +63,10 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   order card, Tab to show it, control groups, event and base jumps, the unit special. Each runs as a sequence of the
   guest's registered callbacks, one `NativeInputDispatch` callback per frame from the
   `GInputDevice::Process` hook; `HostInputRouter` owns which key requests which command.
-- `NativeContextAction.*` owns the right mouse button as the pad's context button: its press
-  and release queue the registered DWIM button's focus key and hotkey through
-  `NativeInputDispatch`, one per `GInputDevice::Process`, so their SIF audio waits complete.
+- `NativeMouseButtons.*` owns the guest calls each mouse edge makes: the pointer's mouse
+  handlers, the Shift and Ctrl release sequences, and the right button as the pad's Circle on
+  the registered DWIM button. `NativeInput` queues them in order on the deferred shuttle,
+  because selection and unit sounds wait on SIF.
 - `NativeDragSelect.*` owns the mouse selection box: after `UpdateGrowBox` it
   spans the press point and the cursor instead of the pad's growing box.
 - `NativeStatPanel.*` owns the unit status panel's subject: at the return of

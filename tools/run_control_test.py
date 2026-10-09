@@ -191,6 +191,10 @@ def probe_native_pointer(port: int, deadline: float) -> dict[str, object]:
     return results
 
 
+def read_word(port: int, address: int) -> int:
+    return int.from_bytes(bytes.fromhex(read_guest_buffer(port, address, 4)), "little")
+
+
 def probe_native_mouse(port: int, deadline: float, statefile: Path) -> dict[str, object]:
     def reload_state() -> dict[str, object]:
         reload_status, loaded_state, reload_detail = request_json(
@@ -211,25 +215,31 @@ def probe_native_mouse(port: int, deadline: float, statefile: Path) -> dict[str,
     status, primary_press, detail = mouse_button(port, "primary", "press")
     if status != 200 or primary_press is None:
         raise RuntimeError(f"primary press returned HTTP {status}: {detail}")
-    if primary_press.get("handler") != "0x001B52C0":
-        raise RuntimeError(f"primary press used the wrong game handler: {primary_press}")
+    if not primary_press.get("deferred_call_id"):
+        raise RuntimeError(f"primary press queued no game call: {primary_press}")
     stable_cursor_snapshot(
         port, selection_x, selection_y, deadline, "mouse-primary-held.bmp")
 
     status, primary_release, detail = mouse_button(port, "primary", "release")
     if status != 200 or primary_release is None:
         raise RuntimeError(f"primary release returned HTTP {status}: {detail}")
-    after_selection = primary_release.get("after")
+    if not primary_release.get("deferred_call_id"):
+        raise RuntimeError(f"primary release queued no game call: {primary_release}")
     before_selection = primary_press.get("before")
-    if primary_release.get("handler") != "0x001B52D0" \
-            or not isinstance(after_selection, dict) \
-            or int(after_selection.get("count", 0)) != 1 \
-            or after_selection.get("selected_object") == "0x00000000":
-        raise RuntimeError(f"primary release did not select one game object: {primary_release}")
-    if isinstance(before_selection, dict) \
-            and before_selection.get("selected_object") == after_selection.get("selected_object"):
-        raise RuntimeError(f"primary click retained the previous selected object: {primary_release}")
-    selected_object = after_selection["selected_object"]
+    previous_object = before_selection.get("selected_object") if isinstance(before_selection, dict) else None
+    # The release's game calls run at the next safe EE boundary.
+    selected_object = ""
+    selection_deadline = time.monotonic() + 3.0
+    while time.monotonic() < selection_deadline:
+        selection = read_word(port, read_word(port, 0x00367720) + 0x1B0)
+        if read_word(port, selection + 4) == 1:
+            mark = read_word(port, read_word(port, selection))
+            selected_object = f"0x{read_word(port, mark + 0xA8):08X}"
+            if selected_object not in ("0x00000000", previous_object):
+                break
+        time.sleep(0.1)
+    if selected_object in ("", "0x00000000", previous_object):
+        raise RuntimeError(f"primary click did not select one new game object: {selected_object}")
 
     status, _, detail = mouse_button(port, "primary", "release")
     if status != 409:
@@ -242,8 +252,8 @@ def probe_native_mouse(port: int, deadline: float, statefile: Path) -> dict[str,
         raise RuntimeError(f"command move returned HTTP {status}: {detail}")
 
     status, secondary_press, detail = mouse_button(port, "secondary", "press")
-    if status != 200 or secondary_press is None or secondary_press.get("queued") is not True:
-        raise RuntimeError(f"secondary press was not queued for the context button: {detail}")
+    if status != 200 or secondary_press is None or not secondary_press.get("deferred_call_id"):
+        raise RuntimeError(f"secondary press queued no context button call: {detail}")
     status, _, detail = mouse_button(port, "secondary", "press")
     if status != 409:
         raise RuntimeError(
@@ -252,14 +262,12 @@ def probe_native_mouse(port: int, deadline: float, statefile: Path) -> dict[str,
     status, secondary_release, detail = mouse_button(port, "secondary", "release")
     if status != 200 or secondary_release is None:
         raise RuntimeError(f"secondary release returned HTTP {status}: {detail}")
-    if secondary_release.get("queued") is not True:
-        raise RuntimeError(f"secondary release was not queued for the context button: {secondary_release}")
-    # The move button's hotkey runs at a later GInputDevice dispatch.
+    if not secondary_release.get("deferred_call_id"):
+        raise RuntimeError(f"secondary release queued no context button call: {secondary_release}")
     command_id = ""
     command_deadline = time.monotonic() + 3.0
     while time.monotonic() < command_deadline:
-        word = read_guest_buffer(port, int(selected_object, 16) + 0x460, 4)
-        command_id = f"0x{int.from_bytes(bytes.fromhex(word), 'little'):08X}"
+        command_id = f"0x{read_word(port, int(selected_object, 16) + 0x460):08X}"
         if command_id == "0x00060039":
             break
         time.sleep(0.1)
