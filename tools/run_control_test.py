@@ -58,6 +58,7 @@ from avpe.menu_probe import (
     menu_pointer_state,
     menu_state,
 )
+from avpe.native_guest_buffer import read_guest_buffer
 from avpe.native_menu_pointer_dispatch_probe import probe_native_menu_pointer_dispatch
 from avpe.native_menu_probe import probe_native_menu, probe_native_menu_activation
 from avpe.native_mission_probe import (
@@ -241,9 +242,8 @@ def probe_native_mouse(port: int, deadline: float, statefile: Path) -> dict[str,
         raise RuntimeError(f"command move returned HTTP {status}: {detail}")
 
     status, secondary_press, detail = mouse_button(port, "secondary", "press")
-    if status != 200 or secondary_press is None \
-            or secondary_press.get("handler") != "0x001B5300":
-        raise RuntimeError(f"secondary press failed or used the wrong game handler: {detail}")
+    if status != 200 or secondary_press is None or secondary_press.get("queued") is not True:
+        raise RuntimeError(f"secondary press was not queued for the context button: {detail}")
     status, _, detail = mouse_button(port, "secondary", "press")
     if status != 409:
         raise RuntimeError(
@@ -252,13 +252,19 @@ def probe_native_mouse(port: int, deadline: float, statefile: Path) -> dict[str,
     status, secondary_release, detail = mouse_button(port, "secondary", "release")
     if status != 200 or secondary_release is None:
         raise RuntimeError(f"secondary release returned HTTP {status}: {detail}")
-    command_after = secondary_release.get("after")
-    if secondary_release.get("handler") != "0x001B5310" \
-            or not isinstance(command_after, dict) \
-            or command_after.get("selected_object") != selected_object \
-            or command_after.get("command_id") != "0x00060039":
-        raise RuntimeError(
-            f"secondary release did not record AVP:E move command 0x60039: {secondary_release}")
+    if secondary_release.get("queued") is not True:
+        raise RuntimeError(f"secondary release was not queued for the context button: {secondary_release}")
+    # The move button's hotkey runs at a later GInputDevice dispatch.
+    command_id = ""
+    command_deadline = time.monotonic() + 3.0
+    while time.monotonic() < command_deadline:
+        word = read_guest_buffer(port, int(selected_object, 16) + 0x460, 4)
+        command_id = f"0x{int.from_bytes(bytes.fromhex(word), 'little'):08X}"
+        if command_id == "0x00060039":
+            break
+        time.sleep(0.1)
+    if command_id != "0x00060039":
+        raise RuntimeError(f"right click did not record AVP:E move command 0x60039: {command_id}")
 
     status, _, detail = mouse_button(port, "wheel", "press")
     if status != 400:
