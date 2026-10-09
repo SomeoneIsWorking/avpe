@@ -33,8 +33,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   context installation. `VMManager::Execute` brackets its safe outer execution
   boundary; event callbacks never install a deferred EE call mid-interrupt.
   CPU reset and savestate preparation own cancellation of shuttle state.
-- `NativeInputCallbacks.h` owns the shared callback descriptor layout, bounded
-  discovery access contract, and admitted target value; it owns no action policy.
+- `NativeInputCallbacks.*` owns the shared callback descriptor layout, bounded
+  discovery access contract, admitted target value, and the exact lookup of a
+  class's registered member callback; it owns no action policy.
 - `NativeMenuRoute.*` owns only the diagnostic HTTP parsing, status mapping,
   typed menu/movie endpoint dispatch, and JSON presentation for native-menu
   state and actions.
@@ -64,8 +65,9 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
   `GInGameStatMenu::Process`'s hover query it substitutes the first selected unit when nothing is
   under the pointer.
 - `NativeTbdText.*` owns PC wording for PS2-specific TBD strings: at the
-  `CTbdFile::SetupPublics` exit it rewrites a published string in place, only
-  while it still holds the exact original and never longer than it.
+  `CTbdFile::SetupPublics` exit it names the confirm key in place of "START
+  button" in each listed confirm prompt (title, load errors), only while it
+  still holds the exact original and never longer than it.
 - `PresentedDisplay.*` owns where the guest image sits in the window; the
   overlay and the host pointer both read it.
 - `NativeSnapshotRoute.*` owns `/snap` frame capture and BMP serialization;
