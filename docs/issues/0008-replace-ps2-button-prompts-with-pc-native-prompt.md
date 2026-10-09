@@ -251,12 +251,13 @@ dispatch per frame:
 | Ctrl+1-4 | L2 press (`GGroupingButton`, `GInGameMenu+0x291/0x292`), group item, L2 release | `CreateGroup` |
 | Space | event item | `GMiniMap::GoToBattleEvent` |
 | Backspace | base item | `GAvPMenu::JumpToBase` |
+| Q, unprompted | special item (`RightTopShoulderButton_Release`, R1) | the unit type's special, `GMarineUI::ItemActivated`: Comm Tech opens the Dropship Uplink (one unit selected), Synthetic drops an item, Atmos sets up, Demo Kit triggers, Loader drops or exits |
 
 Unit-menu keys do nothing while the card is shown: its stance items take the same d-pad events.
 Live: W placed a waypoint and returned to the unit menu; Tab showed and hid the card; Ctrl+1 then
 1 reselected a deselected marine (the HUD matches a pad recall, which also omits the unit panel);
-Backspace moved the camera to the base. The R1 special (`RightTopShoulderButton_Release`, Comm
-Tech's dropship) has no PC key yet.
+Backspace moved the camera to the base; Q on the Comm Tech opened the Dropship Uplink, whose own
+items then took key caps (Order O, Clear C, Select S, Exit E).
 
 ## Remaining gap
 
