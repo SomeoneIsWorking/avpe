@@ -53,6 +53,7 @@ relative paths, 1 is the absolute path the port drives (`SetInputType(1)`,
 | right click on an enemy attacks | fixed: `NativeMouseButtons` runs the registered DWIM button's focus key on press and hotkey on release, as Circle does, on the deferred shuttle; live from `scratch/rts-audit/contact.p2s` (five marines next to drones): an enemy gives attack `0x60030`, ground moves the squad |
 | minimap click jumps the camera | fixed: a left press or drag on the map calls `GAvPCamera::Move` (`0x001AF660`) with the world point under the pointer (`GMiniMap::GetCamPointerPos` mapping in `NativeMinimap`) and is not passed to selection; checked live at map centre (target 113, 113) and corner (9, 7) |
 | command card always visible and clickable | no: shown only while Tab (R2) is held |
+| buy units from a clickable production panel | no: the Comm Tech's Dropship Uplink (`GOrderingMenu`, vt `0x0033C720`) opens only through Q (R1 special) with one Comm Tech selected, and is navigated as the PS2 menu with key caps (Order O, Clear C, Select S, Exit E); units are not clickable and there is no always-available build hotkey |
 | clicks never stall the shuttle | fixed: every mouse edge's calls run in order on the deferred shuttle; live: 180 mixed plain, Shift and Ctrl clicks with no overrun or refusal after one run of 60 with 36 refused edges that did not recur |
 
 ## Resolution
