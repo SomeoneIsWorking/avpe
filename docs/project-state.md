@@ -7,8 +7,8 @@ ownership in [`codemap.md`](codemap.md).
 `verified` — observed working. `partial` — named subset works, gap named.
 `blocked` — named item prevents completion. `missing` — absent.
 
-**Current focus:** S025 — finish the required firmware service inventory, then
-close S029 (PC-native prompts) and S013 (playable windowed product).
+**Current focus:** S031 — convert the game's screens from PS2 to PC (issue 0022), starting
+with the in-mission command surfaces; S025 resumes after.
 
 | id | capability | state | evidence or gap |
 |---|---|---|---|
@@ -42,10 +42,12 @@ close S029 (PC-native prompts) and S013 (playable windowed product).
 | S028 | HLE behavior differentially verified against the BIOS oracle | blocked | blocked by S025 and S026 |
 | S029 | Product prompts name PC actions instead of PS2 buttons | partial | every `MASTER.TBD` glyph-mesh prompt is covered by a key cap keyed by its drawing item (Enter confirm, Esc back, label letter for other commands, as in a PC RTS) at the VU1-placed rect; live placement and keys verified in the M1 pause menu; key caps seen in the product's profile menus (Enter/Esc); order letters fire without R2 through `NativeUnitCommands` (W placed a waypoint live), Tab holds the card, 1-4/Ctrl+1-4 recall/assign control groups and Space/Backspace jump to event/base and Q fires the unit special (group, base and Comm Tech special verified live); inline font glyphs and configurable bindings missing (issue #8) |
 | S030 | Hosted redistributable build and verification matrix | partial | `.github/workflows/verify.yml` covers Linux, Intel macOS, and Apple Silicon macOS; Windows not covered |
+| S031 | Every game screen behaves as a PC game, not the PS2 game | partial | issue 0022 lists each UI class: most menus are PS2 list navigation with key caps, the order card and Dropship Uplink are not clickable, the Alien and Predator campaigns, save/load and many screens are unseen under the port |
 
 ## Comparison baseline
 
-User-visible differences from the original PS2 release:
+User-visible differences from the original PS2 release. Everything not listed is unchanged
+PS2 behaviour; issue 0022 lists it.
 
 | area | original | this port |
 |---|---|---|
