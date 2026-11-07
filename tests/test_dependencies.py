@@ -12,7 +12,7 @@ from avpe.dependencies import (
 
 class GitlinkParsingTests(unittest.TestCase):
     def test_extracts_revision_from_gitlink_record(self) -> None:
-        revision = "37a1c62a937162902a8b46ec9b222f35227fd898"
+        revision = "f0050c2291019af1f9474b14edfb8c8c27b7f464"
         record = f"160000 {revision} 0\tthirdparty/pcsx2\n"
 
         self.assertEqual(parse_gitlink_revision(record), revision)
