@@ -138,3 +138,5 @@ uv run --frozen --group verify python tools/verify.py
 Detailed reverse-engineering and runtime artifacts belong under ignored
 `scratch/`, not in the public repository. Copyrighted source material and
 console firmware are not distributed here.
+
+Built with AI assistance (Claude and other LLMs).
