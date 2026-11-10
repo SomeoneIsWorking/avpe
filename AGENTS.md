@@ -1,12 +1,6 @@
-# AVPE project-specific architecture
+# AVP:E port
 
-Shared agent policy and reusable workflows come from the canonical `re-harness`
-skills repository. This file records only how the port architecture applies to
-AVP:E.
-
-Dusklight is the ownership reference for host-side port structure. Follow its
-separation between platform event translation, typed input policy, game-facing
-behavior, and UI ownership; do not copy its platform-specific implementation.
+Module owners:
 
 - `thirdparty/pcsx2/pcsx2/AVPE/GuestObjects.*` owns validated reads of AVP:E
   guest objects and handles.
@@ -169,6 +163,5 @@ behavior, and UI ownership; do not copy its platform-specific implementation.
 
 Agent runtime tests use `tools/run_control_test.py` only. They are null-muted
 and surfaceless, except that `--window` presents to a private Xvfb display
-(`src/avpe/virtual_display.py`) so a probe can capture the presented frame;
-`run.sh` is the user's product launcher. The local gate is
-`tools/verify.py` and the hosted gate is `tools/ci.py`.
+(`src/avpe/virtual_display.py`) so a probe can capture the presented frame.
+Full verifier: `tools/verify.py`; hosted CI entry: `tools/ci.py`.
